@@ -50,6 +50,20 @@ jobs:
           echo "sha_tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "timestamp_tag=${TIMESTAMP}" >> $GITHUB_OUTPUT
 
+      - name: Get upstream version
+        id: version
+        run: |
+          # Fetch latest release version from upstream
+          VERSION=$(curl -s https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            VERSION="0.0.0"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Upstream version: ${VERSION}"
+
+          # Update VERSION file for build
+          echo "${VERSION}" > backend/cmd/server/VERSION
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
