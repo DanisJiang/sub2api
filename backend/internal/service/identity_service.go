@@ -16,8 +16,9 @@ import (
 
 // 预编译正则表达式（避免每次调用重新编译）
 var (
-	// 匹配 user_id 格式: user_{64位hex}_account__session_{uuid}
-	userIDRegex = regexp.MustCompile(`^user_[a-f0-9]{64}_account__session_([a-f0-9-]{36})$`)
+	// 匹配 user_id 格式: user_{64位hex}_account_{accountUuid}_session_{sessionUuid}
+	// 真实 Claude Code 格式示例: user_abc123...def456_account_550e8400-e29b-41d4-a716-446655440000_session_6ba7b810-9dad-11d1-80b4-00c04fd430c8
+	userIDRegex = regexp.MustCompile(`^user_([a-f0-9]{64})_account_([a-f0-9-]+)_session_([a-f0-9-]{36})$`)
 	// 匹配 User-Agent 版本号: xxx/x.y.z
 	userAgentVersionRegex = regexp.MustCompile(`/(\d+)\.(\d+)\.(\d+)`)
 )
@@ -158,8 +159,9 @@ func (s *IdentityService) ApplyFingerprint(req *http.Request, fp *Fingerprint) {
 }
 
 // RewriteUserID 重写body中的metadata.user_id
-// 输入格式：user_{clientId}_account__session_{sessionUUID}
+// 输入格式：user_{clientId}_account_{accountUuid}_session_{sessionUuid}
 // 输出格式：user_{cachedClientID}_account_{accountUUID}_session_{newHash}
+// 目的：将不同用户的请求统一伪装成同一个身份，避免 Anthropic 检测到多个不同的 clientId
 func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUID, cachedClientID string) ([]byte, error) {
 	if len(body) == 0 || accountUUID == "" || cachedClientID == "" {
 		return body, nil
@@ -181,20 +183,22 @@ func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUI
 		return body, nil
 	}
 
-	// 匹配格式: user_{64位hex}_account__session_{uuid}
+	// 匹配格式: user_{64位hex}_account_{accountUuid}_session_{sessionUuid}
+	// matches[1] = 原始clientId, matches[2] = 原始accountUuid, matches[3] = 原始sessionUuid
 	matches := userIDRegex.FindStringSubmatch(userID)
 	if matches == nil {
 		return body, nil
 	}
 
-	sessionTail := matches[1] // 原始session UUID
+	originalSessionUUID := matches[3] // 原始session UUID
 
-	// 生成新的session hash: SHA256(accountID::sessionTail) -> UUID格式
-	seed := fmt.Sprintf("%d::%s", accountID, sessionTail)
+	// 生成新的session hash: SHA256(accountID::originalSessionUUID) -> UUID格式
+	// 这样同一个用户的会话会被映射到同一个新的 session ID
+	seed := fmt.Sprintf("%d::%s", accountID, originalSessionUUID)
 	newSessionHash := generateUUIDFromSeed(seed)
 
 	// 构建新的user_id
-	// 格式: user_{cachedClientID}_account_{account_uuid}_session_{newSessionHash}
+	// 格式: user_{cachedClientID}_account_{accountUUID}_session_{newSessionHash}
 	newUserID := fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
 
 	metadata["user_id"] = newUserID
