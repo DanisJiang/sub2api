@@ -1783,7 +1783,9 @@ export default {
         title: 'Gateway Settings',
         description: 'API gateway access control settings',
         requireClaudeCode: 'Require Claude Code Client',
-        requireClaudeCodeHint: 'When enabled, only real Claude Code clients can access the Anthropic platform. Third-party clients will be rejected.'
+        requireClaudeCodeHint: 'When enabled, only real Claude Code clients can access the Anthropic platform. Third-party clients will be rejected.',
+        disableUsageFetch: 'Disable Upstream Usage Fetch',
+        disableUsageFetchHint: 'When enabled, the system will not query account usage information from upstream providers (Claude/Antigravity)'
       },
       site: {
         title: 'Site Settings',

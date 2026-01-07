@@ -137,6 +137,9 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	// Claude Code 客户端限制
 	updates[SettingKeyRequireClaudeCode] = strconv.FormatBool(settings.RequireClaudeCode)
 
+	// 用量查询
+	updates[SettingKeyDisableUsageFetch] = strconv.FormatBool(settings.DisableUsageFetch)
+
 	return s.settingRepo.SetMultiple(ctx, updates)
 }
 
@@ -225,6 +228,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyIdentityPatchPrompt: "",
 		// Claude Code 客户端限制（默认关闭）
 		SettingKeyRequireClaudeCode: "false",
+		SettingKeyDisableUsageFetch: "false",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -293,6 +297,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Claude Code 客户端限制（默认关闭）
 	result.RequireClaudeCode = settings[SettingKeyRequireClaudeCode] == "true"
+
+	// 用量查询
+	result.DisableUsageFetch = settings[SettingKeyDisableUsageFetch] == "true"
 
 	return result
 }
@@ -416,6 +423,15 @@ func (s *SettingService) IsClaudeCodeRequired(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyRequireClaudeCode)
 	if err != nil {
 		return false // Default: disabled
+	}
+	return value == "true"
+}
+
+// IsUsageFetchDisabled 检查是否禁用向上游查询用量信息
+func (s *SettingService) IsUsageFetchDisabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyDisableUsageFetch)
+	if err != nil {
+		return false // Default: enabled (not disabled)
 	}
 	return value == "true"
 }

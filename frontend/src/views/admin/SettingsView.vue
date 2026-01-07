@@ -331,6 +331,21 @@
               </div>
               <Toggle v-model="form.require_claude_code" />
             </div>
+
+            <!-- Disable Usage Fetch -->
+            <div
+              class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.gateway.disableUsageFetch')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.gateway.disableUsageFetchHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.disable_usage_fetch" />
+            </div>
           </div>
         </div>
 
@@ -777,7 +792,9 @@ const form = reactive<SettingsForm>({
   enable_identity_patch: true,
   identity_patch_prompt: '',
   // Claude Code 客户端限制
-  require_claude_code: false
+  require_claude_code: false,
+  // 禁用上游用量查询
+  disable_usage_fetch: false
 })
 
 function handleLogoUpload(event: Event) {
@@ -858,7 +875,8 @@ async function saveSettings() {
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
       turnstile_secret_key: form.turnstile_secret_key || undefined,
-      require_claude_code: form.require_claude_code
+      require_claude_code: form.require_claude_code,
+      disable_usage_fetch: form.disable_usage_fetch
     }
     const updated = await adminAPI.settings.updateSettings(payload)
     Object.assign(form, updated)

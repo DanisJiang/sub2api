@@ -108,6 +108,9 @@ const (
 
 	// Claude Code 限制
 	SettingKeyRequireClaudeCode = "require_claude_code" // 是否仅允许 Claude Code 客户端（Anthropic 平台）
+
+	// 用量查询
+	SettingKeyDisableUsageFetch = "disable_usage_fetch" // 是否禁用向上游查询用量信息
 )
 
 // AdminAPIKeyPrefix is the prefix for admin API keys (distinct from user "sk-" keys).

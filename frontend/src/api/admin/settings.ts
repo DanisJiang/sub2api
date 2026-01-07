@@ -39,6 +39,8 @@ export interface SystemSettings {
   identity_patch_prompt: string
   // Claude Code 客户端限制
   require_claude_code: boolean
+  // 禁用上游用量查询
+  disable_usage_fetch: boolean
 }
 
 export interface UpdateSettingsRequest {
@@ -65,6 +67,7 @@ export interface UpdateSettingsRequest {
   enable_identity_patch?: boolean
   identity_patch_prompt?: string
   require_claude_code?: boolean
+  disable_usage_fetch?: boolean
 }
 
 /**

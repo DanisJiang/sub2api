@@ -163,6 +163,7 @@ type AccountUsageService struct {
 	usageFetcher            ClaudeUsageFetcher
 	geminiQuotaService      *GeminiQuotaService
 	antigravityQuotaFetcher *AntigravityQuotaFetcher
+	settingService          *SettingService
 	cache                   *UsageCache
 }
 
@@ -173,6 +174,7 @@ func NewAccountUsageService(
 	usageFetcher ClaudeUsageFetcher,
 	geminiQuotaService *GeminiQuotaService,
 	antigravityQuotaFetcher *AntigravityQuotaFetcher,
+	settingService *SettingService,
 	cache *UsageCache,
 ) *AccountUsageService {
 	return &AccountUsageService{
@@ -181,6 +183,7 @@ func NewAccountUsageService(
 		usageFetcher:            usageFetcher,
 		geminiQuotaService:      geminiQuotaService,
 		antigravityQuotaFetcher: antigravityQuotaFetcher,
+		settingService:          settingService,
 		cache:                   cache,
 	}
 }
@@ -201,11 +204,30 @@ func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64) (*U
 
 	// Antigravity 平台：使用 AntigravityQuotaFetcher 获取额度
 	if account.Platform == PlatformAntigravity {
+		// 检查是否禁用了上游用量查询
+		if s.settingService != nil && s.settingService.IsUsageFetchDisabled(ctx) {
+			now := time.Now()
+			return &UsageInfo{UpdatedAt: &now}, nil
+		}
 		return s.getAntigravityUsage(ctx, account)
 	}
 
+	// 检查是否禁用了上游用量查询（仅影响 Anthropic 平台的 OAuth 账号）
+	usageFetchDisabled := s.settingService != nil && s.settingService.IsUsageFetchDisabled(ctx)
+
 	// 只有oauth类型账号可以通过API获取usage（有profile scope）
 	if account.CanGetUsage() {
+		// 如果禁用了上游查询，返回本地窗口统计
+		if usageFetchDisabled {
+			now := time.Now()
+			usage := &UsageInfo{
+				UpdatedAt: &now,
+				FiveHour:  &UsageProgress{Utilization: 0},
+			}
+			s.addWindowStats(ctx, account, usage)
+			return usage, nil
+		}
+
 		var apiResp *ClaudeUsageResponse
 
 		// 1. 检查 API 缓存（10 分钟）
