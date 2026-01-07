@@ -66,6 +66,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		EnableIdentityPatch:          settings.EnableIdentityPatch,
 		IdentityPatchPrompt:          settings.IdentityPatchPrompt,
 		RequireClaudeCode:            settings.RequireClaudeCode,
+		DisableUsageFetch:            settings.DisableUsageFetch,
 	})
 }
 
@@ -114,6 +115,9 @@ type UpdateSettingsRequest struct {
 
 	// Claude Code 客户端限制（仅 Anthropic 平台）
 	RequireClaudeCode bool `json:"require_claude_code"`
+
+	// 禁用上游用量查询
+	DisableUsageFetch bool `json:"disable_usage_fetch"`
 }
 
 // UpdateSettings 更新系统设置
@@ -198,6 +202,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EnableIdentityPatch:      req.EnableIdentityPatch,
 		IdentityPatchPrompt:      req.IdentityPatchPrompt,
 		RequireClaudeCode:        req.RequireClaudeCode,
+		DisableUsageFetch:        req.DisableUsageFetch,
 	}
 
 	if err := h.settingService.UpdateSettings(c.Request.Context(), settings); err != nil {
@@ -243,6 +248,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EnableIdentityPatch:          updatedSettings.EnableIdentityPatch,
 		IdentityPatchPrompt:          updatedSettings.IdentityPatchPrompt,
 		RequireClaudeCode:            updatedSettings.RequireClaudeCode,
+		DisableUsageFetch:            updatedSettings.DisableUsageFetch,
 	})
 }
 
@@ -345,6 +351,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.RequireClaudeCode != after.RequireClaudeCode {
 		changed = append(changed, "require_claude_code")
+	}
+	if before.DisableUsageFetch != after.DisableUsageFetch {
+		changed = append(changed, "disable_usage_fetch")
 	}
 	return changed
 }

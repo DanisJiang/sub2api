@@ -318,7 +318,8 @@ func TestAPIContracts(t *testing.T) {
 					"fallback_model_openai": "gpt-4o",
 					"enable_identity_patch": true,
 					"identity_patch_prompt": "",
-					"require_claude_code": false
+					"require_claude_code": false,
+					"disable_usage_fetch": false
 				}
 			}`,
 		},

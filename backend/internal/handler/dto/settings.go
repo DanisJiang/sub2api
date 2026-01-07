@@ -40,6 +40,9 @@ type SystemSettings struct {
 
 	// Claude Code 客户端限制（仅 Anthropic 平台）
 	RequireClaudeCode bool `json:"require_claude_code"`
+
+	// 禁用上游用量查询
+	DisableUsageFetch bool `json:"disable_usage_fetch"`
 }
 
 type PublicSettings struct {
