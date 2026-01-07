@@ -170,6 +170,7 @@ type UsageLog struct {
 	RateMultiplier    float64 `json:"rate_multiplier"`
 
 	BillingType  int8 `json:"billing_type"`
+	ClientType   int8 `json:"client_type"` // 客户端类型：0=unknown, 1=claude_code, 2=other
 	Stream       bool `json:"stream"`
 	DurationMs   *int `json:"duration_ms"`
 	FirstTokenMs *int `json:"first_token_ms"`

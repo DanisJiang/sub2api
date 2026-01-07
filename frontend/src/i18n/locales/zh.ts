@@ -421,7 +421,9 @@ export default {
     billingType: '消费类型',
     balance: '余额',
     subscription: '订阅',
-    imageUnit: '张'
+    imageUnit: '张',
+    claudeCode: 'Claude Code 客户端',
+    otherClient: '第三方客户端'
   },
 
   // Redeem

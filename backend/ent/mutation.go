@@ -8102,6 +8102,8 @@ type UsageLogMutation struct {
 	addrate_multiplier          *float64
 	billing_type                *int8
 	addbilling_type             *int8
+	client_type                 *int8
+	addclient_type              *int8
 	stream                      *bool
 	duration_ms                 *int
 	addduration_ms              *int
@@ -9287,6 +9289,62 @@ func (m *UsageLogMutation) ResetBillingType() {
 	m.addbilling_type = nil
 }
 
+// SetClientType sets the "client_type" field.
+func (m *UsageLogMutation) SetClientType(i int8) {
+	m.client_type = &i
+	m.addclient_type = nil
+}
+
+// ClientType returns the value of the "client_type" field in the mutation.
+func (m *UsageLogMutation) ClientType() (r int8, exists bool) {
+	v := m.client_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientType returns the old "client_type" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldClientType(ctx context.Context) (v int8, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientType: %w", err)
+	}
+	return oldValue.ClientType, nil
+}
+
+// AddClientType adds i to the "client_type" field.
+func (m *UsageLogMutation) AddClientType(i int8) {
+	if m.addclient_type != nil {
+		*m.addclient_type += i
+	} else {
+		m.addclient_type = &i
+	}
+}
+
+// AddedClientType returns the value that was added to the "client_type" field in this mutation.
+func (m *UsageLogMutation) AddedClientType() (r int8, exists bool) {
+	v := m.addclient_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetClientType resets all changes to the "client_type" field.
+func (m *UsageLogMutation) ResetClientType() {
+	m.client_type = nil
+	m.addclient_type = nil
+}
+
 // SetStream sets the "stream" field.
 func (m *UsageLogMutation) SetStream(b bool) {
 	m.stream = &b
@@ -9773,7 +9831,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 27)
+	fields := make([]string, 0, 28)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -9836,6 +9894,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.billing_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
+	}
+	if m.client_type != nil {
+		fields = append(fields, usagelog.FieldClientType)
 	}
 	if m.stream != nil {
 		fields = append(fields, usagelog.FieldStream)
@@ -9905,6 +9966,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.RateMultiplier()
 	case usagelog.FieldBillingType:
 		return m.BillingType()
+	case usagelog.FieldClientType:
+		return m.ClientType()
 	case usagelog.FieldStream:
 		return m.Stream()
 	case usagelog.FieldDurationMs:
@@ -9968,6 +10031,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldRateMultiplier(ctx)
 	case usagelog.FieldBillingType:
 		return m.OldBillingType(ctx)
+	case usagelog.FieldClientType:
+		return m.OldClientType(ctx)
 	case usagelog.FieldStream:
 		return m.OldStream(ctx)
 	case usagelog.FieldDurationMs:
@@ -10136,6 +10201,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetBillingType(v)
 		return nil
+	case usagelog.FieldClientType:
+		v, ok := value.(int8)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientType(v)
+		return nil
 	case usagelog.FieldStream:
 		v, ok := value.(bool)
 		if !ok {
@@ -10228,6 +10300,9 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addbilling_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
 	}
+	if m.addclient_type != nil {
+		fields = append(fields, usagelog.FieldClientType)
+	}
 	if m.addduration_ms != nil {
 		fields = append(fields, usagelog.FieldDurationMs)
 	}
@@ -10273,6 +10348,8 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedRateMultiplier()
 	case usagelog.FieldBillingType:
 		return m.AddedBillingType()
+	case usagelog.FieldClientType:
+		return m.AddedClientType()
 	case usagelog.FieldDurationMs:
 		return m.AddedDurationMs()
 	case usagelog.FieldFirstTokenMs:
@@ -10385,6 +10462,13 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddBillingType(v)
+		return nil
+	case usagelog.FieldClientType:
+		v, ok := value.(int8)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddClientType(v)
 		return nil
 	case usagelog.FieldDurationMs:
 		v, ok := value.(int)
@@ -10529,6 +10613,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldBillingType:
 		m.ResetBillingType()
+		return nil
+	case usagelog.FieldClientType:
+		m.ResetClientType()
 		return nil
 	case usagelog.FieldStream:
 		m.ResetStream()

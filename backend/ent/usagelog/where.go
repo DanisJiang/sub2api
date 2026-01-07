@@ -160,6 +160,11 @@ func BillingType(v int8) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldBillingType, v))
 }
 
+// ClientType applies equality check predicate on the "client_type" field. It's identical to ClientTypeEQ.
+func ClientType(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldClientType, v))
+}
+
 // Stream applies equality check predicate on the "stream" field. It's identical to StreamEQ.
 func Stream(v bool) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldStream, v))
@@ -998,6 +1003,46 @@ func BillingTypeLT(v int8) predicate.UsageLog {
 // BillingTypeLTE applies the LTE predicate on the "billing_type" field.
 func BillingTypeLTE(v int8) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldBillingType, v))
+}
+
+// ClientTypeEQ applies the EQ predicate on the "client_type" field.
+func ClientTypeEQ(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldClientType, v))
+}
+
+// ClientTypeNEQ applies the NEQ predicate on the "client_type" field.
+func ClientTypeNEQ(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldClientType, v))
+}
+
+// ClientTypeIn applies the In predicate on the "client_type" field.
+func ClientTypeIn(vs ...int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldClientType, vs...))
+}
+
+// ClientTypeNotIn applies the NotIn predicate on the "client_type" field.
+func ClientTypeNotIn(vs ...int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldClientType, vs...))
+}
+
+// ClientTypeGT applies the GT predicate on the "client_type" field.
+func ClientTypeGT(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldClientType, v))
+}
+
+// ClientTypeGTE applies the GTE predicate on the "client_type" field.
+func ClientTypeGTE(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldClientType, v))
+}
+
+// ClientTypeLT applies the LT predicate on the "client_type" field.
+func ClientTypeLT(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldClientType, v))
+}
+
+// ClientTypeLTE applies the LTE predicate on the "client_type" field.
+func ClientTypeLTE(v int8) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldClientType, v))
 }
 
 // StreamEQ applies the EQ predicate on the "stream" field.

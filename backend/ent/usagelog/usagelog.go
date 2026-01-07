@@ -56,6 +56,8 @@ const (
 	FieldRateMultiplier = "rate_multiplier"
 	// FieldBillingType holds the string denoting the billing_type field in the database.
 	FieldBillingType = "billing_type"
+	// FieldClientType holds the string denoting the client_type field in the database.
+	FieldClientType = "client_type"
 	// FieldStream holds the string denoting the stream field in the database.
 	FieldStream = "stream"
 	// FieldDurationMs holds the string denoting the duration_ms field in the database.
@@ -141,6 +143,7 @@ var Columns = []string{
 	FieldActualCost,
 	FieldRateMultiplier,
 	FieldBillingType,
+	FieldClientType,
 	FieldStream,
 	FieldDurationMs,
 	FieldFirstTokenMs,
@@ -192,6 +195,8 @@ var (
 	DefaultRateMultiplier float64
 	// DefaultBillingType holds the default value on creation for the "billing_type" field.
 	DefaultBillingType int8
+	// DefaultClientType holds the default value on creation for the "client_type" field.
+	DefaultClientType int8
 	// DefaultStream holds the default value on creation for the "stream" field.
 	DefaultStream bool
 	// DefaultImageCount holds the default value on creation for the "image_count" field.
@@ -313,6 +318,11 @@ func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 // ByBillingType orders the results by the billing_type field.
 func ByBillingType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBillingType, opts...).ToFunc()
+}
+
+// ByClientType orders the results by the client_type field.
+func ByClientType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClientType, opts...).ToFunc()
 }
 
 // ByStream orders the results by the stream field.

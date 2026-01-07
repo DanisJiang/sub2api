@@ -281,6 +281,20 @@ func (_c *UsageLogCreate) SetNillableBillingType(v *int8) *UsageLogCreate {
 	return _c
 }
 
+// SetClientType sets the "client_type" field.
+func (_c *UsageLogCreate) SetClientType(v int8) *UsageLogCreate {
+	_c.mutation.SetClientType(v)
+	return _c
+}
+
+// SetNillableClientType sets the "client_type" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableClientType(v *int8) *UsageLogCreate {
+	if v != nil {
+		_c.SetClientType(*v)
+	}
+	return _c
+}
+
 // SetStream sets the "stream" field.
 func (_c *UsageLogCreate) SetStream(v bool) *UsageLogCreate {
 	_c.mutation.SetStream(v)
@@ -481,6 +495,10 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultBillingType
 		_c.mutation.SetBillingType(v)
 	}
+	if _, ok := _c.mutation.ClientType(); !ok {
+		v := usagelog.DefaultClientType
+		_c.mutation.SetClientType(v)
+	}
 	if _, ok := _c.mutation.Stream(); !ok {
 		v := usagelog.DefaultStream
 		_c.mutation.SetStream(v)
@@ -563,6 +581,9 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		return &ValidationError{Name: "billing_type", err: errors.New(`ent: missing required field "UsageLog.billing_type"`)}
+	}
+	if _, ok := _c.mutation.ClientType(); !ok {
+		return &ValidationError{Name: "client_type", err: errors.New(`ent: missing required field "UsageLog.client_type"`)}
 	}
 	if _, ok := _c.mutation.Stream(); !ok {
 		return &ValidationError{Name: "stream", err: errors.New(`ent: missing required field "UsageLog.stream"`)}
@@ -677,6 +698,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
 		_node.BillingType = value
+	}
+	if value, ok := _c.mutation.ClientType(); ok {
+		_spec.SetField(usagelog.FieldClientType, field.TypeInt8, value)
+		_node.ClientType = value
 	}
 	if value, ok := _c.mutation.Stream(); ok {
 		_spec.SetField(usagelog.FieldStream, field.TypeBool, value)
@@ -1184,6 +1209,24 @@ func (u *UsageLogUpsert) UpdateBillingType() *UsageLogUpsert {
 // AddBillingType adds v to the "billing_type" field.
 func (u *UsageLogUpsert) AddBillingType(v int8) *UsageLogUpsert {
 	u.Add(usagelog.FieldBillingType, v)
+	return u
+}
+
+// SetClientType sets the "client_type" field.
+func (u *UsageLogUpsert) SetClientType(v int8) *UsageLogUpsert {
+	u.Set(usagelog.FieldClientType, v)
+	return u
+}
+
+// UpdateClientType sets the "client_type" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateClientType() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldClientType)
+	return u
+}
+
+// AddClientType adds v to the "client_type" field.
+func (u *UsageLogUpsert) AddClientType(v int8) *UsageLogUpsert {
+	u.Add(usagelog.FieldClientType, v)
 	return u
 }
 
@@ -1731,6 +1774,27 @@ func (u *UsageLogUpsertOne) AddBillingType(v int8) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateBillingType() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateBillingType()
+	})
+}
+
+// SetClientType sets the "client_type" field.
+func (u *UsageLogUpsertOne) SetClientType(v int8) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetClientType(v)
+	})
+}
+
+// AddClientType adds v to the "client_type" field.
+func (u *UsageLogUpsertOne) AddClientType(v int8) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddClientType(v)
+	})
+}
+
+// UpdateClientType sets the "client_type" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateClientType() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateClientType()
 	})
 }
 
@@ -2460,6 +2524,27 @@ func (u *UsageLogUpsertBulk) AddBillingType(v int8) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateBillingType() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateBillingType()
+	})
+}
+
+// SetClientType sets the "client_type" field.
+func (u *UsageLogUpsertBulk) SetClientType(v int8) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetClientType(v)
+	})
+}
+
+// AddClientType adds v to the "client_type" field.
+func (u *UsageLogUpsertBulk) AddClientType(v int8) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddClientType(v)
+	})
+}
+
+// UpdateClientType sets the "client_type" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateClientType() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateClientType()
 	})
 }
 

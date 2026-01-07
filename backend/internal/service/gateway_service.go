@@ -107,6 +107,13 @@ type ClaudeUsage struct {
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
+// ClientType 客户端类型常量
+const (
+	ClientTypeUnknown    int8 = 0 // 未知（旧数据兼容）
+	ClientTypeClaudeCode int8 = 1 // 真实 Claude Code 客户端
+	ClientTypeOther      int8 = 2 // 其他客户端
+)
+
 // ForwardResult 转发结果
 type ForwardResult struct {
 	RequestID    string
@@ -115,6 +122,7 @@ type ForwardResult struct {
 	Stream       bool
 	Duration     time.Duration
 	FirstTokenMs *int // 首字时间（流式请求）
+	ClientType   int8 // 客户端类型（1=claude_code, 2=other）
 
 	// 图片生成计费字段（仅 gemini-3-pro-image 使用）
 	ImageCount int    // 生成的图片数量
@@ -1230,10 +1238,17 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	reqModel := parsed.Model
 	reqStream := parsed.Stream
 
+	// 检测客户端类型
+	isClaudeCode := isClaudeCodeClient(c.GetHeader("User-Agent"), parsed.MetadataUserID)
+	clientType := ClientTypeOther
+	if isClaudeCode {
+		clientType = ClientTypeClaudeCode
+	}
+
 	// 智能注入 Claude Code 系统提示词（仅 OAuth/SetupToken 账号需要）
 	// 条件：1) OAuth/SetupToken 账号  2) 不是 Claude Code 客户端  3) 不是 Haiku 模型  4) system 中还没有 Claude Code 提示词
 	if account.IsOAuth() &&
-		!isClaudeCodeClient(c.GetHeader("User-Agent"), parsed.MetadataUserID) &&
+		!isClaudeCode &&
 		!strings.Contains(strings.ToLower(reqModel), "haiku") &&
 		!systemIncludesClaudeCodePrompt(parsed.System) {
 		body = injectClaudeCodePrompt(body, parsed.System)
@@ -1491,6 +1506,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		Stream:       reqStream,
 		Duration:     time.Since(startTime),
 		FirstTokenMs: firstTokenMs,
+		ClientType:   clientType,
 	}, nil
 }
 
@@ -2241,6 +2257,7 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		FirstTokenMs:        result.FirstTokenMs,
 		ImageCount:          result.ImageCount,
 		ImageSize:           imageSize,
+		ClientType:          result.ClientType,
 		CreatedAt:           time.Now(),
 	}
 

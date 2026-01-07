@@ -424,7 +424,9 @@ export default {
     billingType: 'Billing',
     balance: 'Balance',
     subscription: 'Subscription',
-    imageUnit: ' images'
+    imageUnit: ' images',
+    claudeCode: 'Claude Code Client',
+    otherClient: 'Third-party Client'
   },
 
   // Redeem

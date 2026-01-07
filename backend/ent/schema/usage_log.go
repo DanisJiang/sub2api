@@ -88,6 +88,9 @@ func (UsageLog) Fields() []ent.Field {
 		// 其他字段
 		field.Int8("billing_type").
 			Default(0),
+		// 客户端类型：0=unknown（旧数据兼容）, 1=claude_code, 2=other
+		field.Int8("client_type").
+			Default(0),
 		field.Bool("stream").
 			Default(false),
 		field.Int("duration_ms").

@@ -35,6 +35,7 @@ type UsageLog struct {
 	RateMultiplier    float64
 
 	BillingType  int8
+	ClientType   int8 // 客户端类型：0=unknown, 1=claude_code, 2=other
 	Stream       bool
 	DurationMs   *int
 	FirstTokenMs *int

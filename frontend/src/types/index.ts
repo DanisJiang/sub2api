@@ -535,6 +535,9 @@ export type RedeemCodeType = 'balance' | 'concurrency' | 'subscription'
 // 消费类型: 0=钱包余额, 1=订阅套餐
 export type BillingType = 0 | 1
 
+// 客户端类型: 0=未知(旧数据), 1=Claude Code, 2=其他客户端
+export type ClientType = 0 | 1 | 2
+
 export interface UsageLog {
   id: number
   user_id: number
@@ -562,6 +565,7 @@ export interface UsageLog {
   rate_multiplier: number
 
   billing_type: BillingType
+  client_type: ClientType
   stream: boolean
   duration_ms: number
   first_token_ms: number | null
