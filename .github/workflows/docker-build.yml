@@ -53,16 +53,29 @@ jobs:
       - name: Get upstream version
         id: version
         run: |
-          # Fetch latest release version from upstream
-          VERSION=$(curl -s https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest | jq -r '.tag_name' | sed 's/^v//')
-          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-            VERSION="0.0.0"
+          # Fetch latest release version from upstream (with retry)
+          for i in 1 2 3; do
+            RESPONSE=$(curl -sS --retry 3 --retry-delay 2 https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest 2>&1)
+            VERSION=$(echo "$RESPONSE" | jq -r '.tag_name // empty' | sed 's/^v//')
+            if [ -n "$VERSION" ]; then
+              break
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 2
+          done
+
+          # Fallback: read from VERSION file in repo
+          if [ -z "$VERSION" ]; then
+            echo "Warning: Failed to fetch upstream version, using VERSION file"
+            VERSION=$(cat backend/cmd/server/VERSION 2>/dev/null || echo "0.0.0")
           fi
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Upstream version: ${VERSION}"
 
           # Update VERSION file for build
           echo "${VERSION}" > backend/cmd/server/VERSION
+          cat backend/cmd/server/VERSION
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -73,7 +86,7 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:${{ steps.tags.outputs.tag }}
             ${{ env.DOCKER_IMAGE }}:${{ steps.tags.outputs.sha_tag }}
           build-args: |
-            VERSION=${{ steps.tags.outputs.tag }}
+            VERSION=${{ steps.version.outputs.version }}
             COMMIT=${{ github.sha }}
             DATE=${{ github.event.head_commit.timestamp }}
           cache-from: type=gha

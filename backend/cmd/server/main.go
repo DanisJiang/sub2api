@@ -37,8 +37,11 @@ var (
 )
 
 func init() {
-	// Read version from embedded VERSION file
-	Version = strings.TrimSpace(embeddedVersion)
+	// Priority: ldflags > embedded VERSION file > default
+	// If Version was set by ldflags, keep it
+	if Version == "" {
+		Version = strings.TrimSpace(embeddedVersion)
+	}
 	if Version == "" {
 		Version = "0.0.0-dev"
 	}
