@@ -150,6 +150,11 @@ func (_u *AnnouncementUpdate) check() error {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "Announcement.content": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Priority(); ok {
+		if err := announcement.PriorityValidator(v); err != nil {
+			return &ValidationError{Name: "priority", err: fmt.Errorf(`ent: validator failed for field "Announcement.priority": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -336,6 +341,11 @@ func (_u *AnnouncementUpdateOne) check() error {
 	if v, ok := _u.mutation.Content(); ok {
 		if err := announcement.ContentValidator(v); err != nil {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "Announcement.content": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Priority(); ok {
+		if err := announcement.PriorityValidator(v); err != nil {
+			return &ValidationError{Name: "priority", err: fmt.Errorf(`ent: validator failed for field "Announcement.priority": %w`, err)}
 		}
 	}
 	return nil

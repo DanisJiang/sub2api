@@ -39,6 +39,7 @@ func (Announcement) Fields() []ent.Field {
 			Comment("公告标题"),
 		field.String("content").
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			MaxLen(10000).
 			NotEmpty().
 			Comment("公告内容"),
 		field.Bool("enabled").
@@ -46,6 +47,8 @@ func (Announcement) Fields() []ent.Field {
 			Comment("是否启用"),
 		field.Int("priority").
 			Default(0).
+			Min(0).
+			Max(100).
 			Comment("优先级，数字越大越靠前"),
 	}
 }

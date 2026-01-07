@@ -72,9 +72,9 @@ func (h *AnnouncementHandler) GetByID(c *gin.Context) {
 // CreateAnnouncementRequest represents the request body for creating an announcement
 type CreateAnnouncementRequest struct {
 	Title    string `json:"title" binding:"required,max=200"`
-	Content  string `json:"content" binding:"required"`
+	Content  string `json:"content" binding:"required,max=10000"`
 	Enabled  bool   `json:"enabled"`
-	Priority int    `json:"priority"`
+	Priority int    `json:"priority" binding:"min=0,max=100"`
 }
 
 // Create creates a new announcement
@@ -103,9 +103,9 @@ func (h *AnnouncementHandler) Create(c *gin.Context) {
 // UpdateAnnouncementRequest represents the request body for updating an announcement
 type UpdateAnnouncementRequest struct {
 	Title    *string `json:"title" binding:"omitempty,max=200"`
-	Content  *string `json:"content"`
+	Content  *string `json:"content" binding:"omitempty,max=10000"`
 	Enabled  *bool   `json:"enabled"`
-	Priority *int    `json:"priority"`
+	Priority *int    `json:"priority" binding:"omitempty,min=0,max=100"`
 }
 
 // Update updates an existing announcement

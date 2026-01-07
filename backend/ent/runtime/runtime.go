@@ -236,7 +236,21 @@ func init() {
 	// announcementDescContent is the schema descriptor for content field.
 	announcementDescContent := announcementFields[1].Descriptor()
 	// announcement.ContentValidator is a validator for the "content" field. It is called by the builders before save.
-	announcement.ContentValidator = announcementDescContent.Validators[0].(func(string) error)
+	announcement.ContentValidator = func() func(string) error {
+		validators := announcementDescContent.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(content string) error {
+			for _, fn := range fns {
+				if err := fn(content); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// announcementDescEnabled is the schema descriptor for enabled field.
 	announcementDescEnabled := announcementFields[2].Descriptor()
 	// announcement.DefaultEnabled holds the default value on creation for the enabled field.
@@ -245,6 +259,22 @@ func init() {
 	announcementDescPriority := announcementFields[3].Descriptor()
 	// announcement.DefaultPriority holds the default value on creation for the priority field.
 	announcement.DefaultPriority = announcementDescPriority.Default.(int)
+	// announcement.PriorityValidator is a validator for the "priority" field. It is called by the builders before save.
+	announcement.PriorityValidator = func() func(int) error {
+		validators := announcementDescPriority.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(priority int) error {
+			for _, fn := range fns {
+				if err := fn(priority); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	groupMixin := schema.Group{}.Mixin()
 	groupMixinHooks1 := groupMixin[1].Hooks()
 	group.Hooks[0] = groupMixinHooks1[0]

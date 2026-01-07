@@ -205,7 +205,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "title", Type: field.TypeString, Size: 200},
-		{Name: "content", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "content", Type: field.TypeString, Size: 10000, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "enabled", Type: field.TypeBool, Default: false},
 		{Name: "priority", Type: field.TypeInt, Default: 0},
 	}

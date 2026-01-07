@@ -173,6 +173,11 @@ func (_c *AnnouncementCreate) check() error {
 	if _, ok := _c.mutation.Priority(); !ok {
 		return &ValidationError{Name: "priority", err: errors.New(`ent: missing required field "Announcement.priority"`)}
 	}
+	if v, ok := _c.mutation.Priority(); ok {
+		if err := announcement.PriorityValidator(v); err != nil {
+			return &ValidationError{Name: "priority", err: fmt.Errorf(`ent: validator failed for field "Announcement.priority": %w`, err)}
+		}
+	}
 	return nil
 }
 
