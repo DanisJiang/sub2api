@@ -185,7 +185,8 @@ export default {
     expand: 'Expand',
     logout: 'Logout',
     github: 'GitHub',
-    mySubscriptions: 'My Subscriptions'
+    mySubscriptions: 'My Subscriptions',
+    announcements: 'Announcements'
   },
 
   // Auth
@@ -1716,6 +1717,35 @@ export default {
       cacheCreationTokens: 'Cache Creation Tokens',
       cacheReadTokens: 'Cache Read Tokens',
       failedToLoad: 'Failed to load usage records'
+    },
+
+    // Announcements
+    announcements: {
+      title: 'Announcements',
+      description: 'Create and manage system announcements',
+      create: 'Create Announcement',
+      edit: 'Edit Announcement',
+      deleteAnnouncement: 'Delete Announcement',
+      deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.',
+      columns: {
+        title: 'Title',
+        content: 'Content',
+        enabled: 'Status',
+        priority: 'Priority',
+        createdAt: 'Created At',
+        actions: 'Actions'
+      },
+      titlePlaceholder: 'Enter announcement title',
+      contentPlaceholder: 'Enter announcement content...',
+      priorityHint: 'Higher number = higher priority',
+      created: 'Announcement created successfully',
+      updated: 'Announcement updated successfully',
+      deleted: 'Announcement deleted successfully',
+      statusUpdated: 'Announcement status updated',
+      failedToLoad: 'Failed to load announcements',
+      failedToSave: 'Failed to save announcement',
+      failedToUpdate: 'Failed to update announcement',
+      failedToDelete: 'Failed to delete announcement'
     },
 
     // Settings

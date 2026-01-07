@@ -24,6 +24,7 @@ func ProvideAdminHandlers(
 	subscriptionHandler *admin.SubscriptionHandler,
 	usageHandler *admin.UsageHandler,
 	userAttributeHandler *admin.UserAttributeHandler,
+	announcementHandler *admin.AnnouncementHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:        dashboardHandler,
@@ -41,6 +42,7 @@ func ProvideAdminHandlers(
 		Subscription:     subscriptionHandler,
 		Usage:            usageHandler,
 		UserAttribute:    userAttributeHandler,
+		Announcement:     announcementHandler,
 	}
 }
 
@@ -66,18 +68,20 @@ func ProvideHandlers(
 	gatewayHandler *GatewayHandler,
 	openaiGatewayHandler *OpenAIGatewayHandler,
 	settingHandler *SettingHandler,
+	publicAnnouncementHandler *PublicAnnouncementHandler,
 ) *Handlers {
 	return &Handlers{
-		Auth:          authHandler,
-		User:          userHandler,
-		APIKey:        apiKeyHandler,
-		Usage:         usageHandler,
-		Redeem:        redeemHandler,
-		Subscription:  subscriptionHandler,
-		Admin:         adminHandlers,
-		Gateway:       gatewayHandler,
-		OpenAIGateway: openaiGatewayHandler,
-		Setting:       settingHandler,
+		Auth:               authHandler,
+		User:               userHandler,
+		APIKey:             apiKeyHandler,
+		Usage:              usageHandler,
+		Redeem:             redeemHandler,
+		Subscription:       subscriptionHandler,
+		Admin:              adminHandlers,
+		Gateway:            gatewayHandler,
+		OpenAIGateway:      openaiGatewayHandler,
+		Setting:            settingHandler,
+		PublicAnnouncement: publicAnnouncementHandler,
 	}
 }
 
@@ -93,6 +97,7 @@ var ProviderSet = wire.NewSet(
 	NewGatewayHandler,
 	NewOpenAIGatewayHandler,
 	ProvideSettingHandler,
+	NewPublicAnnouncementHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
@@ -110,6 +115,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewSubscriptionHandler,
 	admin.NewUsageHandler,
 	admin.NewUserAttributeHandler,
+	admin.NewAnnouncementHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

@@ -183,7 +183,8 @@ export default {
     expand: '展开',
     logout: '退出登录',
     github: 'GitHub',
-    mySubscriptions: '我的订阅'
+    mySubscriptions: '我的订阅',
+    announcements: '公告管理'
   },
 
   // Auth
@@ -1861,6 +1862,35 @@ export default {
       cacheCreationTokens: '缓存创建 Token',
       cacheReadTokens: '缓存读取 Token',
       failedToLoad: '加载使用记录失败'
+    },
+
+    // Announcements
+    announcements: {
+      title: '公告管理',
+      description: '创建和管理系统公告',
+      create: '创建公告',
+      edit: '编辑公告',
+      deleteAnnouncement: '删除公告',
+      deleteConfirm: '确定要删除这条公告吗？此操作不可撤销。',
+      columns: {
+        title: '标题',
+        content: '内容',
+        enabled: '状态',
+        priority: '优先级',
+        createdAt: '创建时间',
+        actions: '操作'
+      },
+      titlePlaceholder: '输入公告标题',
+      contentPlaceholder: '输入公告内容...',
+      priorityHint: '数字越大，显示越靠前',
+      created: '公告创建成功',
+      updated: '公告更新成功',
+      deleted: '公告删除成功',
+      statusUpdated: '公告状态已更新',
+      failedToLoad: '加载公告列表失败',
+      failedToSave: '保存公告失败',
+      failedToUpdate: '更新公告失败',
+      failedToDelete: '删除公告失败'
     },
 
     // Settings

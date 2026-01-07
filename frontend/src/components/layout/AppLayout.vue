@@ -14,6 +14,11 @@
       <!-- Header -->
       <AppHeader />
 
+      <!-- Announcement Banner -->
+      <div class="px-4 pt-4 md:px-6 md:pt-6 lg:px-8 lg:pt-8">
+        <AnnouncementBanner />
+      </div>
+
       <!-- Main Content -->
       <main class="p-4 md:p-6 lg:p-8">
         <slot />
@@ -31,6 +36,7 @@ import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import AnnouncementBanner from '@/components/common/AnnouncementBanner.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()

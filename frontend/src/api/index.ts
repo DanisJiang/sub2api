@@ -16,6 +16,9 @@ export { userAPI } from './user'
 export { redeemAPI, type RedeemHistoryItem } from './redeem'
 export { userGroupsAPI } from './groups'
 
+// Public APIs
+export { announcementsAPI, type PublicAnnouncement } from './announcements'
+
 // Admin APIs
 export { adminAPI } from './admin'
 

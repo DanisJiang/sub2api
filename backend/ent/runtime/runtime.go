@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
@@ -199,6 +200,51 @@ func init() {
 	accountgroupDescCreatedAt := accountgroupFields[3].Descriptor()
 	// accountgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
 	accountgroup.DefaultCreatedAt = accountgroupDescCreatedAt.Default.(func() time.Time)
+	announcementMixin := schema.Announcement{}.Mixin()
+	announcementMixinFields0 := announcementMixin[0].Fields()
+	_ = announcementMixinFields0
+	announcementFields := schema.Announcement{}.Fields()
+	_ = announcementFields
+	// announcementDescCreatedAt is the schema descriptor for created_at field.
+	announcementDescCreatedAt := announcementMixinFields0[0].Descriptor()
+	// announcement.DefaultCreatedAt holds the default value on creation for the created_at field.
+	announcement.DefaultCreatedAt = announcementDescCreatedAt.Default.(func() time.Time)
+	// announcementDescUpdatedAt is the schema descriptor for updated_at field.
+	announcementDescUpdatedAt := announcementMixinFields0[1].Descriptor()
+	// announcement.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	announcement.DefaultUpdatedAt = announcementDescUpdatedAt.Default.(func() time.Time)
+	// announcement.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	announcement.UpdateDefaultUpdatedAt = announcementDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// announcementDescTitle is the schema descriptor for title field.
+	announcementDescTitle := announcementFields[0].Descriptor()
+	// announcement.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	announcement.TitleValidator = func() func(string) error {
+		validators := announcementDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// announcementDescContent is the schema descriptor for content field.
+	announcementDescContent := announcementFields[1].Descriptor()
+	// announcement.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	announcement.ContentValidator = announcementDescContent.Validators[0].(func(string) error)
+	// announcementDescEnabled is the schema descriptor for enabled field.
+	announcementDescEnabled := announcementFields[2].Descriptor()
+	// announcement.DefaultEnabled holds the default value on creation for the enabled field.
+	announcement.DefaultEnabled = announcementDescEnabled.Default.(bool)
+	// announcementDescPriority is the schema descriptor for priority field.
+	announcementDescPriority := announcementFields[3].Descriptor()
+	// announcement.DefaultPriority holds the default value on creation for the priority field.
+	announcement.DefaultPriority = announcementDescPriority.Default.(int)
 	groupMixin := schema.Group{}.Mixin()
 	groupMixinHooks1 := groupMixin[1].Hooks()
 	group.Hooks[0] = groupMixinHooks1[0]

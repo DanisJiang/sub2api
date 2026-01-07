@@ -55,6 +55,9 @@ func registerRoutes(
 	// API v1
 	v1 := r.Group("/api/v1")
 
+	// 公开接口（无需认证）
+	v1.GET("/announcements", h.PublicAnnouncement.GetEnabled)
+
 	// 注册各模块路由
 	routes.RegisterAuthRoutes(v1, h, jwtAuth)
 	routes.RegisterUserRoutes(v1, h, jwtAuth)
