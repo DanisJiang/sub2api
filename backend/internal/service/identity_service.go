@@ -162,7 +162,9 @@ func (s *IdentityService) ApplyFingerprint(req *http.Request, fp *Fingerprint) {
 // 输入格式：user_{clientId}_account_{accountUuid}_session_{sessionUuid}
 // 输出格式：user_{cachedClientID}_account_{accountUUID}_session_{newHash}
 // 目的：将不同用户的请求统一伪装成同一个身份，避免 Anthropic 检测到多个不同的 clientId
-func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUID, cachedClientID string) ([]byte, error) {
+// 如果请求没有 user_id 或格式不对，会生成一个新的 user_id
+// apiKeyID 用于区分不同的 API Key，确保每个 API Key 有独立的 session
+func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUID, cachedClientID string, apiKeyID int64) ([]byte, error) {
 	if len(body) == 0 || accountUUID == "" || cachedClientID == "" {
 		return body, nil
 	}
@@ -173,33 +175,32 @@ func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUI
 		return body, nil
 	}
 
+	// 确保 metadata 存在
 	metadata, ok := reqMap["metadata"].(map[string]any)
 	if !ok {
-		return body, nil
+		metadata = make(map[string]any)
 	}
 
-	userID, ok := metadata["user_id"].(string)
-	if !ok || userID == "" {
-		return body, nil
-	}
+	userID, _ := metadata["user_id"].(string)
 
-	// 匹配格式: user_{64位hex}_account_{accountUuid}_session_{sessionUuid}
-	// matches[1] = 原始clientId, matches[2] = 原始accountUuid, matches[3] = 原始sessionUuid
+	var newUserID string
+
+	// 尝试匹配真实 Claude Code 格式: user_{64位hex}_account_{accountUuid}_session_{sessionUuid}
 	matches := userIDRegex.FindStringSubmatch(userID)
-	if matches == nil {
-		return body, nil
+	if matches != nil {
+		// 格式正确，重写 user_id
+		originalSessionUUID := matches[3]
+		// 生成新的session hash: SHA256(accountID::originalSessionUUID) -> UUID格式
+		seed := fmt.Sprintf("%d::%s", accountID, originalSessionUUID)
+		newSessionHash := generateUUIDFromSeed(seed)
+		newUserID = fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
+	} else {
+		// 格式不对或没有 user_id，生成一个新的
+		// 使用 apiKeyID 作为 seed，确保每个 API Key 有独立的 session
+		seed := fmt.Sprintf("%d::apikey::%d", accountID, apiKeyID)
+		newSessionHash := generateUUIDFromSeed(seed)
+		newUserID = fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
 	}
-
-	originalSessionUUID := matches[3] // 原始session UUID
-
-	// 生成新的session hash: SHA256(accountID::originalSessionUUID) -> UUID格式
-	// 这样同一个用户的会话会被映射到同一个新的 session ID
-	seed := fmt.Sprintf("%d::%s", accountID, originalSessionUUID)
-	newSessionHash := generateUUIDFromSeed(seed)
-
-	// 构建新的user_id
-	// 格式: user_{cachedClientID}_account_{accountUUID}_session_{newSessionHash}
-	newUserID := fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
 
 	metadata["user_id"] = newUserID
 	reqMap["metadata"] = metadata

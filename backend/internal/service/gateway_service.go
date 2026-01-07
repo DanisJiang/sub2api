@@ -1373,7 +1373,14 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 			// 2. 重写metadata.user_id（需要指纹中的ClientID和账号的account_uuid）
 			accountUUID := account.GetExtraString("account_uuid")
 			if accountUUID != "" && fp.ClientID != "" {
-				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID); err == nil && len(newBody) > 0 {
+				// 从 gin.Context 获取 API Key ID（用于区分不同的 API Key）
+				var apiKeyID int64
+				if apiKeyVal, exists := c.Get("api_key"); exists {
+					if apiKey, ok := apiKeyVal.(*APIKey); ok {
+						apiKeyID = apiKey.ID
+					}
+				}
+				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID, apiKeyID); err == nil && len(newBody) > 0 {
 					body = newBody
 				}
 			}
@@ -2275,7 +2282,14 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 		if err == nil {
 			accountUUID := account.GetExtraString("account_uuid")
 			if accountUUID != "" && fp.ClientID != "" {
-				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID); err == nil && len(newBody) > 0 {
+				// 从 gin.Context 获取 API Key ID（用于区分不同的 API Key）
+				var apiKeyID int64
+				if apiKeyVal, exists := c.Get("api_key"); exists {
+					if apiKey, ok := apiKeyVal.(*APIKey); ok {
+						apiKeyID = apiKey.ID
+					}
+				}
+				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID, apiKeyID); err == nil && len(newBody) > 0 {
 					body = newBody
 				}
 			}
