@@ -308,6 +308,32 @@
           </div>
         </div>
 
+        <!-- Gateway Settings -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.gateway.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.gateway.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <!-- Require Claude Code -->
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.gateway.requireClaudeCode')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.gateway.requireClaudeCodeHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.require_claude_code" />
+            </div>
+          </div>
+        </div>
+
         <!-- Site Settings -->
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -749,7 +775,9 @@ const form = reactive<SettingsForm>({
   turnstile_secret_key_configured: false,
   // Identity patch (Claude -> Gemini)
   enable_identity_patch: true,
-  identity_patch_prompt: ''
+  identity_patch_prompt: '',
+  // Claude Code 客户端限制
+  require_claude_code: false
 })
 
 function handleLogoUpload(event: Event) {
@@ -829,7 +857,8 @@ async function saveSettings() {
       smtp_use_tls: form.smtp_use_tls,
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
-      turnstile_secret_key: form.turnstile_secret_key || undefined
+      turnstile_secret_key: form.turnstile_secret_key || undefined,
+      require_claude_code: form.require_claude_code
     }
     const updated = await adminAPI.settings.updateSettings(payload)
     Object.assign(form, updated)

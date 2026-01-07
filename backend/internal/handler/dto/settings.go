@@ -37,6 +37,9 @@ type SystemSettings struct {
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
+
+	// Claude Code 客户端限制（仅 Anthropic 平台）
+	RequireClaudeCode bool `json:"require_claude_code"`
 }
 
 type PublicSettings struct {

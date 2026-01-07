@@ -105,6 +105,9 @@ const (
 	// Request identity patch (Claude -> Gemini systemInstruction injection)
 	SettingKeyEnableIdentityPatch = "enable_identity_patch"
 	SettingKeyIdentityPatchPrompt = "identity_patch_prompt"
+
+	// Claude Code 限制
+	SettingKeyRequireClaudeCode = "require_claude_code" // 是否仅允许 Claude Code 客户端（Anthropic 平台）
 )
 
 // AdminAPIKeyPrefix is the prefix for admin API keys (distinct from user "sk-" keys).

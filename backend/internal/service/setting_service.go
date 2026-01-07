@@ -134,6 +134,9 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	updates[SettingKeyEnableIdentityPatch] = strconv.FormatBool(settings.EnableIdentityPatch)
 	updates[SettingKeyIdentityPatchPrompt] = settings.IdentityPatchPrompt
 
+	// Claude Code 客户端限制
+	updates[SettingKeyRequireClaudeCode] = strconv.FormatBool(settings.RequireClaudeCode)
+
 	return s.settingRepo.SetMultiple(ctx, updates)
 }
 
@@ -220,6 +223,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Identity patch defaults
 		SettingKeyEnableIdentityPatch: "true",
 		SettingKeyIdentityPatchPrompt: "",
+		// Claude Code 客户端限制（默认关闭）
+		SettingKeyRequireClaudeCode: "false",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -285,6 +290,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.EnableIdentityPatch = true
 	}
 	result.IdentityPatchPrompt = settings[SettingKeyIdentityPatchPrompt]
+
+	// Claude Code 客户端限制（默认关闭）
+	result.RequireClaudeCode = settings[SettingKeyRequireClaudeCode] == "true"
 
 	return result
 }
@@ -397,6 +405,15 @@ func (s *SettingService) DeleteAdminAPIKey(ctx context.Context) error {
 // IsModelFallbackEnabled 检查是否启用模型兜底机制
 func (s *SettingService) IsModelFallbackEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyEnableModelFallback)
+	if err != nil {
+		return false // Default: disabled
+	}
+	return value == "true"
+}
+
+// IsClaudeCodeRequired 检查是否仅允许 Claude Code 客户端（Anthropic 平台）
+func (s *SettingService) IsClaudeCodeRequired(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRequireClaudeCode)
 	if err != nil {
 		return false // Default: disabled
 	}

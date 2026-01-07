@@ -65,6 +65,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		FallbackModelAntigravity:     settings.FallbackModelAntigravity,
 		EnableIdentityPatch:          settings.EnableIdentityPatch,
 		IdentityPatchPrompt:          settings.IdentityPatchPrompt,
+		RequireClaudeCode:            settings.RequireClaudeCode,
 	})
 }
 
@@ -110,6 +111,9 @@ type UpdateSettingsRequest struct {
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
+
+	// Claude Code 客户端限制（仅 Anthropic 平台）
+	RequireClaudeCode bool `json:"require_claude_code"`
 }
 
 // UpdateSettings 更新系统设置
@@ -193,6 +197,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FallbackModelAntigravity: req.FallbackModelAntigravity,
 		EnableIdentityPatch:      req.EnableIdentityPatch,
 		IdentityPatchPrompt:      req.IdentityPatchPrompt,
+		RequireClaudeCode:        req.RequireClaudeCode,
 	}
 
 	if err := h.settingService.UpdateSettings(c.Request.Context(), settings); err != nil {
@@ -237,6 +242,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FallbackModelAntigravity:     updatedSettings.FallbackModelAntigravity,
 		EnableIdentityPatch:          updatedSettings.EnableIdentityPatch,
 		IdentityPatchPrompt:          updatedSettings.IdentityPatchPrompt,
+		RequireClaudeCode:            updatedSettings.RequireClaudeCode,
 	})
 }
 
@@ -336,6 +342,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.FallbackModelAntigravity != after.FallbackModelAntigravity {
 		changed = append(changed, "fallback_model_antigravity")
+	}
+	if before.RequireClaudeCode != after.RequireClaudeCode {
+		changed = append(changed, "require_claude_code")
 	}
 	return changed
 }

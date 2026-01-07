@@ -45,6 +45,9 @@ var (
 	sessionIDRegex       = regexp.MustCompile(`session_([a-f0-9-]{36})`)
 	claudeCliUserAgentRe = regexp.MustCompile(`^claude-cli/\d+\.\d+\.\d+`)
 
+	// ErrClaudeCodeRequired 非 Claude Code 客户端被拒绝时的错误
+	ErrClaudeCodeRequired = errors.New("only Claude Code clients are allowed")
+
 	// claudeCodePromptPrefixes 用于检测 Claude Code 系统提示词的前缀列表
 	// 支持多种变体：标准版、Agent SDK 版、Explore Agent 版、Compact 版等
 	// 注意：前缀之间不应存在包含关系，否则会导致冗余匹配
@@ -154,6 +157,7 @@ type GatewayService struct {
 	httpUpstream        HTTPUpstream
 	deferredService     *DeferredService
 	concurrencyService  *ConcurrencyService
+	settingService      *SettingService
 }
 
 // NewGatewayService creates a new GatewayService
@@ -172,6 +176,7 @@ func NewGatewayService(
 	identityService *IdentityService,
 	httpUpstream HTTPUpstream,
 	deferredService *DeferredService,
+	settingService *SettingService,
 ) *GatewayService {
 	return &GatewayService{
 		accountRepo:         accountRepo,
@@ -188,6 +193,7 @@ func NewGatewayService(
 		identityService:     identityService,
 		httpUpstream:        httpUpstream,
 		deferredService:     deferredService,
+		settingService:      settingService,
 	}
 }
 
@@ -1243,6 +1249,11 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	clientType := ClientTypeOther
 	if isClaudeCode {
 		clientType = ClientTypeClaudeCode
+	}
+
+	// 检查是否要求仅允许 Claude Code 客户端
+	if !isClaudeCode && s.settingService.IsClaudeCodeRequired(ctx) {
+		return nil, ErrClaudeCodeRequired
 	}
 
 	// 智能注入 Claude Code 系统提示词（仅 OAuth/SetupToken 账号需要）

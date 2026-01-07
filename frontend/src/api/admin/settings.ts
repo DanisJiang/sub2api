@@ -37,6 +37,8 @@ export interface SystemSettings {
   // Identity patch configuration (Claude -> Gemini)
   enable_identity_patch: boolean
   identity_patch_prompt: string
+  // Claude Code 客户端限制
+  require_claude_code: boolean
 }
 
 export interface UpdateSettingsRequest {
@@ -62,6 +64,7 @@ export interface UpdateSettingsRequest {
   turnstile_secret_key?: string
   enable_identity_patch?: boolean
   identity_patch_prompt?: string
+  require_claude_code?: boolean
 }
 
 /**

@@ -388,6 +388,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				log.Printf("Account %d: upstream error %d, switching account %d/%d", account.ID, failoverErr.StatusCode, switchCount, maxAccountSwitches)
 				continue
 			}
+			// 检查是否为 Claude Code 限制错误
+			if errors.Is(err, service.ErrClaudeCodeRequired) {
+				h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
+				return
+			}
 			// 错误响应已在Forward中处理，这里只记录日志
 			log.Printf("Account %d: Forward request failed: %v", account.ID, err)
 			return
