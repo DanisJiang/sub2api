@@ -2425,25 +2425,8 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 		}
 	}
 
-	// OAuth 账号：应用统一指纹和重写 userID
-	if account.IsOAuth() && s.identityService != nil {
-		fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, c.Request.Header)
-		if err == nil {
-			accountUUID := account.GetExtraString("account_uuid")
-			if accountUUID != "" && fp.ClientID != "" {
-				// 从 gin.Context 获取 API Key ID（用于区分不同的 API Key）
-				var apiKeyID int64
-				if apiKeyVal, exists := c.Get("api_key"); exists {
-					if apiKey, ok := apiKeyVal.(*APIKey); ok {
-						apiKeyID = apiKey.ID
-					}
-				}
-				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID, apiKeyID); err == nil && len(newBody) > 0 {
-					body = newBody
-				}
-			}
-		}
-	}
+	// 注意：count_tokens 端点不支持 metadata 字段，因此不注入 user_id
+	// 只应用指纹到请求头（在下面的 ApplyFingerprint 中处理）
 
 	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
