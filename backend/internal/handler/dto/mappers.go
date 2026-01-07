@@ -262,6 +262,49 @@ func UsageLogFromService(l *service.UsageLog) *UsageLog {
 	}
 }
 
+// UsageLogFromServiceForUser converts service UsageLog to DTO for user-facing API (hides sensitive fields like ClientType)
+func UsageLogFromServiceForUser(l *service.UsageLog) *UsageLog {
+	if l == nil {
+		return nil
+	}
+	return &UsageLog{
+		ID:                    l.ID,
+		UserID:                l.UserID,
+		APIKeyID:              l.APIKeyID,
+		AccountID:             l.AccountID,
+		RequestID:             l.RequestID,
+		Model:                 l.Model,
+		GroupID:               l.GroupID,
+		SubscriptionID:        l.SubscriptionID,
+		InputTokens:           l.InputTokens,
+		OutputTokens:          l.OutputTokens,
+		CacheCreationTokens:   l.CacheCreationTokens,
+		CacheReadTokens:       l.CacheReadTokens,
+		CacheCreation5mTokens: l.CacheCreation5mTokens,
+		CacheCreation1hTokens: l.CacheCreation1hTokens,
+		InputCost:             l.InputCost,
+		OutputCost:            l.OutputCost,
+		CacheCreationCost:     l.CacheCreationCost,
+		CacheReadCost:         l.CacheReadCost,
+		TotalCost:             l.TotalCost,
+		ActualCost:            l.ActualCost,
+		RateMultiplier:        l.RateMultiplier,
+		BillingType:           l.BillingType,
+		ClientType:            0, // Hidden from users
+		Stream:                l.Stream,
+		DurationMs:            l.DurationMs,
+		FirstTokenMs:          l.FirstTokenMs,
+		ImageCount:            l.ImageCount,
+		ImageSize:             l.ImageSize,
+		CreatedAt:             l.CreatedAt,
+		User:                  UserFromServiceShallow(l.User),
+		APIKey:                APIKeyFromService(l.APIKey),
+		Account:               nil, // Hidden from users
+		Group:                 GroupFromServiceShallow(l.Group),
+		Subscription:          UserSubscriptionFromService(l.Subscription),
+	}
+}
+
 func SettingFromService(s *service.Setting) *Setting {
 	if s == nil {
 		return nil

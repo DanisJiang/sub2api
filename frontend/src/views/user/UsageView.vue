@@ -153,19 +153,8 @@
             }}</span>
           </template>
 
-          <template #cell-model="{ value, row }">
-            <div class="flex items-center gap-1.5">
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
-              <!-- Claude Code 标记 -->
-              <span v-if="row.client_type === 1" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" :title="t('usage.claudeCode')">
-                <svg class="mr-0.5 h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                CC
-              </span>
-              <!-- 非 Claude Code 客户端标记 -->
-              <span v-else-if="row.client_type === 2" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400" :title="t('usage.otherClient')">
-                3rd
-              </span>
-            </div>
+          <template #cell-model="{ value }">
+            <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
           </template>
 
           <template #cell-stream="{ row }">
