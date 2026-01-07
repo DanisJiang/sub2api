@@ -1012,16 +1012,23 @@ func isClaudeCodeClient(userAgent string, metadataUserID string) bool {
 	return claudeCliUserAgentRe.MatchString(userAgent)
 }
 
+// isClaudeCodePrompt 检查文本是否是 Claude Code 相关的身份提示词
+// 支持三种变体：标准版、Agent SDK 版、非交互模式版
+func isClaudeCodePrompt(text string) bool {
+	return strings.HasPrefix(text, "You are Claude Code") ||
+		strings.HasPrefix(text, "You are a Claude agent")
+}
+
 // systemIncludesClaudeCodePrompt 检查 system 中是否已包含 Claude Code 提示词
 // 支持 string 和 []any 两种格式
 func systemIncludesClaudeCodePrompt(system any) bool {
 	switch v := system.(type) {
 	case string:
-		return v == claudeCodeSystemPrompt
+		return isClaudeCodePrompt(v)
 	case []any:
 		for _, item := range v {
 			if m, ok := item.(map[string]any); ok {
-				if text, ok := m["text"].(string); ok && text == claudeCodeSystemPrompt {
+				if text, ok := m["text"].(string); ok && isClaudeCodePrompt(text) {
 					return true
 				}
 			}
@@ -1045,7 +1052,7 @@ func injectClaudeCodePrompt(body []byte, system any) []byte {
 	case nil:
 		newSystem = []any{claudeCodeBlock}
 	case string:
-		if v == "" || v == claudeCodeSystemPrompt {
+		if v == "" || isClaudeCodePrompt(v) {
 			newSystem = []any{claudeCodeBlock}
 		} else {
 			newSystem = []any{claudeCodeBlock, map[string]any{"type": "text", "text": v}}
@@ -1055,8 +1062,8 @@ func injectClaudeCodePrompt(body []byte, system any) []byte {
 		newSystem = append(newSystem, claudeCodeBlock)
 		for _, item := range v {
 			if m, ok := item.(map[string]any); ok {
-				if text, ok := m["text"].(string); ok && text == claudeCodeSystemPrompt {
-					continue
+				if text, ok := m["text"].(string); ok && isClaudeCodePrompt(text) {
+					continue // 跳过已有的 Claude Code 相关提示词
 				}
 			}
 			newSystem = append(newSystem, item)
