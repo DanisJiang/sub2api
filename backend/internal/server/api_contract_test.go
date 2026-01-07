@@ -238,7 +238,6 @@ func TestAPIContracts(t *testing.T) {
 							"actual_cost": 0.5,
 							"rate_multiplier": 1,
 							"billing_type": 0,
-							"client_type": 0,
 							"stream": true,
 							"duration_ms": 100,
 							"first_token_ms": 50,
