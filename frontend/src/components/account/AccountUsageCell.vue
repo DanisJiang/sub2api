@@ -303,6 +303,11 @@ const showUsageWindows = computed(() => {
 })
 
 const shouldFetchUsage = computed(() => {
+  // 调度关闭的账号不自动获取用量信息
+  if (props.account.schedulable === false) {
+    return false
+  }
+
   if (props.account.platform === 'anthropic') {
     return props.account.type === 'oauth' || props.account.type === 'setup-token'
   }
