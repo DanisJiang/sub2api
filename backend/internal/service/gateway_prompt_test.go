@@ -8,53 +8,92 @@ import (
 )
 
 func TestIsClaudeCodeClient(t *testing.T) {
+	claudeCodeSystem := "You are Claude Code, Anthropic's official CLI for Claude."
+
 	tests := []struct {
 		name           string
 		userAgent      string
 		metadataUserID string
+		system         any
 		want           bool
 	}{
 		{
-			name:           "Claude Code client",
+			name:           "Full Claude Code client (all conditions met)",
 			userAgent:      "claude-cli/1.0.62 (darwin; arm64)",
 			metadataUserID: "session_123e4567-e89b-12d3-a456-426614174000",
+			system:         claudeCodeSystem,
 			want:           true,
 		},
 		{
-			name:           "Claude Code without version suffix",
+			name:           "Claude Code with array system",
 			userAgent:      "claude-cli/2.0.0",
 			metadataUserID: "session_abc",
+			system: []any{
+				map[string]any{"type": "text", "text": claudeCodeSystem},
+			},
+			want: true,
+		},
+		{
+			name:           "Claude Code Agent SDK variant",
+			userAgent:      "claude-cli/2.0.0",
+			metadataUserID: "user_abc",
+			system:         "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.",
 			want:           true,
+		},
+		{
+			name:           "Missing system prompt",
+			userAgent:      "claude-cli/1.0.0",
+			metadataUserID: "session_abc",
+			system:         nil,
+			want:           false,
+		},
+		{
+			name:           "Wrong system prompt",
+			userAgent:      "claude-cli/1.0.0",
+			metadataUserID: "session_abc",
+			system:         "You are a helpful assistant.",
+			want:           false,
 		},
 		{
 			name:           "Missing metadata user_id",
 			userAgent:      "claude-cli/1.0.0",
 			metadataUserID: "",
+			system:         claudeCodeSystem,
 			want:           false,
 		},
 		{
 			name:           "Different user agent",
 			userAgent:      "curl/7.68.0",
 			metadataUserID: "user123",
+			system:         claudeCodeSystem,
 			want:           false,
 		},
 		{
 			name:           "Empty user agent",
 			userAgent:      "",
 			metadataUserID: "user123",
+			system:         claudeCodeSystem,
 			want:           false,
 		},
 		{
 			name:           "Similar but not Claude CLI",
 			userAgent:      "claude-api/1.0.0",
 			metadataUserID: "user123",
+			system:         claudeCodeSystem,
+			want:           false,
+		},
+		{
+			name:           "Fake request (UA + user_id but no system)",
+			userAgent:      "claude-cli/2.0.0",
+			metadataUserID: "user_fake123_account__session_abc",
+			system:         "",
 			want:           false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isClaudeCodeClient(tt.userAgent, tt.metadataUserID)
+			got := isClaudeCodeClient(tt.userAgent, tt.metadataUserID, tt.system)
 			require.Equal(t, tt.want, got)
 		})
 	}

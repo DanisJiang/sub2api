@@ -1036,12 +1036,16 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 }
 
 // isClaudeCodeClient 判断请求是否来自 Claude Code 客户端
-// 简化判断：User-Agent 匹配 + metadata.user_id 存在
-func isClaudeCodeClient(userAgent string, metadataUserID string) bool {
+// 验证条件：User-Agent 匹配 + metadata.user_id 存在 + system 包含 Claude Code 提示词
+func isClaudeCodeClient(userAgent string, metadataUserID string, system any) bool {
 	if metadataUserID == "" {
 		return false
 	}
-	return claudeCliUserAgentRe.MatchString(userAgent)
+	if !claudeCliUserAgentRe.MatchString(userAgent) {
+		return false
+	}
+	// 必须包含 Claude Code 系统提示词
+	return systemIncludesClaudeCodePrompt(system)
 }
 
 // systemIncludesClaudeCodePrompt 检查 system 中是否已包含 Claude Code 提示词
@@ -1245,7 +1249,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	reqStream := parsed.Stream
 
 	// 检测客户端类型
-	isClaudeCode := isClaudeCodeClient(c.GetHeader("User-Agent"), parsed.MetadataUserID)
+	isClaudeCode := isClaudeCodeClient(c.GetHeader("User-Agent"), parsed.MetadataUserID, parsed.System)
 	clientType := ClientTypeOther
 	if isClaudeCode {
 		clientType = ClientTypeClaudeCode
