@@ -390,6 +390,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			// 检查是否为 Claude Code 限制错误
 			if errors.Is(err, service.ErrClaudeCodeRequired) {
+				log.Printf("Rejected non-Claude-Code request: user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
 				h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
 				return
 			}
