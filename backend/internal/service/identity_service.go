@@ -17,8 +17,9 @@ import (
 // 预编译正则表达式（避免每次调用重新编译）
 var (
 	// 匹配 user_id 格式: user_{64位hex}_account_{accountUuid}_session_{sessionUuid}
-	// 真实 Claude Code 格式示例: user_abc123...def456_account_550e8400-e29b-41d4-a716-446655440000_session_6ba7b810-9dad-11d1-80b4-00c04fd430c8
-	userIDRegex = regexp.MustCompile(`^user_([a-f0-9]{64})_account_([a-f0-9-]+)_session_([a-f0-9-]{36})$`)
+	// Claude Code API 模式: account UUID 为空，格式为 account__session
+	// Claude Code OAuth 模式: account UUID 非空，格式为 account_{uuid}_session
+	userIDRegex = regexp.MustCompile(`^user_([a-f0-9]{64})_account_([a-f0-9-]*)_session_([a-f0-9-]{36})$`)
 	// 匹配 User-Agent 版本号: xxx/x.y.z
 	userAgentVersionRegex = regexp.MustCompile(`/(\d+)\.(\d+)\.(\d+)`)
 )
