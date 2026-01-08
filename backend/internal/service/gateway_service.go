@@ -59,6 +59,9 @@ var (
 	}
 )
 
+// ErrClaudeCodeOnly 表示分组仅允许 Claude Code 客户端访问
+var ErrClaudeCodeOnly = errors.New("this group only allows Claude Code clients")
+
 // allowedHeaders 白名单headers（参考CRS项目）
 var allowedHeaders = map[string]bool{
 	"accept":                                    true,
@@ -83,9 +86,17 @@ var allowedHeaders = map[string]bool{
 
 // GatewayCache defines cache operations for gateway service
 type GatewayCache interface {
-	GetSessionAccountID(ctx context.Context, sessionHash string) (int64, error)
-	SetSessionAccountID(ctx context.Context, sessionHash string, accountID int64, ttl time.Duration) error
-	RefreshSessionTTL(ctx context.Context, sessionHash string, ttl time.Duration) error
+	GetSessionAccountID(ctx context.Context, groupID int64, sessionHash string) (int64, error)
+	SetSessionAccountID(ctx context.Context, groupID int64, sessionHash string, accountID int64, ttl time.Duration) error
+	RefreshSessionTTL(ctx context.Context, groupID int64, sessionHash string, ttl time.Duration) error
+}
+
+// derefGroupID safely dereferences *int64 to int64, returning 0 if nil
+func derefGroupID(groupID *int64) int64 {
+	if groupID == nil {
+		return 0
+	}
+	return *groupID
 }
 
 type AccountWaitPlan struct {
@@ -119,13 +130,14 @@ const (
 
 // ForwardResult 转发结果
 type ForwardResult struct {
-	RequestID    string
-	Usage        ClaudeUsage
-	Model        string
-	Stream       bool
-	Duration     time.Duration
-	FirstTokenMs *int // 首字时间（流式请求）
-	ClientType   int8 // 客户端类型（1=claude_code, 2=other）
+	RequestID        string
+	Usage            ClaudeUsage
+	Model            string
+	Stream           bool
+	Duration         time.Duration
+	FirstTokenMs     *int // 首字时间（流式请求）
+	ClientType       int8 // 客户端类型（1=claude_code, 2=other）
+	ClientDisconnect bool // 客户端是否在流式传输过程中断开
 
 	// 图片生成计费字段（仅 gemini-3-pro-image 使用）
 	ImageCount int    // 生成的图片数量
@@ -238,11 +250,11 @@ func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 }
 
 // BindStickySession sets session -> account binding with standard TTL.
-func (s *GatewayService) BindStickySession(ctx context.Context, sessionHash string, accountID int64) error {
+func (s *GatewayService) BindStickySession(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {
 		return nil
 	}
-	return s.cache.SetSessionAccountID(ctx, sessionHash, accountID, stickySessionTTL)
+	return s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, accountID, stickySessionTTL)
 }
 
 func (s *GatewayService) extractCacheableContent(parsed *ParsedRequest) string {
@@ -369,6 +381,21 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 			return nil, fmt.Errorf("get group failed: %w", err)
 		}
 		platform = group.Platform
+
+		// 检查 Claude Code 客户端限制
+		if group.ClaudeCodeOnly {
+			isClaudeCode := IsClaudeCodeClient(ctx)
+			if !isClaudeCode {
+				// 非 Claude Code 客户端，检查是否有降级分组
+				if group.FallbackGroupID != nil {
+					// 使用降级分组重新调度
+					fallbackGroupID := *group.FallbackGroupID
+					return s.SelectAccountForModelWithExclusions(ctx, &fallbackGroupID, sessionHash, requestedModel, excludedIDs)
+				}
+				// 无降级分组，拒绝访问
+				return nil, ErrClaudeCodeOnly
+			}
+		}
 	} else {
 		// 无分组时只使用原生 anthropic 平台
 		platform = PlatformAnthropic
@@ -390,10 +417,17 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	cfg := s.schedulingConfig()
 	var stickyAccountID int64
 	if sessionHash != "" && s.cache != nil {
-		if accountID, err := s.cache.GetSessionAccountID(ctx, sessionHash); err == nil {
+		if accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash); err == nil {
 			stickyAccountID = accountID
 		}
 	}
+
+	// 检查 Claude Code 客户端限制（可能会替换 groupID 为降级分组）
+	groupID, err := s.checkClaudeCodeRestriction(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+
 	if s.concurrencyService == nil || !cfg.LoadBatchEnabled {
 		account, err := s.SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, requestedModel, excludedIDs)
 		if err != nil {
@@ -456,7 +490,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 	// ============ Layer 1: 粘性会话优先 ============
 	if sessionHash != "" && s.cache != nil {
-		accountID, err := s.cache.GetSessionAccountID(ctx, sessionHash)
+		accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 		if err == nil && accountID > 0 && !isExcluded(accountID) {
 			account, err := s.accountRepo.GetByID(ctx, accountID)
 			if err == nil && s.isAccountInGroup(account, groupID) &&
@@ -465,7 +499,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				(requestedModel == "" || s.isModelSupportedByAccount(account, requestedModel)) {
 				result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 				if err == nil && result.Acquired {
-					_ = s.cache.RefreshSessionTTL(ctx, sessionHash, stickySessionTTL)
+					_ = s.cache.RefreshSessionTTL(ctx, derefGroupID(groupID), sessionHash, stickySessionTTL)
 					return &AccountSelectionResult{
 						Account:     account,
 						Acquired:    true,
@@ -519,7 +553,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 	loadMap, err := s.concurrencyService.GetAccountsLoadBatch(ctx, accountLoads)
 	if err != nil {
-		if result, ok := s.tryAcquireByLegacyOrder(ctx, candidates, sessionHash, preferOAuth); ok {
+		if result, ok := s.tryAcquireByLegacyOrder(ctx, candidates, groupID, sessionHash, preferOAuth); ok {
 			return result, nil
 		}
 	} else {
@@ -569,7 +603,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				result, err := s.tryAcquireAccountSlot(ctx, item.account.ID, item.account.Concurrency)
 				if err == nil && result.Acquired {
 					if sessionHash != "" && s.cache != nil {
-						_ = s.cache.SetSessionAccountID(ctx, sessionHash, item.account.ID, stickySessionTTL)
+						_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, item.account.ID, stickySessionTTL)
 					}
 					return &AccountSelectionResult{
 						Account:     item.account,
@@ -597,7 +631,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	return nil, errors.New("no available accounts")
 }
 
-func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, sessionHash string, preferOAuth bool) (*AccountSelectionResult, bool) {
+func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, preferOAuth bool) (*AccountSelectionResult, bool) {
 	ordered := append([]*Account(nil), candidates...)
 	sortAccountsByPriorityAndLastUsed(ordered, preferOAuth)
 
@@ -605,7 +639,7 @@ func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates
 		result, err := s.tryAcquireAccountSlot(ctx, acc.ID, acc.Concurrency)
 		if err == nil && result.Acquired {
 			if sessionHash != "" && s.cache != nil {
-				_ = s.cache.SetSessionAccountID(ctx, sessionHash, acc.ID, stickySessionTTL)
+				_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, acc.ID, stickySessionTTL)
 			}
 			return &AccountSelectionResult{
 				Account:     acc,
@@ -630,6 +664,42 @@ func (s *GatewayService) schedulingConfig() config.GatewaySchedulingConfig {
 		LoadBatchEnabled:         true,
 		SlotCleanupInterval:      30 * time.Second,
 	}
+}
+
+// checkClaudeCodeRestriction 检查分组的 Claude Code 客户端限制
+// 如果分组启用了 claude_code_only 且请求不是来自 Claude Code 客户端：
+//   - 有降级分组：返回降级分组的 ID
+//   - 无降级分组：返回 ErrClaudeCodeOnly 错误
+func (s *GatewayService) checkClaudeCodeRestriction(ctx context.Context, groupID *int64) (*int64, error) {
+	if groupID == nil {
+		return groupID, nil
+	}
+
+	// 强制平台模式不检查 Claude Code 限制
+	if _, hasForcePlatform := ctx.Value(ctxkey.ForcePlatform).(string); hasForcePlatform {
+		return groupID, nil
+	}
+
+	group, err := s.groupRepo.GetByID(ctx, *groupID)
+	if err != nil {
+		return nil, fmt.Errorf("get group failed: %w", err)
+	}
+
+	if !group.ClaudeCodeOnly {
+		return groupID, nil
+	}
+
+	// 分组启用了 Claude Code 限制
+	if IsClaudeCodeClient(ctx) {
+		return groupID, nil
+	}
+
+	// 非 Claude Code 客户端，检查降级分组
+	if group.FallbackGroupID != nil {
+		return group.FallbackGroupID, nil
+	}
+
+	return nil, ErrClaudeCodeOnly
 }
 
 func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64) (string, bool, error) {
@@ -751,13 +821,13 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	preferOAuth := platform == PlatformGemini
 	// 1. 查询粘性会话
 	if sessionHash != "" && s.cache != nil {
-		accountID, err := s.cache.GetSessionAccountID(ctx, sessionHash)
+		accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 		if err == nil && accountID > 0 {
 			if _, excluded := excludedIDs[accountID]; !excluded {
 				account, err := s.accountRepo.GetByID(ctx, accountID)
 				// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 				if err == nil && s.isAccountInGroup(account, groupID) && account.Platform == platform && account.IsSchedulable() && (requestedModel == "" || s.isModelSupportedByAccount(account, requestedModel)) {
-					if err := s.cache.RefreshSessionTTL(ctx, sessionHash, stickySessionTTL); err != nil {
+					if err := s.cache.RefreshSessionTTL(ctx, derefGroupID(groupID), sessionHash, stickySessionTTL); err != nil {
 						log.Printf("refresh session ttl failed: session=%s err=%v", sessionHash, err)
 					}
 					return account, nil
@@ -824,7 +894,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 
 	// 4. 建立粘性绑定
 	if sessionHash != "" && s.cache != nil {
-		if err := s.cache.SetSessionAccountID(ctx, sessionHash, selected.ID, stickySessionTTL); err != nil {
+		if err := s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, selected.ID, stickySessionTTL); err != nil {
 			log.Printf("set session account failed: session=%s account_id=%d err=%v", sessionHash, selected.ID, err)
 		}
 	}
@@ -840,14 +910,14 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 
 	// 1. 查询粘性会话
 	if sessionHash != "" && s.cache != nil {
-		accountID, err := s.cache.GetSessionAccountID(ctx, sessionHash)
+		accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 		if err == nil && accountID > 0 {
 			if _, excluded := excludedIDs[accountID]; !excluded {
 				account, err := s.accountRepo.GetByID(ctx, accountID)
 				// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 				if err == nil && s.isAccountInGroup(account, groupID) && account.IsSchedulable() && (requestedModel == "" || s.isModelSupportedByAccount(account, requestedModel)) {
 					if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
-						if err := s.cache.RefreshSessionTTL(ctx, sessionHash, stickySessionTTL); err != nil {
+						if err := s.cache.RefreshSessionTTL(ctx, derefGroupID(groupID), sessionHash, stickySessionTTL); err != nil {
 							log.Printf("refresh session ttl failed: session=%s err=%v", sessionHash, err)
 						}
 						return account, nil
@@ -916,7 +986,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 
 	// 4. 建立粘性绑定
 	if sessionHash != "" && s.cache != nil {
-		if err := s.cache.SetSessionAccountID(ctx, sessionHash, selected.ID, stickySessionTTL); err != nil {
+		if err := s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, selected.ID, stickySessionTTL); err != nil {
 			log.Printf("set session account failed: session=%s account_id=%d err=%v", sessionHash, selected.ID, err)
 		}
 	}
@@ -1495,6 +1565,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	// 处理正常响应
 	var usage *ClaudeUsage
 	var firstTokenMs *int
+	var clientDisconnect bool
 	if reqStream {
 		streamResult, err := s.handleStreamingResponse(ctx, resp, c, account, startTime, originalModel, reqModel)
 		if err != nil {
@@ -1507,6 +1578,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		}
 		usage = streamResult.usage
 		firstTokenMs = streamResult.firstTokenMs
+		clientDisconnect = streamResult.clientDisconnect
 	} else {
 		usage, err = s.handleNonStreamingResponse(ctx, resp, c, account, originalModel, reqModel)
 		if err != nil {
@@ -1515,13 +1587,14 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	}
 
 	return &ForwardResult{
-		RequestID:    resp.Header.Get("x-request-id"),
-		Usage:        *usage,
-		Model:        originalModel, // 使用原始模型用于计费和日志
-		Stream:       reqStream,
-		Duration:     time.Since(startTime),
-		FirstTokenMs: firstTokenMs,
-		ClientType:   clientType,
+		RequestID:        resp.Header.Get("x-request-id"),
+		Usage:            *usage,
+		Model:            originalModel, // 使用原始模型用于计费和日志
+		Stream:           reqStream,
+		Duration:         time.Since(startTime),
+		FirstTokenMs:     firstTokenMs,
+		ClientType:       clientType,
+		ClientDisconnect: clientDisconnect,
 	}, nil
 }
 
@@ -1883,8 +1956,9 @@ func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *ht
 
 // streamingResult 流式响应结果
 type streamingResult struct {
-	usage        *ClaudeUsage
-	firstTokenMs *int
+	usage            *ClaudeUsage
+	firstTokenMs     *int
+	clientDisconnect bool // 客户端是否在流式传输过程中断开
 }
 
 func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel string) (*streamingResult, error) {
@@ -1980,14 +2054,27 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 	}
 
 	needModelReplace := originalModel != mappedModel
+	clientDisconnected := false // 客户端断开标志，断开后继续读取上游以获取完整usage
 
 	for {
 		select {
 		case ev, ok := <-events:
 			if !ok {
-				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, nil
+				// 上游完成，返回结果
+				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
 			}
 			if ev.err != nil {
+				// 检测 context 取消（客户端断开会导致 context 取消，进而影响上游读取）
+				if errors.Is(ev.err, context.Canceled) || errors.Is(ev.err, context.DeadlineExceeded) {
+					log.Printf("Context canceled during streaming, returning collected usage")
+					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, nil
+				}
+				// 客户端已通过写入失败检测到断开，上游也出错了，返回已收集的 usage
+				if clientDisconnected {
+					log.Printf("Upstream read error after client disconnect: %v, returning collected usage", ev.err)
+					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, nil
+				}
+				// 客户端未断开，正常的错误处理
 				if errors.Is(ev.err, bufio.ErrTooLong) {
 					log.Printf("SSE line too long: account=%d max_size=%d error=%v", account.ID, maxLineSize, ev.err)
 					sendErrorEvent("response_too_large")
@@ -1998,44 +2085,51 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 			}
 			line := ev.line
 			if line == "event: error" {
+				// 上游返回错误事件，如果客户端已断开仍返回已收集的 usage
+				if clientDisconnected {
+					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, nil
+				}
 				return nil, errors.New("have error in stream")
 			}
 
 			// Extract data from SSE line (supports both "data: " and "data:" formats)
+			var data string
 			if sseDataRe.MatchString(line) {
-				data := sseDataRe.ReplaceAllString(line, "")
-
+				data = sseDataRe.ReplaceAllString(line, "")
 				// 如果有模型映射，替换响应中的model字段
 				if needModelReplace {
 					line = s.replaceModelInSSELine(line, mappedModel, originalModel)
 				}
+			}
 
-				// 转发行
+			// 写入客户端（统一处理 data 行和非 data 行）
+			if !clientDisconnected {
 				if _, err := fmt.Fprintf(w, "%s\n", line); err != nil {
-					sendErrorEvent("write_failed")
-					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, err
+					clientDisconnected = true
+					log.Printf("Client disconnected during streaming, continuing to drain upstream for billing")
+				} else {
+					flusher.Flush()
 				}
-				flusher.Flush()
+			}
 
-				// 记录首字时间：第一个有效的 content_block_delta 或 message_start
-				if firstTokenMs == nil && data != "" && data != "[DONE]" {
+			// 无论客户端是否断开，都解析 usage（仅对 data 行）
+			if data != "" {
+				if firstTokenMs == nil && data != "[DONE]" {
 					ms := int(time.Since(startTime).Milliseconds())
 					firstTokenMs = &ms
 				}
 				s.parseSSEUsage(data, usage)
-			} else {
-				// 非 data 行直接转发
-				if _, err := fmt.Fprintf(w, "%s\n", line); err != nil {
-					sendErrorEvent("write_failed")
-					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, err
-				}
-				flusher.Flush()
 			}
 
 		case <-intervalCh:
 			lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
 			if time.Since(lastRead) < streamInterval {
 				continue
+			}
+			if clientDisconnected {
+				// 客户端已断开，上游也超时了，返回已收集的 usage
+				log.Printf("Upstream timeout after client disconnect, returning collected usage")
+				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, nil
 			}
 			log.Printf("Stream data interval timeout: account=%d model=%s interval=%s", account.ID, originalModel, streamInterval)
 			sendErrorEvent("stream_timeout")
@@ -2190,6 +2284,7 @@ type RecordUsageInput struct {
 	User         *User
 	Account      *Account
 	Subscription *UserSubscription // 可选：订阅信息
+	UserAgent    string            // 请求的 User-Agent
 }
 
 // RecordUsage 记录使用量并扣费（或更新订阅用量）
@@ -2274,6 +2369,11 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		ImageSize:           imageSize,
 		ClientType:          result.ClientType,
 		CreatedAt:           time.Now(),
+	}
+
+	// 添加 UserAgent
+	if input.UserAgent != "" {
+		usageLog.UserAgent = &input.UserAgent
 	}
 
 	// 添加分组和订阅关联

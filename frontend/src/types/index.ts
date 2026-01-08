@@ -263,6 +263,9 @@ export interface Group {
   image_price_1k: number | null
   image_price_2k: number | null
   image_price_4k: number | null
+  // Claude Code 客户端限制
+  claude_code_only: boolean
+  fallback_group_id: number | null
   account_count?: number
   created_at: string
   updated_at: string
@@ -298,6 +301,15 @@ export interface CreateGroupRequest {
   platform?: GroupPlatform
   rate_multiplier?: number
   is_exclusive?: boolean
+  subscription_type?: SubscriptionType
+  daily_limit_usd?: number | null
+  weekly_limit_usd?: number | null
+  monthly_limit_usd?: number | null
+  image_price_1k?: number | null
+  image_price_2k?: number | null
+  image_price_4k?: number | null
+  claude_code_only?: boolean
+  fallback_group_id?: number | null
 }
 
 export interface UpdateGroupRequest {
@@ -307,6 +319,15 @@ export interface UpdateGroupRequest {
   rate_multiplier?: number
   is_exclusive?: boolean
   status?: 'active' | 'inactive'
+  subscription_type?: SubscriptionType
+  daily_limit_usd?: number | null
+  weekly_limit_usd?: number | null
+  monthly_limit_usd?: number | null
+  image_price_1k?: number | null
+  image_price_2k?: number | null
+  image_price_4k?: number | null
+  claude_code_only?: boolean
+  fallback_group_id?: number | null
 }
 
 // ==================== Account & Proxy Types ====================
@@ -401,6 +422,8 @@ export interface Account {
   status: 'active' | 'inactive' | 'error'
   error_message: string | null
   last_used_at: string | null
+  expires_at: number | null
+  auto_pause_on_expired: boolean
   created_at: string
   updated_at: string
   proxy?: Proxy
@@ -491,6 +514,8 @@ export interface CreateAccountRequest {
   concurrency?: number
   priority?: number
   group_ids?: number[]
+  expires_at?: number | null
+  auto_pause_on_expired?: boolean
   confirm_mixed_channel_risk?: boolean
 }
 
@@ -506,6 +531,8 @@ export interface UpdateAccountRequest {
   schedulable?: boolean
   status?: 'active' | 'inactive'
   group_ids?: number[]
+  expires_at?: number | null
+  auto_pause_on_expired?: boolean
   confirm_mixed_channel_risk?: boolean
 }
 
@@ -573,6 +600,9 @@ export interface UsageLog {
   // 图片生成字段
   image_count: number
   image_size: string | null
+
+  // User-Agent
+  user_agent: string | null
 
   created_at: string
 

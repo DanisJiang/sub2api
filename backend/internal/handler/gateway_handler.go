@@ -96,6 +96,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	reqModel := parsedReq.Model
 	reqStream := parsedReq.Stream
 
+	// 设置 Claude Code 客户端标识到 context（用于分组限制检查）
+	SetClaudeCodeClientContext(c, body)
+
 	// 验证 model 必填
 	if reqModel == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
@@ -107,6 +110,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	// 获取订阅信息（可能为nil）- 提前获取用于后续检查
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+
+	// 获取 User-Agent
+	userAgent := c.Request.UserAgent()
 
 	// 0. 检查wait队列是否已满
 	maxWait := service.CalculateMaxWait(subject.Concurrency)
@@ -226,7 +232,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					h.handleConcurrencyError(c, err, "account", streamStarted)
 					return
 				}
-				if err := h.gatewayService.BindStickySession(c.Request.Context(), sessionKey, account.ID); err != nil {
+				if err := h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionKey, account.ID); err != nil {
 					log.Printf("Bind sticky session failed: %v", err)
 				}
 			}
@@ -267,7 +273,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 
 			// 异步记录使用量（subscription已在函数开头获取）
-			go func(result *service.ForwardResult, usedAccount *service.Account) {
+			go func(result *service.ForwardResult, usedAccount *service.Account, ua string) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
@@ -276,10 +282,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					User:         apiKey.User,
 					Account:      usedAccount,
 					Subscription: subscription,
+					UserAgent:    ua,
 				}); err != nil {
 					log.Printf("Record usage failed: %v", err)
 				}
-			}(result, account)
+			}(result, account, userAgent)
 			return
 		}
 	}
@@ -353,7 +360,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				h.handleConcurrencyError(c, err, "account", streamStarted)
 				return
 			}
-			if err := h.gatewayService.BindStickySession(c.Request.Context(), sessionKey, account.ID); err != nil {
+			if err := h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionKey, account.ID); err != nil {
 				log.Printf("Bind sticky session failed: %v", err)
 			}
 		}
@@ -400,7 +407,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 
 		// 异步记录使用量（subscription已在函数开头获取）
-		go func(result *service.ForwardResult, usedAccount *service.Account) {
+		go func(result *service.ForwardResult, usedAccount *service.Account, ua string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
@@ -409,10 +416,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				User:         apiKey.User,
 				Account:      usedAccount,
 				Subscription: subscription,
+				UserAgent:    ua,
 			}); err != nil {
 				log.Printf("Record usage failed: %v", err)
 			}
-		}(result, account)
+		}(result, account, userAgent)
 		return
 	}
 }
@@ -683,6 +691,9 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return
 	}
+
+	// 设置 Claude Code 客户端标识到 context（用于分组限制检查）
+	SetClaudeCodeClientContext(c, body)
 
 	// 验证 model 必填
 	if parsedReq.Model == "" {
