@@ -69,10 +69,10 @@ func ProvideDeferredService(accountRepo AccountRepository, timingWheel *TimingWh
 }
 
 // ProvideConcurrencyService creates ConcurrencyService and starts slot cleanup worker.
-func ProvideConcurrencyService(cache ConcurrencyCache, accountRepo AccountRepository, cfg *config.Config) *ConcurrencyService {
+func ProvideConcurrencyService(cache ConcurrencyCache, cfg *config.Config) *ConcurrencyService {
 	svc := NewConcurrencyService(cache)
 	if cfg != nil {
-		svc.StartSlotCleanupWorker(accountRepo, cfg.Gateway.Scheduling.SlotCleanupInterval)
+		svc.StartSlotCleanupWorker(cfg.Gateway.Scheduling.SlotCleanupInterval)
 	}
 	return svc
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
@@ -392,4 +393,41 @@ func (c *concurrencyCache) CleanupExpiredAccountSlots(ctx context.Context, accou
 	key := accountSlotKey(accountID)
 	_, err := cleanupExpiredSlotsScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds).Result()
 	return err
+}
+
+// CleanupAllExpiredSlots 使用 SCAN 遍历所有 concurrency:* 键并清理过期槽位
+// 返回清理的槽位总数
+func (c *concurrencyCache) CleanupAllExpiredSlots(ctx context.Context) (int, error) {
+	var totalCleaned int
+	var cursor uint64
+
+	// 遍历所有 concurrency:account:* 和 concurrency:user:* 键
+	for {
+		keys, nextCursor, err := c.rdb.Scan(ctx, cursor, "concurrency:*", 100).Result()
+		if err != nil {
+			return totalCleaned, err
+		}
+
+		for _, key := range keys {
+			// 跳过等待队列计数器（不是有序集合）
+			if strings.HasPrefix(key, waitQueueKeyPrefix) {
+				continue
+			}
+
+			// 对有序集合执行清理
+			cleaned, err := cleanupExpiredSlotsScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds).Int()
+			if err != nil {
+				// 忽略单个键的错误，继续处理其他键
+				continue
+			}
+			totalCleaned += cleaned
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return totalCleaned, nil
 }
