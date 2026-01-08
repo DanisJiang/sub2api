@@ -100,7 +100,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	SetClaudeCodeClientContext(c, body)
 
 	// 【全局设置优先】检查是否要求仅允许 Claude Code 客户端
-	if !service.IsClaudeCodeClient(c.Request.Context()) && h.gatewayService.IsGlobalClaudeCodeRequired(c.Request.Context()) {
+	// 跳过强制平台（如 /antigravity/v1/*）的检查
+	if !middleware2.HasForcePlatform(c) && !service.IsClaudeCodeClient(c.Request.Context()) && h.gatewayService.IsGlobalClaudeCodeRequired(c.Request.Context()) {
 		log.Printf("Rejected non-Claude-Code request (global setting): user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
 		h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
 		return
