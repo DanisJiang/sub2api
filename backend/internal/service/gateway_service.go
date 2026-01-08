@@ -209,6 +209,11 @@ func NewGatewayService(
 	}
 }
 
+// IsGlobalClaudeCodeRequired 检查全局设置是否要求仅允许 Claude Code 客户端
+func (s *GatewayService) IsGlobalClaudeCodeRequired(ctx context.Context) bool {
+	return s.settingService.IsClaudeCodeRequired(ctx)
+}
+
 // GenerateSessionHash 从预解析请求计算粘性会话 hash
 func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 	if parsed == nil {
@@ -1325,10 +1330,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		clientType = ClientTypeClaudeCode
 	}
 
-	// 检查是否要求仅允许 Claude Code 客户端
-	if !isClaudeCode && s.settingService.IsClaudeCodeRequired(ctx) {
-		return nil, ErrClaudeCodeRequired
-	}
+	// 注意：全局 Claude Code 检查已移至 handler 层（优先于分组检查）
 
 	// 智能注入 Claude Code 系统提示词（仅 OAuth/SetupToken 账号需要）
 	// 条件：1) OAuth/SetupToken 账号  2) 不是 Claude Code 客户端  3) 不是 Haiku 模型  4) system 中还没有 Claude Code 提示词

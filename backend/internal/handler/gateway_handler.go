@@ -99,6 +99,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 设置 Claude Code 客户端标识到 context（用于分组限制检查）
 	SetClaudeCodeClientContext(c, body)
 
+	// 【全局设置优先】检查是否要求仅允许 Claude Code 客户端
+	if !service.IsClaudeCodeClient(c.Request.Context()) && h.gatewayService.IsGlobalClaudeCodeRequired(c.Request.Context()) {
+		log.Printf("Rejected non-Claude-Code request (global setting): user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
+		h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
+		return
+	}
+
 	// 验证 model 必填
 	if reqModel == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
@@ -172,6 +179,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		for {
 			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs)
 			if err != nil {
+				// 检查是否为分组级别的 Claude Code 限制错误
+				if errors.Is(err, service.ErrClaudeCodeOnly) {
+					log.Printf("Rejected non-Claude-Code request (group restriction): user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
+					h.handleStreamingAwareError(c, http.StatusForbidden, "access_denied", "This group only allows Claude Code clients. Please use the official Claude Code CLI.", streamStarted)
+					return
+				}
 				if len(failedAccountIDs) == 0 {
 					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts: "+err.Error(), streamStarted)
 					return
@@ -300,6 +313,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		// 选择支持该模型的账号
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs)
 		if err != nil {
+			// 检查是否为分组级别的 Claude Code 限制错误
+			if errors.Is(err, service.ErrClaudeCodeOnly) {
+				log.Printf("Rejected non-Claude-Code request (group restriction): user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
+				h.handleStreamingAwareError(c, http.StatusForbidden, "access_denied", "This group only allows Claude Code clients. Please use the official Claude Code CLI.", streamStarted)
+				return
+			}
 			if len(failedAccountIDs) == 0 {
 				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts: "+err.Error(), streamStarted)
 				return
@@ -394,18 +413,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				switchCount++
 				log.Printf("Account %d: upstream error %d, switching account %d/%d", account.ID, failoverErr.StatusCode, switchCount, maxAccountSwitches)
 				continue
-			}
-			// 检查是否为 Claude Code 限制错误
-			if errors.Is(err, service.ErrClaudeCodeRequired) {
-				log.Printf("Rejected non-Claude-Code request: user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
-				h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
-				return
-			}
-			// 检查是否为分组级别的 Claude Code 限制错误
-			if errors.Is(err, service.ErrClaudeCodeOnly) {
-				log.Printf("Rejected non-Claude-Code request (group restriction): user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
-				h.errorResponse(c, http.StatusForbidden, "access_denied", "This group only allows Claude Code clients. Please use the official Claude Code CLI.")
-				return
 			}
 			// 错误响应已在Forward中处理，这里只记录日志
 			log.Printf("Account %d: Forward request failed: %v", account.ID, err)
