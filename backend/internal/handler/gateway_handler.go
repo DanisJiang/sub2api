@@ -401,6 +401,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
 				return
 			}
+			// 检查是否为分组级别的 Claude Code 限制错误
+			if errors.Is(err, service.ErrClaudeCodeOnly) {
+				log.Printf("Rejected non-Claude-Code request (group restriction): user_id=%d, ua=%s", apiKey.UserID, c.GetHeader("User-Agent"))
+				h.errorResponse(c, http.StatusForbidden, "access_denied", "This group only allows Claude Code clients. Please use the official Claude Code CLI.")
+				return
+			}
 			// 错误响应已在Forward中处理，这里只记录日志
 			log.Printf("Account %d: Forward request failed: %v", account.ID, err)
 			return
