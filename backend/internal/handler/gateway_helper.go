@@ -216,11 +216,12 @@ func (h *ConcurrencyHelper) AcquireAccountSlotWithWait(c *gin.Context, accountID
 // waitForSlotWithPing waits for a concurrency slot, sending ping events for streaming requests.
 // streamStarted pointer is updated when streaming begins (for proper error handling by caller).
 func (h *ConcurrencyHelper) waitForSlotWithPing(c *gin.Context, slotType string, id int64, maxConcurrency int, isStream bool, streamStarted *bool) (func(), error) {
-	return h.waitForSlotWithPingTimeout(c, slotType, id, maxConcurrency, maxConcurrencyWait, isStream, streamStarted)
+	return h.waitForSlotWithPingTimeout(c, slotType, id, maxConcurrency, "", maxConcurrencyWait, isStream, streamStarted)
 }
 
 // waitForSlotWithPingTimeout waits for a concurrency slot with a custom timeout.
-func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType string, id int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
+// If sessionHash is provided for account slots, it will use slot-by-index to ensure session affinity.
+func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType string, id int64, maxConcurrency int, sessionHash string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
 	defer cancel()
 
@@ -229,6 +230,9 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 	var err error
 	if slotType == "user" {
 		result, err = h.concurrencyService.AcquireUserSlot(ctx, id, maxConcurrency)
+	} else if sessionHash != "" {
+		// Use slot-by-index for session affinity
+		result, err = h.concurrencyService.AcquireAccountSlotByIndex(ctx, id, maxConcurrency, sessionHash)
 	} else {
 		result, err = h.concurrencyService.AcquireAccountSlot(ctx, id, maxConcurrency)
 	}
@@ -293,6 +297,9 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 
 			if slotType == "user" {
 				result, err = h.concurrencyService.AcquireUserSlot(ctx, id, maxConcurrency)
+			} else if sessionHash != "" {
+				// Use slot-by-index for session affinity
+				result, err = h.concurrencyService.AcquireAccountSlotByIndex(ctx, id, maxConcurrency, sessionHash)
 			} else {
 				result, err = h.concurrencyService.AcquireAccountSlot(ctx, id, maxConcurrency)
 			}
@@ -312,7 +319,13 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 
 // AcquireAccountSlotWithWaitTimeout acquires an account slot with a custom timeout (keeps SSE ping).
 func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeout(c *gin.Context, accountID int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
-	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, timeout, isStream, streamStarted)
+	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, "", timeout, isStream, streamStarted)
+}
+
+// AcquireAccountSlotWithWaitTimeoutBySession acquires an account slot by session hash with a custom timeout.
+// This ensures the same session always waits for and acquires the same slot.
+func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeoutBySession(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
+	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, sessionHash, timeout, isStream, streamStarted)
 }
 
 // nextBackoff 计算下一次退避时间

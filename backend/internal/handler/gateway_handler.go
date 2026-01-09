@@ -410,14 +410,27 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
 			}
 
-			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
-				c,
-				account.ID,
-				selection.WaitPlan.MaxConcurrency,
-				selection.WaitPlan.Timeout,
-				reqStream,
-				&streamStarted,
-			)
+			// Use session-aware slot acquisition for OAuth accounts
+			if account.IsOAuth() && sessionKey != "" {
+				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeoutBySession(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					sessionKey,
+					selection.WaitPlan.Timeout,
+					reqStream,
+					&streamStarted,
+				)
+			} else {
+				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					selection.WaitPlan.Timeout,
+					reqStream,
+					&streamStarted,
+				)
+			}
 			if err != nil {
 				accountWaitRelease()
 				if sessionMutexRelease != nil {
