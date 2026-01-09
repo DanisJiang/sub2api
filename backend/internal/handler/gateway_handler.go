@@ -246,9 +246,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					&streamStarted,
 				)
 				if err != nil {
-					if accountWaitRelease != nil {
-						accountWaitRelease()
-					}
+					accountWaitRelease()
 					log.Printf("Account concurrency acquire failed: %v", err)
 					h.handleConcurrencyError(c, err, "account", streamStarted)
 					return
@@ -421,9 +419,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				&streamStarted,
 			)
 			if err != nil {
-				if accountWaitRelease != nil {
-					accountWaitRelease()
-				}
+				accountWaitRelease()
 				if sessionMutexRelease != nil {
 					sessionMutexRelease()
 				}

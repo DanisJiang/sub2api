@@ -85,8 +85,8 @@ func NewConcurrencyService(cache ConcurrencyCache) *ConcurrencyService {
 // AcquireResult represents the result of acquiring a concurrency slot
 type AcquireResult struct {
 	Acquired    bool
-	SlotIndex   int      // 槽位编号（-1 表示未使用固定槽位）
-	ReleaseFunc func()   // Must be called when done (typically via defer)
+	SlotIndex   int    // 槽位编号（-1 表示未使用固定槽位）
+	ReleaseFunc func() // Must be called when done (typically via defer)
 }
 
 type AccountWithConcurrency struct {
@@ -398,8 +398,8 @@ func (s *ConcurrencyService) GetAccountConcurrencyBatch(ctx context.Context, acc
 // SessionMutexResult represents the result of acquiring a session mutex
 type SessionMutexResult struct {
 	Acquired    bool
-	RequestID   string   // 用于释放锁
-	ReleaseFunc func()   // 释放锁的函数
+	RequestID   string // 用于释放锁
+	ReleaseFunc func() // 释放锁的函数
 }
 
 // AcquireSessionMutex attempts to acquire a mutex for a session.
