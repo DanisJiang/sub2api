@@ -54,6 +54,9 @@ type ConcurrencyCache interface {
 
 	// 清理所有过期槽位（使用 SCAN 遍历所有 concurrency:* 键）
 	CleanupAllExpiredSlots(ctx context.Context) (int, error)
+
+	// 清空所有槽位（服务启动时调用，清理因重启导致的遗留槽位）
+	ClearAllSlots(ctx context.Context) (int, error)
 }
 
 // generateRequestID generates a unique request ID for concurrency slot tracking
@@ -357,9 +360,22 @@ func (s *ConcurrencyService) CleanupExpiredAccountSlots(ctx context.Context, acc
 // StartSlotCleanupWorker starts a background cleanup worker for expired slots.
 // 使用 Redis SCAN 遍历所有 concurrency:* 键，清理过期槽位。
 // 这样可以清理所有类型的槽位（账号、用户），不依赖数据库查询。
+// 启动时会先清空所有槽位，因为服务重启意味着所有请求都已中断。
 func (s *ConcurrencyService) StartSlotCleanupWorker(interval time.Duration) {
 	if s == nil || s.cache == nil || interval <= 0 {
 		return
+	}
+
+	// 启动时清空所有槽位（服务重启后，之前的请求都已断开，槽位应该被清空）
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cleared, err := s.cache.ClearAllSlots(ctx)
+	cancel()
+	if err != nil {
+		log.Printf("[ConcurrencyStartup] Warning: failed to clear slots on startup: %v", err)
+	} else if cleared > 0 {
+		log.Printf("[ConcurrencyStartup] Cleared %d stale slots on startup", cleared)
+	} else {
+		log.Printf("[ConcurrencyStartup] No stale slots to clear")
 	}
 
 	runCleanup := func() {

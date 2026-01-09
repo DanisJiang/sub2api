@@ -601,3 +601,61 @@ func (c *concurrencyCache) CleanupAllExpiredSlots(ctx context.Context) (int, err
 
 	return totalCleaned, nil
 }
+
+// ClearAllSlots 清空所有槽位（服务启动时调用）
+// 遍历所有 concurrency:account:* 和 concurrency:user:* 键并删除
+// 返回删除的键总数
+func (c *concurrencyCache) ClearAllSlots(ctx context.Context) (int, error) {
+	var totalCleared int
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := c.rdb.Scan(ctx, cursor, "concurrency:*", 100).Result()
+		if err != nil {
+			return totalCleared, err
+		}
+
+		for _, key := range keys {
+			// 跳过等待队列计数器
+			if strings.HasPrefix(key, waitQueueKeyPrefix) {
+				continue
+			}
+
+			// 删除整个键
+			deleted, err := c.rdb.Del(ctx, key).Result()
+			if err != nil {
+				continue
+			}
+			totalCleared += int(deleted)
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	// 同时清理 session mutex 键
+	cursor = 0
+	for {
+		keys, nextCursor, err := c.rdb.Scan(ctx, cursor, "session_mutex:*", 100).Result()
+		if err != nil {
+			return totalCleared, err
+		}
+
+		for _, key := range keys {
+			deleted, err := c.rdb.Del(ctx, key).Result()
+			if err != nil {
+				continue
+			}
+			totalCleared += int(deleted)
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return totalCleared, nil
+}
