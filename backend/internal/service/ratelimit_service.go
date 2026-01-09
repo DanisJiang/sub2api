@@ -57,6 +57,12 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	tempMatched := s.tryTempUnschedulable(ctx, account, statusCode, responseBody)
 
 	switch statusCode {
+	case 400:
+		// 检查是否是账号被禁用的错误
+		if isAccountDisabledError(responseBody) {
+			s.handleAuthError(ctx, account, "Account disabled (400): organization has been disabled")
+			shouldDisable = true
+		}
 	case 401:
 		// 认证失败：停止调度，记录错误
 		s.handleAuthError(ctx, account, "Authentication failed (401): invalid or expired credentials")
@@ -534,4 +540,17 @@ func truncateTempUnschedMessage(body []byte, maxBytes int) string {
 		body = body[:maxBytes]
 	}
 	return strings.TrimSpace(string(body))
+}
+
+// isAccountDisabledError 检查 400 响应是否表示账号被禁用
+func isAccountDisabledError(responseBody []byte) bool {
+	if len(responseBody) == 0 {
+		return false
+	}
+	bodyLower := strings.ToLower(string(responseBody))
+	// Claude/Anthropic: "This organization has been disabled."
+	if strings.Contains(bodyLower, "organization") && strings.Contains(bodyLower, "disabled") {
+		return true
+	}
+	return false
 }
