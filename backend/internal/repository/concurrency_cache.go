@@ -32,9 +32,14 @@ const (
 	waitQueueKeyPrefix = "concurrency:wait:"
 	// 账号级等待队列计数器格式: wait:account:{accountID}
 	accountWaitKeyPrefix = "wait:account:"
+	// Session 互斥锁前缀：防止同一 session 并发请求
+	// 格式: session_mutex:{accountID}:{sessionHash}
+	sessionMutexKeyPrefix = "session_mutex:"
 
 	// 默认槽位过期时间（分钟），可通过配置覆盖
 	defaultSlotTTLMinutes = 15
+	// Session 互斥锁过期时间（秒），设置为较短时间避免死锁
+	sessionMutexTTLSeconds = 300 // 5 分钟
 )
 
 var (
@@ -75,6 +80,39 @@ var (
 		end
 
 		return 0
+	`)
+
+	// acquireSlotByIndexScript 尝试获取指定编号的槽位
+	// 槽位编号格式: slot_{index}，确保同一个用户 session 始终映射到同一个槽位
+	// KEYS[1] = 有序集合键 (concurrency:account:{id})
+	// ARGV[1] = TTL（秒）
+	// ARGV[2] = slotIndex (槽位编号，如 0, 1, 2...)
+	// 返回: 1=成功获取, 0=槽位被占用
+	acquireSlotByIndexScript = redis.NewScript(`
+		local key = KEYS[1]
+		local ttl = tonumber(ARGV[1])
+		local slotIndex = ARGV[2]
+		local slotID = 'slot_' .. slotIndex
+
+		-- 使用 Redis 服务器时间，确保多实例时钟一致
+		local timeResult = redis.call('TIME')
+		local now = tonumber(timeResult[1])
+		local expireBefore = now - ttl
+
+		-- 清理过期槽位
+		redis.call('ZREMRANGEBYSCORE', key, '-inf', expireBefore)
+
+		-- 检查该槽位是否已存在（支持重试场景刷新时间戳）
+		local exists = redis.call('ZSCORE', key, slotID)
+		if exists ~= false then
+			-- 槽位已被占用，返回失败
+			return 0
+		end
+
+		-- 槽位空闲，获取它
+		redis.call('ZADD', key, now, slotID)
+		redis.call('EXPIRE', key, ttl)
+		return 1
 	`)
 
 	// getCountScript 统计有序集合中的槽位数量并清理过期条目
@@ -210,6 +248,87 @@ var (
 			local expireBefore = now - ttl
 			return redis.call('ZREMRANGEBYSCORE', key, '-inf', expireBefore)
 		`)
+
+	// acquireSlotWithFallbackScript - 优先获取目标槽位，失败则获取其他可用槽位
+	// KEYS[1] = 有序集合键 (concurrency:account:{id})
+	// ARGV[1] = TTL（秒）
+	// ARGV[2] = targetSlotIndex (目标槽位编号)
+	// ARGV[3] = maxConcurrency (最大并发数)
+	// 返回: 获取到的槽位编号（0-based），-1 表示全部满了
+	acquireSlotWithFallbackScript = redis.NewScript(`
+		local key = KEYS[1]
+		local ttl = tonumber(ARGV[1])
+		local targetSlot = tonumber(ARGV[2])
+		local maxConcurrency = tonumber(ARGV[3])
+
+		-- 使用 Redis 服务器时间
+		local timeResult = redis.call('TIME')
+		local now = tonumber(timeResult[1])
+		local expireBefore = now - ttl
+
+		-- 清理过期槽位
+		redis.call('ZREMRANGEBYSCORE', key, '-inf', expireBefore)
+
+		-- 1. 先尝试获取目标槽位
+		local targetSlotID = 'slot_' .. targetSlot
+		local exists = redis.call('ZSCORE', key, targetSlotID)
+		if exists == false then
+			redis.call('ZADD', key, now, targetSlotID)
+			redis.call('EXPIRE', key, ttl)
+			return targetSlot
+		end
+
+		-- 2. 目标槽位被占，尝试其他槽位
+		for i = 0, maxConcurrency - 1 do
+			if i ~= targetSlot then
+				local slotID = 'slot_' .. i
+				local slotExists = redis.call('ZSCORE', key, slotID)
+				if slotExists == false then
+					redis.call('ZADD', key, now, slotID)
+					redis.call('EXPIRE', key, ttl)
+					return i
+				end
+			end
+		end
+
+		-- 3. 全部满了
+		return -1
+	`)
+
+	// acquireSessionMutexScript - 获取 session 互斥锁（防止同一 session 并发）
+	// KEYS[1] = session_mutex:{accountID}:{sessionHash}
+	// ARGV[1] = TTL（秒）
+	// ARGV[2] = requestID（用于标识锁的持有者）
+	// 返回: 1=成功获取, 0=已被占用
+	acquireSessionMutexScript = redis.NewScript(`
+		local key = KEYS[1]
+		local ttl = tonumber(ARGV[1])
+		local requestID = ARGV[2]
+
+		-- 尝试 SETNX
+		local result = redis.call('SET', key, requestID, 'NX', 'EX', ttl)
+		if result then
+			return 1
+		end
+		return 0
+	`)
+
+	// releaseSessionMutexScript - 释放 session 互斥锁（只删除自己持有的锁）
+	// KEYS[1] = session_mutex:{accountID}:{sessionHash}
+	// ARGV[1] = requestID（必须与获取时的 requestID 一致）
+	// 返回: 1=成功释放, 0=锁不存在或不是自己持有的
+	releaseSessionMutexScript = redis.NewScript(`
+		local key = KEYS[1]
+		local requestID = ARGV[1]
+
+		-- 检查锁是否是自己持有的
+		local currentOwner = redis.call('GET', key)
+		if currentOwner == requestID then
+			redis.call('DEL', key)
+			return 1
+		end
+		return 0
+	`)
 )
 
 type concurrencyCache struct {
@@ -252,6 +371,10 @@ func accountWaitKey(accountID int64) string {
 	return fmt.Sprintf("%s%d", accountWaitKeyPrefix, accountID)
 }
 
+func sessionMutexKey(accountID int64, sessionHash string) string {
+	return fmt.Sprintf("%s%d:%s", sessionMutexKeyPrefix, accountID, sessionHash)
+}
+
 // Account slot operations
 
 func (c *concurrencyCache) AcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int, requestID string) (bool, error) {
@@ -277,6 +400,53 @@ func (c *concurrencyCache) GetAccountConcurrency(ctx context.Context, accountID 
 		return 0, err
 	}
 	return result, nil
+}
+
+// AcquireAccountSlotByIndex 尝试获取指定编号的槽位
+// 用于确保同一个用户 session 始终映射到同一个槽位
+func (c *concurrencyCache) AcquireAccountSlotByIndex(ctx context.Context, accountID int64, slotIndex int) (bool, error) {
+	key := accountSlotKey(accountID)
+	result, err := acquireSlotByIndexScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, slotIndex).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
+
+// ReleaseAccountSlotByIndex 释放指定编号的槽位
+func (c *concurrencyCache) ReleaseAccountSlotByIndex(ctx context.Context, accountID int64, slotIndex int) error {
+	key := accountSlotKey(accountID)
+	slotID := fmt.Sprintf("slot_%d", slotIndex)
+	return c.rdb.ZRem(ctx, key, slotID).Err()
+}
+
+// AcquireSlotWithFallback 优先获取目标槽位，失败则获取其他可用槽位
+// 返回实际获取到的槽位编号，-1 表示全部满了
+func (c *concurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error) {
+	key := accountSlotKey(accountID)
+	result, err := acquireSlotWithFallbackScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, maxConcurrency).Int()
+	if err != nil {
+		return -1, err
+	}
+	return result, nil
+}
+
+// AcquireSessionMutex 获取 session 互斥锁，防止同一 session 并发请求
+// 返回 true 表示成功获取锁，false 表示该 session 已有正在进行的请求
+func (c *concurrencyCache) AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) (bool, error) {
+	key := sessionMutexKey(accountID, sessionHash)
+	result, err := acquireSessionMutexScript.Run(ctx, c.rdb, []string{key}, sessionMutexTTLSeconds, requestID).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
+
+// ReleaseSessionMutex 释放 session 互斥锁（只删除自己持有的锁）
+func (c *concurrencyCache) ReleaseSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) error {
+	key := sessionMutexKey(accountID, sessionHash)
+	_, err := releaseSessionMutexScript.Run(ctx, c.rdb, []string{key}, requestID).Int()
+	return err
 }
 
 // User slot operations

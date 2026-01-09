@@ -111,6 +111,7 @@ type AccountSelectionResult struct {
 	Acquired    bool
 	ReleaseFunc func()
 	WaitPlan    *AccountWaitPlan // nil means no wait allowed
+	SlotIndex   int              // 槽位编号（-1 表示未使用固定槽位）
 }
 
 // ClaudeUsage 表示Claude API返回的usage信息
@@ -438,12 +439,13 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		if err != nil {
 			return nil, err
 		}
-		result, err := s.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
+		result, err := s.tryAcquireAccountSlot(ctx, account, sessionHash)
 		if err == nil && result.Acquired {
 			return &AccountSelectionResult{
 				Account:     account,
 				Acquired:    true,
 				ReleaseFunc: result.ReleaseFunc,
+				SlotIndex:   result.SlotIndex,
 			}, nil
 		}
 		if stickyAccountID > 0 && stickyAccountID == account.ID && s.concurrencyService != nil {
@@ -502,13 +504,14 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				s.isAccountAllowedForPlatform(account, platform, useMixed) &&
 				account.IsSchedulable() &&
 				(requestedModel == "" || s.isModelSupportedByAccount(account, requestedModel)) {
-				result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
+				result, err := s.tryAcquireAccountSlot(ctx, account, sessionHash)
 				if err == nil && result.Acquired {
 					_ = s.cache.RefreshSessionTTL(ctx, derefGroupID(groupID), sessionHash, stickySessionTTL)
 					return &AccountSelectionResult{
 						Account:     account,
 						Acquired:    true,
 						ReleaseFunc: result.ReleaseFunc,
+						SlotIndex:   result.SlotIndex,
 					}, nil
 				}
 
@@ -605,7 +608,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			})
 
 			for _, item := range available {
-				result, err := s.tryAcquireAccountSlot(ctx, item.account.ID, item.account.Concurrency)
+				result, err := s.tryAcquireAccountSlot(ctx, item.account, sessionHash)
 				if err == nil && result.Acquired {
 					if sessionHash != "" && s.cache != nil {
 						_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, item.account.ID, stickySessionTTL)
@@ -614,6 +617,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 						Account:     item.account,
 						Acquired:    true,
 						ReleaseFunc: result.ReleaseFunc,
+						SlotIndex:   result.SlotIndex,
 					}, nil
 				}
 			}
@@ -641,7 +645,7 @@ func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates
 	sortAccountsByPriorityAndLastUsed(ordered, preferOAuth)
 
 	for _, acc := range ordered {
-		result, err := s.tryAcquireAccountSlot(ctx, acc.ID, acc.Concurrency)
+		result, err := s.tryAcquireAccountSlot(ctx, acc, sessionHash)
 		if err == nil && result.Acquired {
 			if sessionHash != "" && s.cache != nil {
 				_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, acc.ID, stickySessionTTL)
@@ -650,6 +654,7 @@ func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates
 				Account:     acc,
 				Acquired:    true,
 				ReleaseFunc: result.ReleaseFunc,
+				SlotIndex:   result.SlotIndex,
 			}, true
 		}
 	}
@@ -792,11 +797,18 @@ func (s *GatewayService) isAccountInGroup(account *Account, groupID *int64) bool
 	return false
 }
 
-func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
+func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, account *Account, sessionHash string) (*AcquireResult, error) {
 	if s.concurrencyService == nil {
-		return &AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
+		return &AcquireResult{Acquired: true, SlotIndex: -1, ReleaseFunc: func() {}}, nil
 	}
-	return s.concurrencyService.AcquireAccountSlot(ctx, accountID, maxConcurrency)
+	// OAuth 账号使用基于槽位编号的并发控制
+	// 同一个用户 session 始终映射到同一个槽位，确保：
+	// 1. 同一 session 不会并发（槽位互斥）
+	// 2. 同一 session 每次请求使用相同的槽位（哈希映射）
+	if account.IsOAuth() && sessionHash != "" && account.Concurrency > 0 {
+		return s.concurrencyService.AcquireAccountSlotByIndex(ctx, account.ID, account.Concurrency, sessionHash)
+	}
+	return s.concurrencyService.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
 }
 
 func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
@@ -1635,7 +1647,14 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 						apiKeyID = apiKey.ID
 					}
 				}
-				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID, apiKeyID); err == nil && len(newBody) > 0 {
+				// 从 gin.Context 获取槽位编号（-1 表示未使用固定槽位）
+				slotIndex := -1
+				if slotVal, exists := c.Get("slot_index"); exists {
+					if idx, ok := slotVal.(int); ok {
+						slotIndex = idx
+					}
+				}
+				if newBody, err := s.identityService.RewriteUserID(body, account.ID, accountUUID, fp.ClientID, slotIndex, apiKeyID); err == nil && len(newBody) > 0 {
 					body = newBody
 				}
 			}

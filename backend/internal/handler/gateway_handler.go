@@ -127,8 +127,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	canWait, err := h.concurrencyHelper.IncrementWaitCount(c.Request.Context(), subject.UserID, maxWait)
 	if err != nil {
 		log.Printf("Increment wait count failed: %v", err)
-		// On error, allow request to proceed
-	} else if !canWait {
+		h.errorResponse(c, http.StatusInternalServerError, "api_error", "Internal error checking wait queue")
+		return
+	}
+	if !canWait {
 		h.errorResponse(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later")
 		return
 	}
@@ -195,6 +197,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			account := selection.Account
 
+			// 存储槽位编号供后续 RewriteUserID 使用
+			c.Set("slot_index", selection.SlotIndex)
+
 			// 检查预热请求拦截（在账号选择后、转发前检查）
 			if account.IsInterceptWarmupEnabled() && isWarmupRequest(body) {
 				if selection.Acquired && selection.ReleaseFunc != nil {
@@ -219,15 +224,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				canWait, err := h.concurrencyHelper.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
 				if err != nil {
 					log.Printf("Increment account wait count failed: %v", err)
-				} else if !canWait {
+					h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Internal error checking account wait queue", streamStarted)
+					return
+				}
+				if !canWait {
 					log.Printf("Account wait queue full: account=%d", account.ID)
 					h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
 					return
-				} else {
-					// Only set release function if increment succeeded
-					accountWaitRelease = func() {
-						h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
-					}
+				}
+				// Only set release function if increment succeeded
+				accountWaitRelease = func() {
+					h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
 				}
 
 				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
@@ -329,10 +336,40 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 		account := selection.Account
 
+		// 存储槽位编号供后续 RewriteUserID 使用
+		c.Set("slot_index", selection.SlotIndex)
+
+		// OAuth 账号：检查 session 互斥锁，防止同一 session 并发请求
+		var sessionMutexRelease func()
+		if account.IsOAuth() && sessionKey != "" {
+			releaseFunc, acquired, err := h.concurrencyHelper.AcquireSessionMutex(c.Request.Context(), account.ID, sessionKey)
+			if err != nil {
+				if selection.Acquired && selection.ReleaseFunc != nil {
+					selection.ReleaseFunc()
+				}
+				log.Printf("Session mutex acquire error: %v", err)
+				h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Internal error acquiring session lock", streamStarted)
+				return
+			}
+			if !acquired {
+				// 同一 session 有并发请求，拒绝
+				if selection.Acquired && selection.ReleaseFunc != nil {
+					selection.ReleaseFunc()
+				}
+				log.Printf("Session mutex blocked: account=%d, session=%s (concurrent request detected)", account.ID, sessionKey)
+				h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Concurrent request detected for this session, please wait and retry", streamStarted)
+				return
+			}
+			sessionMutexRelease = releaseFunc
+		}
+
 		// 检查预热请求拦截（在账号选择后、转发前检查）
 		if account.IsInterceptWarmupEnabled() && isWarmupRequest(body) {
 			if selection.Acquired && selection.ReleaseFunc != nil {
 				selection.ReleaseFunc()
+			}
+			if sessionMutexRelease != nil {
+				sessionMutexRelease()
 			}
 			if reqStream {
 				sendMockWarmupStream(c, reqModel)
@@ -347,21 +384,32 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		var accountWaitRelease func()
 		if !selection.Acquired {
 			if selection.WaitPlan == nil {
+				if sessionMutexRelease != nil {
+					sessionMutexRelease()
+				}
 				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts", streamStarted)
 				return
 			}
 			canWait, err := h.concurrencyHelper.IncrementAccountWaitCount(c.Request.Context(), account.ID, selection.WaitPlan.MaxWaiting)
 			if err != nil {
+				if sessionMutexRelease != nil {
+					sessionMutexRelease()
+				}
 				log.Printf("Increment account wait count failed: %v", err)
-			} else if !canWait {
+				h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Internal error checking account wait queue", streamStarted)
+				return
+			}
+			if !canWait {
+				if sessionMutexRelease != nil {
+					sessionMutexRelease()
+				}
 				log.Printf("Account wait queue full: account=%d", account.ID)
 				h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
 				return
-			} else {
-				// Only set release function if increment succeeded
-				accountWaitRelease = func() {
-					h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
-				}
+			}
+			// Only set release function if increment succeeded
+			accountWaitRelease = func() {
+				h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
 			}
 
 			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
@@ -376,6 +424,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				if accountWaitRelease != nil {
 					accountWaitRelease()
 				}
+				if sessionMutexRelease != nil {
+					sessionMutexRelease()
+				}
 				log.Printf("Account concurrency acquire failed: %v", err)
 				h.handleConcurrencyError(c, err, "account", streamStarted)
 				return
@@ -387,6 +438,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		// 账号槽位/等待计数需要在超时或断开时安全回收
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 		accountWaitRelease = wrapReleaseOnDone(c.Request.Context(), accountWaitRelease)
+		sessionMutexRelease = wrapReleaseOnDone(c.Request.Context(), sessionMutexRelease)
 
 		// 转发请求 - 根据账号平台分流
 		var result *service.ForwardResult
@@ -400,6 +452,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 		if accountWaitRelease != nil {
 			accountWaitRelease()
+		}
+		if sessionMutexRelease != nil {
+			sessionMutexRelease()
 		}
 		if err != nil {
 			var failoverErr *service.UpstreamFailoverError

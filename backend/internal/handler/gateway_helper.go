@@ -153,6 +153,26 @@ func (h *ConcurrencyHelper) DecrementAccountWaitCount(ctx context.Context, accou
 	h.concurrencyService.DecrementAccountWaitCount(ctx, accountID)
 }
 
+// AcquireSessionMutex acquires a mutex for a session to prevent concurrent requests.
+// Returns a release function that must be called when the request completes.
+// If the session already has an active request, returns (nil, false, nil).
+func (h *ConcurrencyHelper) AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string) (func(), bool, error) {
+	if h.concurrencyService == nil {
+		return func() {}, true, nil
+	}
+
+	result, err := h.concurrencyService.AcquireSessionMutex(ctx, accountID, sessionHash)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if !result.Acquired {
+		return nil, false, nil
+	}
+
+	return result.ReleaseFunc, true, nil
+}
+
 // AcquireUserSlotWithWait acquires a user concurrency slot, waiting if necessary.
 // For streaming requests, sends ping events during the wait.
 // streamStarted is updated if streaming response has begun.

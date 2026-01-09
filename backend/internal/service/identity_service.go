@@ -24,6 +24,17 @@ var (
 	userAgentVersionRegex = regexp.MustCompile(`/(\d+)\.(\d+)\.(\d+)`)
 )
 
+// Session ID 时间窗口轮换配置
+const (
+	// sessionWindowDays 定义 session ID 轮换周期（天）
+	// 每个周期结束后，槽位的 session ID 会自动更换
+	// 模拟用户偶尔重装/清缓存的行为
+	sessionWindowDays = 7
+
+	// sessionWindowSeconds 轮换周期（秒）
+	sessionWindowSeconds = sessionWindowDays * 24 * 3600
+)
+
 // 默认指纹值（当客户端未提供时使用）
 var defaultFingerprint = Fingerprint{
 	UserAgent:               "claude-cli/2.0.62 (external, cli)",
@@ -164,8 +175,9 @@ func (s *IdentityService) ApplyFingerprint(req *http.Request, fp *Fingerprint) {
 // 输出格式：user_{cachedClientID}_account_{accountUUID}_session_{newHash}
 // 目的：将不同用户的请求统一伪装成同一个身份，避免 Anthropic 检测到多个不同的 clientId
 // 如果请求没有 user_id 或格式不对，会生成一个新的 user_id
-// apiKeyID 用于区分不同的 API Key，确保每个 API Key 有独立的 session
-func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUID, cachedClientID string, apiKeyID int64) ([]byte, error) {
+// slotIndex: 并发槽位编号，>= 0 时使用槽位编号生成固定 session，< 0 时使用原有逻辑
+// apiKeyID 用于区分不同的 API Key（仅在 slotIndex < 0 时使用）
+func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUID, cachedClientID string, slotIndex int, apiKeyID int64) ([]byte, error) {
 	if len(body) == 0 || accountUUID == "" || cachedClientID == "" {
 		return body, nil
 	}
@@ -186,27 +198,50 @@ func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUI
 
 	var newUserID string
 
-	// 尝试匹配真实 Claude Code 格式: user_{64位hex}_account_{accountUuid}_session_{sessionUuid}
-	matches := userIDRegex.FindStringSubmatch(userID)
-	if matches != nil {
-		// 格式正确，重写 user_id
-		originalSessionUUID := matches[3]
-		// 生成新的session hash: SHA256(accountID::originalSessionUUID) -> UUID格式
-		seed := fmt.Sprintf("%d::%s", accountID, originalSessionUUID)
+	// 如果指定了槽位编号，使用槽位编号生成固定的 session
+	// 这确保同一个槽位始终使用同一个 session ID
+	if slotIndex >= 0 {
+		// 计算时间窗口编号，实现定期轮换
+		// 不同槽位错开轮换时间，避免同时更换所有 session
+		windowNumber := calculateWindowNumber(slotIndex)
+		seed := fmt.Sprintf("%d::slot::%d::window::%d", accountID, slotIndex, windowNumber)
 		newSessionHash := generateUUIDFromSeed(seed)
 		newUserID = fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
 	} else {
-		// 格式不对或没有 user_id，生成一个新的
-		// 使用 apiKeyID 作为 seed，确保每个 API Key 有独立的 session
-		seed := fmt.Sprintf("%d::apikey::%d", accountID, apiKeyID)
-		newSessionHash := generateUUIDFromSeed(seed)
-		newUserID = fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
+		// 原有逻辑：尝试匹配真实 Claude Code 格式
+		matches := userIDRegex.FindStringSubmatch(userID)
+		if matches != nil {
+			// 格式正确，重写 user_id
+			originalSessionUUID := matches[3]
+			// 生成新的session hash: SHA256(accountID::originalSessionUUID) -> UUID格式
+			seed := fmt.Sprintf("%d::%s", accountID, originalSessionUUID)
+			newSessionHash := generateUUIDFromSeed(seed)
+			newUserID = fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
+		} else {
+			// 格式不对或没有 user_id，生成一个新的
+			// 使用 apiKeyID 作为 seed，确保每个 API Key 有独立的 session
+			seed := fmt.Sprintf("%d::apikey::%d", accountID, apiKeyID)
+			newSessionHash := generateUUIDFromSeed(seed)
+			newUserID = fmt.Sprintf("user_%s_account_%s_session_%s", cachedClientID, accountUUID, newSessionHash)
+		}
 	}
 
 	metadata["user_id"] = newUserID
 	reqMap["metadata"] = metadata
 
 	return json.Marshal(reqMap)
+}
+
+// calculateWindowNumber 计算当前时间窗口编号
+// 不同槽位错开轮换时间，避免同时更换所有 session
+// slotIndex 用于计算偏移量，使不同槽位在不同时间轮换
+func calculateWindowNumber(slotIndex int) int64 {
+	now := time.Now().Unix()
+	// 每个槽位错开 1 天的偏移量
+	// 例如槽位 0 在第 0 天轮换，槽位 1 在第 1 天轮换，以此类推
+	slotOffsetSeconds := int64(slotIndex) * 24 * 3600
+	effectiveTime := now - slotOffsetSeconds
+	return effectiveTime / sessionWindowSeconds
 }
 
 // generateClientID 生成64位十六进制客户端ID（32字节随机数）

@@ -18,6 +18,19 @@ type ConcurrencyCache interface {
 	ReleaseAccountSlot(ctx context.Context, accountID int64, requestID string) error
 	GetAccountConcurrency(ctx context.Context, accountID int64) (int, error)
 
+	// 按指定槽位编号获取/释放槽位（用于 session 绑定）
+	// 槽位编号格式: slot_{index}，确保同一个用户 session 始终映射到同一个槽位
+	AcquireAccountSlotByIndex(ctx context.Context, accountID int64, slotIndex int) (bool, error)
+	ReleaseAccountSlotByIndex(ctx context.Context, accountID int64, slotIndex int) error
+
+	// 优先获取目标槽位，失败则获取其他可用槽位（降级机制）
+	// 返回实际获取到的槽位编号，-1 表示全部满了
+	AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error)
+
+	// Session 互斥锁：防止同一 session 并发请求
+	AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) (bool, error)
+	ReleaseSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) error
+
 	// 账号等待队列（账号级）
 	IncrementAccountWaitCount(ctx context.Context, accountID int64, maxWait int) (bool, error)
 	DecrementAccountWaitCount(ctx context.Context, accountID int64) error
@@ -72,7 +85,8 @@ func NewConcurrencyService(cache ConcurrencyCache) *ConcurrencyService {
 // AcquireResult represents the result of acquiring a concurrency slot
 type AcquireResult struct {
 	Acquired    bool
-	ReleaseFunc func() // Must be called when done (typically via defer)
+	SlotIndex   int      // 槽位编号（-1 表示未使用固定槽位）
+	ReleaseFunc func()   // Must be called when done (typically via defer)
 }
 
 type AccountWithConcurrency struct {
@@ -95,6 +109,7 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 	if maxConcurrency <= 0 {
 		return &AcquireResult{
 			Acquired:    true,
+			SlotIndex:   -1,
 			ReleaseFunc: func() {}, // no-op
 		}, nil
 	}
@@ -109,7 +124,8 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 
 	if acquired {
 		return &AcquireResult{
-			Acquired: true,
+			Acquired:  true,
+			SlotIndex: -1,
 			ReleaseFunc: func() {
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
@@ -122,8 +138,71 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 
 	return &AcquireResult{
 		Acquired:    false,
+		SlotIndex:   -1,
 		ReleaseFunc: nil,
 	}, nil
+}
+
+// AcquireAccountSlotByIndex attempts to acquire a specific slot for an account by index.
+// The slot index is determined by hashing the user's session, ensuring the same user session
+// always maps to the same slot. If the target slot is occupied, it falls back to other available slots.
+// Returns a release function that MUST be called when the request completes.
+func (s *ConcurrencyService) AcquireAccountSlotByIndex(ctx context.Context, accountID int64, maxConcurrency int, sessionHash string) (*AcquireResult, error) {
+	// If maxConcurrency is 0 or negative, no limit
+	if maxConcurrency <= 0 {
+		return &AcquireResult{
+			Acquired:    true,
+			SlotIndex:   -1,
+			ReleaseFunc: func() {}, // no-op
+		}, nil
+	}
+
+	// Calculate target slot index from session hash
+	// This ensures the same session always maps to the same slot
+	targetSlot := hashToSlotIndex(sessionHash, maxConcurrency)
+
+	// 使用降级机制：优先目标槽位，失败则尝试其他槽位
+	acquiredSlot, err := s.cache.AcquireSlotWithFallback(ctx, accountID, targetSlot, maxConcurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	if acquiredSlot >= 0 {
+		// 记录 session-slot 绑定：target vs acquired 不同说明发生了 fallback
+		log.Printf("[session-slot] account=%d session=%.16s target=%d acquired=%d",
+			accountID, sessionHash, targetSlot, acquiredSlot)
+		return &AcquireResult{
+			Acquired:  true,
+			SlotIndex: acquiredSlot,
+			ReleaseFunc: func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.cache.ReleaseAccountSlotByIndex(bgCtx, accountID, acquiredSlot); err != nil {
+					log.Printf("Warning: failed to release account slot for %d (slot=%d): %v", accountID, acquiredSlot, err)
+				}
+			},
+		}, nil
+	}
+
+	// 全部槽位都满了
+	return &AcquireResult{
+		Acquired:    false,
+		SlotIndex:   targetSlot, // 返回目标槽位，供排队等待使用
+		ReleaseFunc: nil,
+	}, nil
+}
+
+// hashToSlotIndex converts a session hash string to a slot index (0 to maxConcurrency-1)
+func hashToSlotIndex(sessionHash string, maxConcurrency int) int {
+	if maxConcurrency <= 0 {
+		return 0
+	}
+	// Simple hash: sum of bytes mod maxConcurrency
+	var sum int
+	for _, b := range []byte(sessionHash) {
+		sum += int(b)
+	}
+	return sum % maxConcurrency
 }
 
 // AcquireUserSlot attempts to acquire a concurrency slot for a user.
@@ -134,6 +213,7 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 	if maxConcurrency <= 0 {
 		return &AcquireResult{
 			Acquired:    true,
+			SlotIndex:   -1,
 			ReleaseFunc: func() {}, // no-op
 		}, nil
 	}
@@ -148,7 +228,8 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 
 	if acquired {
 		return &AcquireResult{
-			Acquired: true,
+			Acquired:  true,
+			SlotIndex: -1,
 			ReleaseFunc: func() {
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
@@ -161,6 +242,7 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 
 	return &AcquireResult{
 		Acquired:    false,
+		SlotIndex:   -1,
 		ReleaseFunc: nil,
 	}, nil
 }
@@ -180,9 +262,7 @@ func (s *ConcurrencyService) IncrementWaitCount(ctx context.Context, userID int6
 
 	result, err := s.cache.IncrementWaitCount(ctx, userID, maxWait)
 	if err != nil {
-		// On error, allow the request to proceed (fail open)
-		log.Printf("Warning: increment wait count failed for user %d: %v", userID, err)
-		return true, nil
+		return false, fmt.Errorf("increment wait count failed for user %d: %w", userID, err)
 	}
 	return result, nil
 }
@@ -211,8 +291,7 @@ func (s *ConcurrencyService) IncrementAccountWaitCount(ctx context.Context, acco
 
 	result, err := s.cache.IncrementAccountWaitCount(ctx, accountID, maxWait)
 	if err != nil {
-		log.Printf("Warning: increment wait count failed for account %d: %v", accountID, err)
-		return true, nil
+		return false, fmt.Errorf("increment wait count failed for account %d: %w", accountID, err)
 	}
 	return result, nil
 }
@@ -310,4 +389,54 @@ func (s *ConcurrencyService) GetAccountConcurrencyBatch(ctx context.Context, acc
 	}
 
 	return result, nil
+}
+
+// ============================================
+// Session Mutex Methods (防止同一 session 并发)
+// ============================================
+
+// SessionMutexResult represents the result of acquiring a session mutex
+type SessionMutexResult struct {
+	Acquired    bool
+	RequestID   string   // 用于释放锁
+	ReleaseFunc func()   // 释放锁的函数
+}
+
+// AcquireSessionMutex attempts to acquire a mutex for a session.
+// This prevents the same session from having concurrent requests.
+// Returns false if the session already has an active request.
+func (s *ConcurrencyService) AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string) (*SessionMutexResult, error) {
+	if s.cache == nil || sessionHash == "" {
+		// 没有缓存或没有 session，跳过互斥检查
+		return &SessionMutexResult{
+			Acquired:    true,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	requestID := generateRequestID()
+	acquired, err := s.cache.AcquireSessionMutex(ctx, accountID, sessionHash, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("acquire session mutex failed: %w", err)
+	}
+
+	if !acquired {
+		// 锁已被占用，同一 session 有并发请求
+		return &SessionMutexResult{
+			Acquired:    false,
+			ReleaseFunc: nil,
+		}, nil
+	}
+
+	return &SessionMutexResult{
+		Acquired:  true,
+		RequestID: requestID,
+		ReleaseFunc: func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := s.cache.ReleaseSessionMutex(bgCtx, accountID, sessionHash, requestID); err != nil {
+				log.Printf("Warning: failed to release session mutex for account %d, session %s: %v", accountID, sessionHash, err)
+			}
+		},
+	}, nil
 }
