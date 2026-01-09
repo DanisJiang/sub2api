@@ -123,14 +123,18 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 	}
 
 	if acquired {
+		log.Printf("[slot-acquire] account=%d req=%.8s acquired (non-session)", accountID, requestID)
 		return &AcquireResult{
 			Acquired:  true,
 			SlotIndex: -1,
 			ReleaseFunc: func() {
+				log.Printf("[slot-release] account=%d req=%.8s releasing", accountID, requestID)
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := s.cache.ReleaseAccountSlot(bgCtx, accountID, requestID); err != nil {
-					log.Printf("Warning: failed to release account slot for %d (req=%s): %v", accountID, requestID, err)
+					log.Printf("[slot-release] account=%d req=%.8s FAILED: %v", accountID, requestID, err)
+				} else {
+					log.Printf("[slot-release] account=%d req=%.8s success", accountID, requestID)
 				}
 			},
 		}, nil
@@ -175,10 +179,13 @@ func (s *ConcurrencyService) AcquireAccountSlotByIndex(ctx context.Context, acco
 			Acquired:  true,
 			SlotIndex: acquiredSlot,
 			ReleaseFunc: func() {
+				log.Printf("[slot-release] account=%d slot=%d releasing", accountID, acquiredSlot)
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := s.cache.ReleaseAccountSlotByIndex(bgCtx, accountID, acquiredSlot); err != nil {
-					log.Printf("Warning: failed to release account slot for %d (slot=%d): %v", accountID, acquiredSlot, err)
+					log.Printf("[slot-release] account=%d slot=%d FAILED: %v", accountID, acquiredSlot, err)
+				} else {
+					log.Printf("[slot-release] account=%d slot=%d success", accountID, acquiredSlot)
 				}
 			},
 		}, nil
@@ -227,14 +234,18 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 	}
 
 	if acquired {
+		log.Printf("[user-slot] user=%d req=%.8s acquired", userID, requestID)
 		return &AcquireResult{
 			Acquired:  true,
 			SlotIndex: -1,
 			ReleaseFunc: func() {
+				log.Printf("[user-slot-release] user=%d req=%.8s releasing", userID, requestID)
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := s.cache.ReleaseUserSlot(bgCtx, userID, requestID); err != nil {
-					log.Printf("Warning: failed to release user slot for %d (req=%s): %v", userID, requestID, err)
+					log.Printf("[user-slot-release] user=%d req=%.8s FAILED: %v", userID, requestID, err)
+				} else {
+					log.Printf("[user-slot-release] user=%d req=%.8s success", userID, requestID)
 				}
 			},
 		}, nil
@@ -422,20 +433,25 @@ func (s *ConcurrencyService) AcquireSessionMutex(ctx context.Context, accountID 
 
 	if !acquired {
 		// 锁已被占用，同一 session 有并发请求
+		log.Printf("[session-mutex] account=%d session=%.16s BLOCKED (concurrent request)", accountID, sessionHash)
 		return &SessionMutexResult{
 			Acquired:    false,
 			ReleaseFunc: nil,
 		}, nil
 	}
 
+	log.Printf("[session-mutex] account=%d session=%.16s req=%.8s acquired", accountID, sessionHash, requestID)
 	return &SessionMutexResult{
 		Acquired:  true,
 		RequestID: requestID,
 		ReleaseFunc: func() {
+			log.Printf("[session-mutex-release] account=%d session=%.16s req=%.8s releasing", accountID, sessionHash, requestID)
 			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.cache.ReleaseSessionMutex(bgCtx, accountID, sessionHash, requestID); err != nil {
-				log.Printf("Warning: failed to release session mutex for account %d, session %s: %v", accountID, sessionHash, err)
+				log.Printf("[session-mutex-release] account=%d session=%.16s req=%.8s FAILED: %v", accountID, sessionHash, requestID, err)
+			} else {
+				log.Printf("[session-mutex-release] account=%d session=%.16s req=%.8s success", accountID, sessionHash, requestID)
 			}
 		},
 	}, nil

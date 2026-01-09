@@ -456,14 +456,15 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		} else {
 			result, err = h.gatewayService.Forward(c.Request.Context(), c, account, parsedReq)
 		}
-		if accountReleaseFunc != nil {
-			accountReleaseFunc()
+		// 立即释放资源
+		if sessionMutexRelease != nil {
+			sessionMutexRelease()
 		}
 		if accountWaitRelease != nil {
 			accountWaitRelease()
 		}
-		if sessionMutexRelease != nil {
-			sessionMutexRelease()
+		if accountReleaseFunc != nil {
+			accountReleaseFunc()
 		}
 		if err != nil {
 			var failoverErr *service.UpstreamFailoverError
