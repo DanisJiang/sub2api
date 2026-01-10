@@ -666,6 +666,11 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		group.AllowedModels = *input.AllowedModels
 	}
 
+	// 模型映射
+	if input.ModelMapping != nil {
+		group.ModelMapping = *input.ModelMapping
+	}
+
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
 	}
