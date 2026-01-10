@@ -1065,6 +1065,16 @@ func FallbackGroupIDNotNil() predicate.Group {
 	return predicate.Group(sql.FieldNotNull(FieldFallbackGroupID))
 }
 
+// AllowedModelsIsNil applies the IsNil predicate on the "allowed_models" field.
+func AllowedModelsIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldAllowedModels))
+}
+
+// AllowedModelsNotNil applies the NotNil predicate on the "allowed_models" field.
+func AllowedModelsNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldAllowedModels))
+}
+
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.
 func HasAPIKeys() predicate.Group {
 	return predicate.Group(func(s *sql.Selector) {

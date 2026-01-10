@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -55,6 +56,8 @@ type Group struct {
 	ClaudeCodeOnly bool `json:"claude_code_only,omitempty"`
 	// 非 Claude Code 请求降级使用的分组 ID
 	FallbackGroupID *int64 `json:"fallback_group_id,omitempty"`
+	// 模型白名单，为空表示允许所有模型
+	AllowedModels []string `json:"allowed_models,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupQuery when eager-loading is set.
 	Edges        GroupEdges `json:"edges"`
@@ -161,6 +164,8 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case group.FieldAllowedModels:
+			values[i] = new([]byte)
 		case group.FieldIsExclusive, group.FieldClaudeCodeOnly:
 			values[i] = new(sql.NullBool)
 		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
@@ -315,6 +320,14 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				_m.FallbackGroupID = new(int64)
 				*_m.FallbackGroupID = value.Int64
 			}
+		case group.FieldAllowedModels:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field allowed_models", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.AllowedModels); err != nil {
+					return fmt.Errorf("unmarshal field allowed_models: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -465,6 +478,9 @@ func (_m *Group) String() string {
 		builder.WriteString("fallback_group_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("allowed_models=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AllowedModels))
 	builder.WriteByte(')')
 	return builder.String()
 }

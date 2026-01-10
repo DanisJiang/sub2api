@@ -113,6 +113,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 
+	// 【新增】检查分组模型白名单
+	if apiKey.Group != nil && !apiKey.Group.IsModelAllowed(reqModel) {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error",
+			fmt.Sprintf("model '%s' is not allowed in this group", reqModel))
+		return
+	}
+
 	// Track if we've started streaming (for error handling)
 	streamStarted := false
 

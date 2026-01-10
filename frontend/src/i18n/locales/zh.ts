@@ -946,6 +946,12 @@ export default {
         fallbackGroup: '降级分组',
         fallbackHint: '非 Claude Code 请求将使用此分组，留空则直接拒绝',
         noFallback: '不降级（直接拒绝）'
+      },
+      modelWhitelist: {
+        title: '模型白名单',
+        tooltip: '设置此分组允许的模型列表。留空表示允许所有模型。',
+        description: '选择允许使用的模型，留空表示不限制',
+        selected: '已选择 {count} 个模型'
       }
     },
 

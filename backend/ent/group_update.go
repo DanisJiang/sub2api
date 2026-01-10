@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -392,6 +393,24 @@ func (_u *GroupUpdate) AddFallbackGroupID(v int64) *GroupUpdate {
 // ClearFallbackGroupID clears the value of the "fallback_group_id" field.
 func (_u *GroupUpdate) ClearFallbackGroupID() *GroupUpdate {
 	_u.mutation.ClearFallbackGroupID()
+	return _u
+}
+
+// SetAllowedModels sets the "allowed_models" field.
+func (_u *GroupUpdate) SetAllowedModels(v []string) *GroupUpdate {
+	_u.mutation.SetAllowedModels(v)
+	return _u
+}
+
+// AppendAllowedModels appends value to the "allowed_models" field.
+func (_u *GroupUpdate) AppendAllowedModels(v []string) *GroupUpdate {
+	_u.mutation.AppendAllowedModels(v)
+	return _u
+}
+
+// ClearAllowedModels clears the value of the "allowed_models" field.
+func (_u *GroupUpdate) ClearAllowedModels() *GroupUpdate {
+	_u.mutation.ClearAllowedModels()
 	return _u
 }
 
@@ -802,6 +821,17 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.FallbackGroupIDCleared() {
 		_spec.ClearField(group.FieldFallbackGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.AllowedModels(); ok {
+		_spec.SetField(group.FieldAllowedModels, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedAllowedModels(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, group.FieldAllowedModels, value)
+		})
+	}
+	if _u.mutation.AllowedModelsCleared() {
+		_spec.ClearField(group.FieldAllowedModels, field.TypeJSON)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1478,6 +1508,24 @@ func (_u *GroupUpdateOne) ClearFallbackGroupID() *GroupUpdateOne {
 	return _u
 }
 
+// SetAllowedModels sets the "allowed_models" field.
+func (_u *GroupUpdateOne) SetAllowedModels(v []string) *GroupUpdateOne {
+	_u.mutation.SetAllowedModels(v)
+	return _u
+}
+
+// AppendAllowedModels appends value to the "allowed_models" field.
+func (_u *GroupUpdateOne) AppendAllowedModels(v []string) *GroupUpdateOne {
+	_u.mutation.AppendAllowedModels(v)
+	return _u
+}
+
+// ClearAllowedModels clears the value of the "allowed_models" field.
+func (_u *GroupUpdateOne) ClearAllowedModels() *GroupUpdateOne {
+	_u.mutation.ClearAllowedModels()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1915,6 +1963,17 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if _u.mutation.FallbackGroupIDCleared() {
 		_spec.ClearField(group.FieldFallbackGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.AllowedModels(); ok {
+		_spec.SetField(group.FieldAllowedModels, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedAllowedModels(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, group.FieldAllowedModels, value)
+		})
+	}
+	if _u.mutation.AllowedModelsCleared() {
+		_spec.ClearField(group.FieldAllowedModels, field.TypeJSON)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

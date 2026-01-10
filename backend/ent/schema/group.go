@@ -95,6 +95,11 @@ func (Group) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			Comment("非 Claude Code 请求降级使用的分组 ID"),
+
+		// 模型白名单 (added by migration 030)
+		field.JSON("allowed_models", []string{}).
+			Optional().
+			Comment("模型白名单，为空表示允许所有模型"),
 	}
 }
 

@@ -869,6 +869,12 @@ export default {
         fallbackGroup: 'Fallback Group',
         fallbackHint: 'Non-Claude Code requests will use this group. Leave empty to reject directly.',
         noFallback: 'No Fallback (Reject)'
+      },
+      modelWhitelist: {
+        title: 'Model Whitelist',
+        tooltip: 'Set the list of models allowed in this group. Leave empty to allow all models.',
+        description: 'Select allowed models, leave empty for no restrictions',
+        selected: '{count} model(s) selected'
       }
     },
 

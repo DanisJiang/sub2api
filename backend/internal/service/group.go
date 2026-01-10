@@ -26,6 +26,9 @@ type Group struct {
 	ClaudeCodeOnly  bool
 	FallbackGroupID *int64
 
+	// 模型白名单
+	AllowedModels []string
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -71,4 +74,18 @@ func (g *Group) GetImagePrice(imageSize string) *float64 {
 		// 未知尺寸默认按 2K 计费
 		return g.ImagePrice2K
 	}
+}
+
+// IsModelAllowed 检查模型是否在白名单中
+// 空白名单表示允许所有模型
+func (g *Group) IsModelAllowed(model string) bool {
+	if len(g.AllowedModels) == 0 {
+		return true // 空白名单允许所有
+	}
+	for _, m := range g.AllowedModels {
+		if m == model {
+			return true
+		}
+	}
+	return false
 }

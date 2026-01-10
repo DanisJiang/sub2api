@@ -286,6 +286,12 @@ func (_c *GroupCreate) SetNillableFallbackGroupID(v *int64) *GroupCreate {
 	return _c
 }
 
+// SetAllowedModels sets the "allowed_models" field.
+func (_c *GroupCreate) SetAllowedModels(v []string) *GroupCreate {
+	_c.mutation.SetAllowedModels(v)
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -612,6 +618,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.FallbackGroupID(); ok {
 		_spec.SetField(group.FieldFallbackGroupID, field.TypeInt64, value)
 		_node.FallbackGroupID = &value
+	}
+	if value, ok := _c.mutation.AllowedModels(); ok {
+		_spec.SetField(group.FieldAllowedModels, field.TypeJSON, value)
+		_node.AllowedModels = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1093,6 +1103,24 @@ func (u *GroupUpsert) ClearFallbackGroupID() *GroupUpsert {
 	return u
 }
 
+// SetAllowedModels sets the "allowed_models" field.
+func (u *GroupUpsert) SetAllowedModels(v []string) *GroupUpsert {
+	u.Set(group.FieldAllowedModels, v)
+	return u
+}
+
+// UpdateAllowedModels sets the "allowed_models" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateAllowedModels() *GroupUpsert {
+	u.SetExcluded(group.FieldAllowedModels)
+	return u
+}
+
+// ClearAllowedModels clears the value of the "allowed_models" field.
+func (u *GroupUpsert) ClearAllowedModels() *GroupUpsert {
+	u.SetNull(group.FieldAllowedModels)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1513,6 +1541,27 @@ func (u *GroupUpsertOne) UpdateFallbackGroupID() *GroupUpsertOne {
 func (u *GroupUpsertOne) ClearFallbackGroupID() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearFallbackGroupID()
+	})
+}
+
+// SetAllowedModels sets the "allowed_models" field.
+func (u *GroupUpsertOne) SetAllowedModels(v []string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetAllowedModels(v)
+	})
+}
+
+// UpdateAllowedModels sets the "allowed_models" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateAllowedModels() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateAllowedModels()
+	})
+}
+
+// ClearAllowedModels clears the value of the "allowed_models" field.
+func (u *GroupUpsertOne) ClearAllowedModels() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearAllowedModels()
 	})
 }
 
@@ -2102,6 +2151,27 @@ func (u *GroupUpsertBulk) UpdateFallbackGroupID() *GroupUpsertBulk {
 func (u *GroupUpsertBulk) ClearFallbackGroupID() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearFallbackGroupID()
+	})
+}
+
+// SetAllowedModels sets the "allowed_models" field.
+func (u *GroupUpsertBulk) SetAllowedModels(v []string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetAllowedModels(v)
+	})
+}
+
+// UpdateAllowedModels sets the "allowed_models" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateAllowedModels() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateAllowedModels()
+	})
+}
+
+// ClearAllowedModels clears the value of the "allowed_models" field.
+func (u *GroupUpsertBulk) ClearAllowedModels() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearAllowedModels()
 	})
 }
 

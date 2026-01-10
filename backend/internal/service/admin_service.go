@@ -103,8 +103,9 @@ type CreateGroupInput struct {
 	ImagePrice1K    *float64
 	ImagePrice2K    *float64
 	ImagePrice4K    *float64
-	ClaudeCodeOnly  bool   // 仅允许 Claude Code 客户端
-	FallbackGroupID *int64 // 降级分组 ID
+	ClaudeCodeOnly  bool     // 仅允许 Claude Code 客户端
+	FallbackGroupID *int64   // 降级分组 ID
+	AllowedModels   []string // 模型白名单
 }
 
 type UpdateGroupInput struct {
@@ -122,8 +123,9 @@ type UpdateGroupInput struct {
 	ImagePrice1K    *float64
 	ImagePrice2K    *float64
 	ImagePrice4K    *float64
-	ClaudeCodeOnly  *bool  // 仅允许 Claude Code 客户端
-	FallbackGroupID *int64 // 降级分组 ID
+	ClaudeCodeOnly  *bool     // 仅允许 Claude Code 客户端
+	FallbackGroupID *int64    // 降级分组 ID
+	AllowedModels   *[]string // 模型白名单（使用指针区分"未提供"和"设置为空数组"）
 }
 
 type CreateAccountInput struct {
@@ -543,6 +545,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ImagePrice4K:     imagePrice4K,
 		ClaudeCodeOnly:   input.ClaudeCodeOnly,
 		FallbackGroupID:  input.FallbackGroupID,
+		AllowedModels:    input.AllowedModels,
 	}
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
@@ -654,6 +657,11 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 			// 传入 0 或负数表示清除降级分组
 			group.FallbackGroupID = nil
 		}
+	}
+
+	// 模型白名单
+	if input.AllowedModels != nil {
+		group.AllowedModels = *input.AllowedModels
 	}
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {

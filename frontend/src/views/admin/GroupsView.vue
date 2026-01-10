@@ -459,6 +459,57 @@
           </div>
         </div>
 
+        <!-- 模型白名单 -->
+        <div class="border-t pt-4">
+          <div class="mb-1.5 flex items-center gap-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.groups.modelWhitelist.title') }}
+            </label>
+            <div class="group relative inline-flex">
+              <Icon
+                name="questionCircle"
+                size="sm"
+                :stroke-width="2"
+                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
+              />
+              <div class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800">
+                  <p class="text-xs leading-relaxed text-gray-300">
+                    {{ t('admin.groups.modelWhitelist.tooltip') }}
+                  </p>
+                  <div class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.groups.modelWhitelist.description') }}
+          </p>
+          <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded border border-gray-200 p-2 dark:border-gray-700">
+            <label
+              v-for="model in availableModelsForCreate"
+              :key="model.value"
+              class="flex cursor-pointer items-center rounded border p-2 transition-colors"
+              :class="
+                createForm.allowed_models.includes(model.value)
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                  : 'border-gray-200 dark:border-gray-700'
+              "
+            >
+              <input
+                v-model="createForm.allowed_models"
+                type="checkbox"
+                :value="model.value"
+                class="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span class="text-xs text-gray-700 dark:text-gray-300 truncate">{{ model.label }}</span>
+            </label>
+          </div>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.groups.modelWhitelist.selected', { count: createForm.allowed_models.length }) }}
+          </p>
+        </div>
+
       </form>
 
       <template #footer>
@@ -760,6 +811,57 @@
           </div>
         </div>
 
+        <!-- 模型白名单 -->
+        <div class="border-t pt-4">
+          <div class="mb-1.5 flex items-center gap-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.groups.modelWhitelist.title') }}
+            </label>
+            <div class="group relative inline-flex">
+              <Icon
+                name="questionCircle"
+                size="sm"
+                :stroke-width="2"
+                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
+              />
+              <div class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800">
+                  <p class="text-xs leading-relaxed text-gray-300">
+                    {{ t('admin.groups.modelWhitelist.tooltip') }}
+                  </p>
+                  <div class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.groups.modelWhitelist.description') }}
+          </p>
+          <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded border border-gray-200 p-2 dark:border-gray-700">
+            <label
+              v-for="model in availableModelsForEdit"
+              :key="model.value"
+              class="flex cursor-pointer items-center rounded border p-2 transition-colors"
+              :class="
+                editForm.allowed_models.includes(model.value)
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                  : 'border-gray-200 dark:border-gray-700'
+              "
+            >
+              <input
+                v-model="editForm.allowed_models"
+                type="checkbox"
+                :value="model.value"
+                class="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span class="text-xs text-gray-700 dark:text-gray-300 truncate">{{ model.label }}</span>
+            </label>
+          </div>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.groups.modelWhitelist.selected', { count: editForm.allowed_models.length }) }}
+          </p>
+        </div>
+
       </form>
 
       <template #footer>
@@ -832,6 +934,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { getModelsByPlatform } from '@/composables/useModelWhitelist'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -915,6 +1018,16 @@ const fallbackGroupOptionsForEdit = computed(() => {
   return options
 })
 
+// 获取当前平台可用的模型列表（创建表单）
+const availableModelsForCreate = computed(() => {
+  return getModelsByPlatform(createForm.platform).map(m => ({ value: m, label: m }))
+})
+
+// 获取当前平台可用的模型列表（编辑表单）
+const availableModelsForEdit = computed(() => {
+  return getModelsByPlatform(editForm.platform).map(m => ({ value: m, label: m }))
+})
+
 const groups = ref<Group[]>([])
 const loading = ref(false)
 const searchQuery = ref('')
@@ -965,7 +1078,9 @@ const createForm = reactive({
   image_price_4k: null as number | null,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
-  fallback_group_id: null as number | null
+  fallback_group_id: null as number | null,
+  // 模型白名单
+  allowed_models: [] as string[]
 })
 
 const editForm = reactive({
@@ -985,7 +1100,9 @@ const editForm = reactive({
   image_price_4k: null as number | null,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
-  fallback_group_id: null as number | null
+  fallback_group_id: null as number | null,
+  // 模型白名单
+  allowed_models: [] as string[]
 })
 
 // 根据分组类型返回不同的删除确认消息
@@ -1057,6 +1174,7 @@ const closeCreateModal = () => {
   createForm.image_price_4k = null
   createForm.claude_code_only = false
   createForm.fallback_group_id = null
+  createForm.allowed_models = []
 }
 
 const handleCreateGroup = async () => {
@@ -1100,6 +1218,7 @@ const handleEdit = (group: Group) => {
   editForm.image_price_4k = group.image_price_4k
   editForm.claude_code_only = group.claude_code_only || false
   editForm.fallback_group_id = group.fallback_group_id
+  editForm.allowed_models = group.allowed_models || []
   showEditModal.value = true
 }
 
@@ -1162,6 +1281,14 @@ watch(
       createForm.rate_multiplier = 1.0
       createForm.is_exclusive = true
     }
+  }
+)
+
+// 监听平台变化，清除已选择的模型（因为不同平台有不同的模型列表）
+watch(
+  () => createForm.platform,
+  () => {
+    createForm.allowed_models = []
   }
 )
 

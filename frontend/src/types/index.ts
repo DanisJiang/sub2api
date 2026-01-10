@@ -266,6 +266,8 @@ export interface Group {
   // Claude Code 客户端限制
   claude_code_only: boolean
   fallback_group_id: number | null
+  // 模型白名单
+  allowed_models: string[]
   account_count?: number
   created_at: string
   updated_at: string

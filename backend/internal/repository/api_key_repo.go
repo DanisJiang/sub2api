@@ -327,6 +327,7 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		DefaultValidityDays: g.DefaultValidityDays,
 		ClaudeCodeOnly:      g.ClaudeCodeOnly,
 		FallbackGroupID:     g.FallbackGroupID,
+		AllowedModels:       g.AllowedModels,
 		CreatedAt:           g.CreatedAt,
 		UpdatedAt:           g.UpdatedAt,
 	}
