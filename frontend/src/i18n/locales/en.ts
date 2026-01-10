@@ -110,6 +110,7 @@ export default {
     edit: 'Edit',
     create: 'Create',
     update: 'Update',
+    add: 'Add',
     confirm: 'Confirm',
     reset: 'Reset',
     search: 'Search',
