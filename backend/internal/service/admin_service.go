@@ -548,6 +548,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ClaudeCodeOnly:   input.ClaudeCodeOnly,
 		FallbackGroupID:  input.FallbackGroupID,
 		AllowedModels:    input.AllowedModels,
+		ModelMapping:     input.ModelMapping,
 	}
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
