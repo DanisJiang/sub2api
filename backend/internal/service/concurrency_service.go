@@ -31,6 +31,11 @@ type ConcurrencyCache interface {
 	AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) (bool, error)
 	ReleaseSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) error
 
+	// Session-aware 槽位管理（用于 Haiku 模型并行）
+	// 同一 session 可以共享槽位（最多 3 个并行），不同 session 不能共享
+	AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, requestID string) (bool, error)
+	ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string) error
+
 	// 账号等待队列（账号级）
 	IncrementAccountWaitCount(ctx context.Context, accountID int64, maxWait int) (bool, error)
 	DecrementAccountWaitCount(ctx context.Context, accountID int64) error
@@ -470,5 +475,120 @@ func (s *ConcurrencyService) AcquireSessionMutex(ctx context.Context, accountID 
 				log.Printf("[session-mutex-release] account=%d session=%.16s req=%.8s success", accountID, sessionHash, requestID)
 			}
 		},
+	}, nil
+}
+
+// HaikuSlotResult represents the result of acquiring a Haiku slot
+type HaikuSlotResult struct {
+	Acquired    bool
+	SlotIndex   int
+	ReleaseFunc func()
+}
+
+// AcquireSlotForHaiku attempts to acquire a slot for Haiku model requests.
+// Unlike regular slot acquisition, this allows the same session to have multiple
+// concurrent requests sharing the same slot (up to 3 parallel requests).
+// Different sessions cannot share the same slot.
+func (s *ConcurrencyService) AcquireSlotForHaiku(ctx context.Context, accountID int64, maxConcurrency int, sessionHash string) (*HaikuSlotResult, error) {
+	if s.cache == nil {
+		return &HaikuSlotResult{
+			Acquired:    true,
+			SlotIndex:   -1,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	if maxConcurrency <= 0 {
+		return &HaikuSlotResult{
+			Acquired:    true,
+			SlotIndex:   -1,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	// Calculate target slot from session hash
+	targetSlot := hashToSlotIndex(sessionHash, maxConcurrency)
+	requestID := generateRequestID()
+
+	// Try to acquire the target slot with session awareness
+	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, targetSlot, sessionHash, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("acquire haiku slot failed: %w", err)
+	}
+
+	if acquired {
+		log.Printf("[haiku-slot] account=%d session=%.16s slot=%d req=%.8s acquired",
+			accountID, sessionHash, targetSlot, requestID)
+		return &HaikuSlotResult{
+			Acquired:  true,
+			SlotIndex: targetSlot,
+			ReleaseFunc: func() {
+				log.Printf("[haiku-slot-release] account=%d session=%.16s slot=%d releasing",
+					accountID, sessionHash, targetSlot)
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, targetSlot, sessionHash); err != nil {
+					log.Printf("[haiku-slot-release] account=%d slot=%d FAILED: %v", accountID, targetSlot, err)
+				} else {
+					log.Printf("[haiku-slot-release] account=%d slot=%d success", accountID, targetSlot)
+				}
+			},
+		}, nil
+	}
+
+	// Slot is occupied by another session, return not acquired
+	// The caller should handle this like a normal slot acquisition failure (fallback or wait)
+	log.Printf("[haiku-slot] account=%d session=%.16s slot=%d BLOCKED (other session)", accountID, sessionHash, targetSlot)
+	return &HaikuSlotResult{
+		Acquired:  false,
+		SlotIndex: targetSlot,
+	}, nil
+}
+
+// AcquireSlotForHaikuByIndex attempts to acquire a specific slot for Haiku model requests.
+// Unlike AcquireSlotForHaiku which calculates slot from hash, this method uses the given slot index.
+// This is used when we want to "upgrade" a regular slot to a Haiku slot.
+func (s *ConcurrencyService) AcquireSlotForHaikuByIndex(ctx context.Context, accountID int64, slotIndex int, sessionHash string) (*HaikuSlotResult, error) {
+	if s.cache == nil {
+		return &HaikuSlotResult{
+			Acquired:    true,
+			SlotIndex:   slotIndex,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	requestID := generateRequestID()
+
+	// Try to acquire the specified slot with session awareness
+	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, slotIndex, sessionHash, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("acquire haiku slot by index failed: %w", err)
+	}
+
+	if acquired {
+		log.Printf("[haiku-slot] account=%d session=%.16s slot=%d req=%.8s acquired (by index)",
+			accountID, sessionHash, slotIndex, requestID)
+		return &HaikuSlotResult{
+			Acquired:  true,
+			SlotIndex: slotIndex,
+			ReleaseFunc: func() {
+				log.Printf("[haiku-slot-release] account=%d session=%.16s slot=%d releasing",
+					accountID, sessionHash, slotIndex)
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, slotIndex, sessionHash); err != nil {
+					log.Printf("[haiku-slot-release] account=%d slot=%d FAILED: %v", accountID, slotIndex, err)
+				} else {
+					log.Printf("[haiku-slot-release] account=%d slot=%d success", accountID, slotIndex)
+				}
+			},
+		}, nil
+	}
+
+	// Slot is occupied by another session
+	log.Printf("[haiku-slot] account=%d session=%.16s slot=%d BLOCKED (other session, by index)", accountID, sessionHash, slotIndex)
+	return &HaikuSlotResult{
+		Acquired:  false,
+		SlotIndex: slotIndex,
 	}, nil
 }

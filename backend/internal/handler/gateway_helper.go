@@ -328,6 +328,105 @@ func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeoutBySession(c *gin.Co
 	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, sessionHash, timeout, isStream, streamStarted)
 }
 
+// AcquireHaikuSlotWithWait acquires a slot for Haiku model requests.
+// Unlike regular slot acquisition, this allows the same session to have multiple
+// concurrent requests sharing the same slot (up to 3 parallel requests).
+// Different sessions cannot share the same slot.
+// This is used because Claude Code sends parallel requests when using Haiku model.
+func (h *ConcurrencyHelper) AcquireHaikuSlotWithWait(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	defer cancel()
+
+	// Try to acquire immediately
+	result, err := h.concurrencyService.AcquireSlotForHaiku(ctx, accountID, maxConcurrency, sessionHash)
+	if err != nil {
+		return nil, err
+	}
+	if result.Acquired {
+		return result.ReleaseFunc, nil
+	}
+
+	// Need to wait - set up ping if streaming
+	needPing := isStream && h.pingFormat != ""
+
+	var flusher http.Flusher
+	if needPing {
+		var ok bool
+		flusher, ok = c.Writer.(http.Flusher)
+		if !ok {
+			return nil, fmt.Errorf("streaming not supported")
+		}
+	}
+
+	var pingCh <-chan time.Time
+	if needPing {
+		pingTicker := time.NewTicker(h.pingInterval)
+		defer pingTicker.Stop()
+		pingCh = pingTicker.C
+	}
+
+	backoff := initialBackoff
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, &ConcurrencyError{
+				SlotType:  "haiku",
+				IsTimeout: true,
+			}
+
+		case <-pingCh:
+			if !*streamStarted {
+				c.Header("Content-Type", "text/event-stream")
+				c.Header("Cache-Control", "no-cache")
+				c.Header("Connection", "keep-alive")
+				c.Header("X-Accel-Buffering", "no")
+				*streamStarted = true
+			}
+			if _, err := fmt.Fprint(c.Writer, string(h.pingFormat)); err != nil {
+				return nil, err
+			}
+			flusher.Flush()
+
+		case <-timer.C:
+			result, err := h.concurrencyService.AcquireSlotForHaiku(ctx, accountID, maxConcurrency, sessionHash)
+			if err != nil {
+				return nil, err
+			}
+			if result.Acquired {
+				return result.ReleaseFunc, nil
+			}
+			backoff = nextBackoff(backoff, rng)
+			timer.Reset(backoff)
+		}
+	}
+}
+
+// IsHaikuModel checks if the model is a Haiku model (claude-3-5-haiku, claude-3-haiku, etc.)
+func IsHaikuModel(model string) bool {
+	// Check for common Haiku model patterns
+	return len(model) >= 5 && (model == "claude-3-5-haiku-latest" ||
+		model == "claude-3-haiku-20240307" ||
+		// Generic pattern: contains "haiku" (case-sensitive, Claude model names are lowercase)
+		(len(model) > 0 && containsHaiku(model)))
+}
+
+// containsHaiku checks if string contains "haiku"
+func containsHaiku(s string) bool {
+	if len(s) < 5 {
+		return false
+	}
+	for i := 0; i <= len(s)-5; i++ {
+		if s[i:i+5] == "haiku" {
+			return true
+		}
+	}
+	return false
+}
+
 // nextBackoff 计算下一次退避时间
 // 性能优化：使用指数退避 + 随机抖动，避免惊群效应
 // current: 当前退避时间

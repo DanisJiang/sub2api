@@ -40,6 +40,13 @@ const (
 	defaultSlotTTLMinutes = 15
 	// Session 互斥锁过期时间（秒），设置为较短时间避免死锁
 	sessionMutexTTLSeconds = 300 // 5 分钟
+
+	// Slot Owner 键前缀：记录每个槽位的当前占用者
+	// 格式: slot_owner:{accountID}:{slotIndex}
+	slotOwnerKeyPrefix = "slot_owner:"
+
+	// Haiku 模型同一 session 最大并行数
+	haikuMaxParallel = 3
 )
 
 var (
@@ -329,6 +336,123 @@ var (
 		end
 		return 0
 	`)
+
+	// acquireSlotWithSessionScript - 获取槽位（支持同一 session 并行，用于 Haiku）
+	// 使用 Hash 存储每个槽位的 owner 和并发计数
+	// KEYS[1] = slot_owner:{accountID}:{slotIndex}
+	// KEYS[2] = concurrency:account:{accountID} (有序集合，用于槽位占用标记)
+	// ARGV[1] = TTL（秒）
+	// ARGV[2] = slotIndex
+	// ARGV[3] = sessionHash（当前请求的 session）
+	// ARGV[4] = maxParallel（同一 session 最大并行数）
+	// ARGV[5] = requestID（用于标识本次请求）
+	// 返回: 1=成功获取, 0=槽位被其他 session 占用或已达并行上限
+	acquireSlotWithSessionScript = redis.NewScript(`
+		local ownerKey = KEYS[1]
+		local slotKey = KEYS[2]
+		local ttl = tonumber(ARGV[1])
+		local slotIndex = ARGV[2]
+		local sessionHash = ARGV[3]
+		local maxParallel = tonumber(ARGV[4])
+		local requestID = ARGV[5]
+		local slotID = 'slot_' .. slotIndex
+
+		-- 使用 Redis 服务器时间
+		local timeResult = redis.call('TIME')
+		local now = tonumber(timeResult[1])
+
+		-- 获取当前 slot owner 信息
+		local ownerData = redis.call('HGETALL', ownerKey)
+		local currentOwner = nil
+		local currentCount = 0
+		local expireAt = 0
+
+		for i = 1, #ownerData, 2 do
+			if ownerData[i] == 'owner' then
+				currentOwner = ownerData[i + 1]
+			elseif ownerData[i] == 'count' then
+				currentCount = tonumber(ownerData[i + 1])
+			elseif ownerData[i] == 'expire' then
+				expireAt = tonumber(ownerData[i + 1])
+			end
+		end
+
+		-- 检查是否过期
+		if expireAt > 0 and expireAt < now then
+			-- 已过期，清理
+			redis.call('DEL', ownerKey)
+			redis.call('ZREM', slotKey, slotID)
+			currentOwner = nil
+			currentCount = 0
+		end
+
+		-- 情况1：槽位空闲（Hash 没有 owner）
+		if currentOwner == nil or currentCount == 0 then
+			-- 检查 ZSET 中是否已被其他请求占用（防止升级过程中的竞态条件）
+			-- 在槽位升级流程中，先释放普通槽位再获取 Haiku 槽位，这个窗口期可能被其他请求抢占
+			local zsetScore = redis.call('ZSCORE', slotKey, slotID)
+			if zsetScore ~= false then
+				-- ZSET 中已有占用，说明被其他请求抢占，返回失败
+				return 0
+			end
+
+			redis.call('HSET', ownerKey, 'owner', sessionHash, 'count', 1, 'expire', now + ttl)
+			redis.call('EXPIRE', ownerKey, ttl)
+			-- 同时在有序集合中标记槽位被占用
+			redis.call('ZADD', slotKey, now, slotID)
+			redis.call('EXPIRE', slotKey, ttl)
+			return 1
+		end
+
+		-- 情况2：同一 session 占用
+		if currentOwner == sessionHash then
+			if currentCount < maxParallel then
+				redis.call('HINCRBY', ownerKey, 'count', 1)
+				redis.call('HSET', ownerKey, 'expire', now + ttl)
+				redis.call('EXPIRE', ownerKey, ttl)
+				-- 刷新有序集合中的时间戳
+				redis.call('ZADD', slotKey, now, slotID)
+				redis.call('EXPIRE', slotKey, ttl)
+				return 1
+			else
+				-- 已达并行上限
+				return 0
+			end
+		end
+
+		-- 情况3：其他 session 占用
+		return 0
+	`)
+
+	// releaseSlotWithSessionScript - 释放槽位（支持同一 session 并行）
+	// KEYS[1] = slot_owner:{accountID}:{slotIndex}
+	// KEYS[2] = concurrency:account:{accountID}
+	// ARGV[1] = slotIndex
+	// ARGV[2] = sessionHash
+	// 返回: 1=成功释放, 0=不是自己持有的
+	releaseSlotWithSessionScript = redis.NewScript(`
+		local ownerKey = KEYS[1]
+		local slotKey = KEYS[2]
+		local slotIndex = ARGV[1]
+		local sessionHash = ARGV[2]
+		local slotID = 'slot_' .. slotIndex
+
+		-- 获取当前 owner
+		local currentOwner = redis.call('HGET', ownerKey, 'owner')
+		if currentOwner ~= sessionHash then
+			return 0
+		end
+
+		-- 减少计数
+		local newCount = redis.call('HINCRBY', ownerKey, 'count', -1)
+		if newCount <= 0 then
+			-- 计数归零，删除 owner 记录和槽位标记
+			redis.call('DEL', ownerKey)
+			redis.call('ZREM', slotKey, slotID)
+		end
+
+		return 1
+	`)
 )
 
 type concurrencyCache struct {
@@ -373,6 +497,10 @@ func accountWaitKey(accountID int64) string {
 
 func sessionMutexKey(accountID int64, sessionHash string) string {
 	return fmt.Sprintf("%s%d:%s", sessionMutexKeyPrefix, accountID, sessionHash)
+}
+
+func slotOwnerKey(accountID int64, slotIndex int) string {
+	return fmt.Sprintf("%s%d:%d", slotOwnerKeyPrefix, accountID, slotIndex)
 }
 
 // Account slot operations
@@ -446,6 +574,29 @@ func (c *concurrencyCache) AcquireSessionMutex(ctx context.Context, accountID in
 func (c *concurrencyCache) ReleaseSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) error {
 	key := sessionMutexKey(accountID, sessionHash)
 	_, err := releaseSessionMutexScript.Run(ctx, c.rdb, []string{key}, requestID).Int()
+	return err
+}
+
+// AcquireSlotWithSession 获取槽位（支持同一 session 并行，用于 Haiku 模型）
+// 同一 session 最多可以有 haikuMaxParallel 个并行请求共享同一个槽位
+// 不同 session 不能共享槽位（返回失败，调用者可以 fallback 或等待）
+func (c *concurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, requestID string) (bool, error) {
+	ownerKey := slotOwnerKey(accountID, slotIndex)
+	slotKey := accountSlotKey(accountID)
+	result, err := acquireSlotWithSessionScript.Run(ctx, c.rdb, []string{ownerKey, slotKey},
+		c.slotTTLSeconds, slotIndex, sessionHash, haikuMaxParallel, requestID).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
+
+// ReleaseSlotWithSession 释放槽位（支持同一 session 并行）
+// 减少并发计数，当计数归零时删除 owner 记录
+func (c *concurrencyCache) ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string) error {
+	ownerKey := slotOwnerKey(accountID, slotIndex)
+	slotKey := accountSlotKey(accountID)
+	_, err := releaseSlotWithSessionScript.Run(ctx, c.rdb, []string{ownerKey, slotKey}, slotIndex, sessionHash).Int()
 	return err
 }
 
@@ -639,6 +790,28 @@ func (c *concurrencyCache) ClearAllSlots(ctx context.Context) (int, error) {
 	cursor = 0
 	for {
 		keys, nextCursor, err := c.rdb.Scan(ctx, cursor, "session_mutex:*", 100).Result()
+		if err != nil {
+			return totalCleared, err
+		}
+
+		for _, key := range keys {
+			deleted, err := c.rdb.Del(ctx, key).Result()
+			if err != nil {
+				continue
+			}
+			totalCleared += int(deleted)
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	// 清理 slot owner 键
+	cursor = 0
+	for {
+		keys, nextCursor, err := c.rdb.Scan(ctx, cursor, "slot_owner:*", 100).Result()
 		if err != nil {
 			return totalCleared, err
 		}

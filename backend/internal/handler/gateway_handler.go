@@ -337,9 +337,50 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		// 存储槽位编号供后续 RewriteUserID 使用
 		c.Set("slot_index", selection.SlotIndex)
 
+		// 判断是否为 Haiku 模型（Haiku 模型支持同一 session 并行请求）
+		isHaikuRequest := IsHaikuModel(reqModel)
+
+		// 【重要】Haiku 请求槽位升级：
+		// SelectAccountWithLoadAwareness 使用普通槽位机制（互斥），不支持同 session 并行
+		// 对于 Haiku，需要将普通槽位"升级"为 Haiku 槽位（支持同 session 共享）
+		// 这样后续的并行 Haiku 请求就能加入同一个槽位
+		if isHaikuRequest && account.IsOAuth() && sessionKey != "" && selection.Acquired && selection.ReleaseFunc != nil {
+			// 释放普通槽位
+			selection.ReleaseFunc()
+
+			// 使用 Haiku 机制重新获取同一个槽位
+			haikuResult, err := h.concurrencyHelper.concurrencyService.AcquireSlotForHaikuByIndex(
+				c.Request.Context(), account.ID, selection.SlotIndex, sessionKey)
+			if err != nil {
+				log.Printf("Haiku slot upgrade failed: %v", err)
+				h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Internal error upgrading to Haiku slot", streamStarted)
+				return
+			}
+
+			if haikuResult.Acquired {
+				// 升级成功，使用 Haiku 释放函数
+				selection.ReleaseFunc = haikuResult.ReleaseFunc
+				log.Printf("[haiku-upgrade] account=%d session=%.16s slot=%d upgraded", account.ID, sessionKey, selection.SlotIndex)
+			} else {
+				// 槽位被其他 session 占用（竞态条件，刚释放就被抢占）
+				// 回退到等待队列逻辑
+				selection.Acquired = false
+				selection.ReleaseFunc = nil
+				// 创建 WaitPlan（因为原来 Acquired=true 时 WaitPlan 为 nil）
+				selection.WaitPlan = &service.AccountWaitPlan{
+					AccountID:      account.ID,
+					MaxConcurrency: account.Concurrency,
+					Timeout:        30 * time.Second, // 默认等待超时
+					MaxWaiting:     100,              // 默认最大等待数
+				}
+				log.Printf("[haiku-upgrade] account=%d session=%.16s slot=%d upgrade failed, falling back to wait", account.ID, sessionKey, selection.SlotIndex)
+			}
+		}
+
 		// OAuth 账号：检查 session 互斥锁，防止同一 session 并发请求
+		// 注意：Haiku 模型跳过 session mutex，因为 Claude Code 发送并行请求
 		var sessionMutexRelease func()
-		if account.IsOAuth() && sessionKey != "" {
+		if account.IsOAuth() && sessionKey != "" && !isHaikuRequest {
 			releaseFunc, acquired, err := h.concurrencyHelper.AcquireSessionMutex(c.Request.Context(), account.ID, sessionKey)
 			if err != nil {
 				if selection.Acquired && selection.ReleaseFunc != nil {
@@ -410,8 +451,20 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				h.concurrencyHelper.DecrementAccountWaitCount(c.Request.Context(), account.ID)
 			}
 
-			// Use session-aware slot acquisition for OAuth accounts
-			if account.IsOAuth() && sessionKey != "" {
+			// Use Haiku-specific slot acquisition for Haiku model requests on OAuth accounts
+			// Haiku allows same session to share a slot (max 3 parallel requests)
+			if account.IsOAuth() && sessionKey != "" && isHaikuRequest {
+				accountReleaseFunc, err = h.concurrencyHelper.AcquireHaikuSlotWithWait(
+					c,
+					account.ID,
+					selection.WaitPlan.MaxConcurrency,
+					sessionKey,
+					selection.WaitPlan.Timeout,
+					reqStream,
+					&streamStarted,
+				)
+			} else if account.IsOAuth() && sessionKey != "" {
+				// Use session-aware slot acquisition for OAuth accounts
 				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeoutBySession(
 					c,
 					account.ID,
