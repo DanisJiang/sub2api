@@ -515,7 +515,7 @@
                 class="hover:text-primary-900 dark:hover:text-primary-200"
                 @click="removeModelFromCreate(model)"
               >
-                <Icon name="close" size="xs" />
+                <Icon name="x" size="xs" />
               </button>
             </span>
           </div>
@@ -881,7 +881,7 @@
                 class="hover:text-primary-900 dark:hover:text-primary-200"
                 @click="removeModelFromEdit(model)"
               >
-                <Icon name="close" size="xs" />
+                <Icon name="x" size="xs" />
               </button>
             </span>
           </div>
