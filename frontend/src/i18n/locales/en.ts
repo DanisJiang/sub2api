@@ -873,8 +873,9 @@ export default {
       modelWhitelist: {
         title: 'Model Whitelist',
         tooltip: 'Set the list of models allowed in this group. Leave empty to allow all models.',
-        description: 'Select allowed models, leave empty for no restrictions',
-        selected: '{count} model(s) selected'
+        description: 'Enter model names to add to whitelist, leave empty for no restrictions',
+        inputPlaceholder: 'Enter model name, e.g. claude-sonnet-4-20250514',
+        empty: 'No whitelist set, all models allowed'
       }
     },
 

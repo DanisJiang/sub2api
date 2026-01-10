@@ -485,28 +485,42 @@
           <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.groups.modelWhitelist.description') }}
           </p>
-          <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded border border-gray-200 p-2 dark:border-gray-700">
-            <label
-              v-for="model in availableModelsForCreate"
-              :key="model.value"
-              class="flex cursor-pointer items-center rounded border p-2 transition-colors"
-              :class="
-                createForm.allowed_models.includes(model.value)
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-gray-200 dark:border-gray-700'
-              "
+          <!-- 输入框添加模型 -->
+          <div class="flex gap-2 mb-2">
+            <input
+              v-model="createModelInput"
+              type="text"
+              class="input flex-1"
+              :placeholder="t('admin.groups.modelWhitelist.inputPlaceholder')"
+              @keyup.enter="addModelToCreate"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="addModelToCreate"
             >
-              <input
-                v-model="createForm.allowed_models"
-                type="checkbox"
-                :value="model.value"
-                class="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span class="text-xs text-gray-700 dark:text-gray-300 truncate">{{ model.label }}</span>
-            </label>
+              {{ t('common.add') }}
+            </button>
           </div>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.groups.modelWhitelist.selected', { count: createForm.allowed_models.length }) }}
+          <!-- 已添加的模型标签 -->
+          <div v-if="createForm.allowed_models.length > 0" class="flex flex-wrap gap-2 p-2 rounded border border-gray-200 dark:border-gray-700">
+            <span
+              v-for="model in createForm.allowed_models"
+              :key="model"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400"
+            >
+              {{ model }}
+              <button
+                type="button"
+                class="hover:text-primary-900 dark:hover:text-primary-200"
+                @click="removeModelFromCreate(model)"
+              >
+                <Icon name="close" size="xs" />
+              </button>
+            </span>
+          </div>
+          <p v-else class="text-xs text-gray-400 dark:text-gray-500 italic">
+            {{ t('admin.groups.modelWhitelist.empty') }}
           </p>
         </div>
 
@@ -837,28 +851,42 @@
           <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.groups.modelWhitelist.description') }}
           </p>
-          <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded border border-gray-200 p-2 dark:border-gray-700">
-            <label
-              v-for="model in availableModelsForEdit"
-              :key="model.value"
-              class="flex cursor-pointer items-center rounded border p-2 transition-colors"
-              :class="
-                editForm.allowed_models.includes(model.value)
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-gray-200 dark:border-gray-700'
-              "
+          <!-- 输入框添加模型 -->
+          <div class="flex gap-2 mb-2">
+            <input
+              v-model="editModelInput"
+              type="text"
+              class="input flex-1"
+              :placeholder="t('admin.groups.modelWhitelist.inputPlaceholder')"
+              @keyup.enter="addModelToEdit"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="addModelToEdit"
             >
-              <input
-                v-model="editForm.allowed_models"
-                type="checkbox"
-                :value="model.value"
-                class="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span class="text-xs text-gray-700 dark:text-gray-300 truncate">{{ model.label }}</span>
-            </label>
+              {{ t('common.add') }}
+            </button>
           </div>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.groups.modelWhitelist.selected', { count: editForm.allowed_models.length }) }}
+          <!-- 已添加的模型标签 -->
+          <div v-if="editForm.allowed_models.length > 0" class="flex flex-wrap gap-2 p-2 rounded border border-gray-200 dark:border-gray-700">
+            <span
+              v-for="model in editForm.allowed_models"
+              :key="model"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400"
+            >
+              {{ model }}
+              <button
+                type="button"
+                class="hover:text-primary-900 dark:hover:text-primary-200"
+                @click="removeModelFromEdit(model)"
+              >
+                <Icon name="close" size="xs" />
+              </button>
+            </span>
+          </div>
+          <p v-else class="text-xs text-gray-400 dark:text-gray-500 italic">
+            {{ t('admin.groups.modelWhitelist.empty') }}
           </p>
         </div>
 
@@ -934,7 +962,6 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { getModelsByPlatform } from '@/composables/useModelWhitelist'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1018,19 +1045,44 @@ const fallbackGroupOptionsForEdit = computed(() => {
   return options
 })
 
-// 获取当前平台可用的模型列表（创建表单）
-const availableModelsForCreate = computed(() => {
-  return getModelsByPlatform(createForm.platform).map(m => ({ value: m, label: m }))
-})
-
-// 获取当前平台可用的模型列表（编辑表单）
-const availableModelsForEdit = computed(() => {
-  return getModelsByPlatform(editForm.platform).map(m => ({ value: m, label: m }))
-})
-
 const groups = ref<Group[]>([])
 const loading = ref(false)
 const searchQuery = ref('')
+
+// 模型白名单输入
+const createModelInput = ref('')
+const editModelInput = ref('')
+
+const addModelToCreate = () => {
+  const model = createModelInput.value.trim()
+  if (model && !createForm.allowed_models.includes(model)) {
+    createForm.allowed_models.push(model)
+  }
+  createModelInput.value = ''
+}
+
+const removeModelFromCreate = (model: string) => {
+  const index = createForm.allowed_models.indexOf(model)
+  if (index > -1) {
+    createForm.allowed_models.splice(index, 1)
+  }
+}
+
+const addModelToEdit = () => {
+  const model = editModelInput.value.trim()
+  if (model && !editForm.allowed_models.includes(model)) {
+    editForm.allowed_models.push(model)
+  }
+  editModelInput.value = ''
+}
+
+const removeModelFromEdit = (model: string) => {
+  const index = editForm.allowed_models.indexOf(model)
+  if (index > -1) {
+    editForm.allowed_models.splice(index, 1)
+  }
+}
+
 const filters = reactive({
   platform: '',
   status: '',
@@ -1281,14 +1333,6 @@ watch(
       createForm.rate_multiplier = 1.0
       createForm.is_exclusive = true
     }
-  }
-)
-
-// 监听平台变化，清除已选择的模型（因为不同平台有不同的模型列表）
-watch(
-  () => createForm.platform,
-  () => {
-    createForm.allowed_models = []
   }
 )
 

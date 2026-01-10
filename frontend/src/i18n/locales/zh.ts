@@ -950,8 +950,9 @@ export default {
       modelWhitelist: {
         title: '模型白名单',
         tooltip: '设置此分组允许的模型列表。留空表示允许所有模型。',
-        description: '选择允许使用的模型，留空表示不限制',
-        selected: '已选择 {count} 个模型'
+        description: '输入模型名称添加到白名单，留空表示不限制',
+        inputPlaceholder: '输入模型名称，如 claude-sonnet-4-20250514',
+        empty: '未设置白名单，允许所有模型'
       }
     },
 
