@@ -328,6 +328,81 @@ func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeoutBySession(c *gin.Co
 	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, sessionHash, timeout, isStream, streamStarted)
 }
 
+// AcquireModelPoolSlotWithWait acquires a slot from the model-specific pool (Opus or Sonnet).
+// This respects hard isolation - Opus requests only get Opus slots, Sonnet only gets Sonnet slots.
+// Used for Claude Code OAuth accounts to prevent rapid model switching on the same session.
+func (h *ConcurrencyHelper) AcquireModelPoolSlotWithWait(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, modelCategory string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	defer cancel()
+
+	// Try to acquire immediately
+	result, err := h.concurrencyService.AcquireAccountSlotByModel(ctx, accountID, maxConcurrency, sessionHash, modelCategory)
+	if err != nil {
+		return nil, err
+	}
+	if result.Acquired {
+		return result.ReleaseFunc, nil
+	}
+
+	// Need to wait - set up ping if streaming
+	needPing := isStream && h.pingFormat != ""
+
+	var flusher http.Flusher
+	if needPing {
+		var ok bool
+		flusher, ok = c.Writer.(http.Flusher)
+		if !ok {
+			return nil, fmt.Errorf("streaming not supported")
+		}
+	}
+
+	var pingCh <-chan time.Time
+	if needPing {
+		pingTicker := time.NewTicker(h.pingInterval)
+		defer pingTicker.Stop()
+		pingCh = pingTicker.C
+	}
+
+	backoff := initialBackoff
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, &ConcurrencyError{
+				SlotType:  modelCategory,
+				IsTimeout: true,
+			}
+
+		case <-pingCh:
+			if !*streamStarted {
+				c.Header("Content-Type", "text/event-stream")
+				c.Header("Cache-Control", "no-cache")
+				c.Header("Connection", "keep-alive")
+				c.Header("X-Accel-Buffering", "no")
+				*streamStarted = true
+			}
+			if _, err := fmt.Fprint(c.Writer, string(h.pingFormat)); err != nil {
+				return nil, err
+			}
+			flusher.Flush()
+
+		case <-timer.C:
+			result, err := h.concurrencyService.AcquireAccountSlotByModel(ctx, accountID, maxConcurrency, sessionHash, modelCategory)
+			if err != nil {
+				return nil, err
+			}
+			if result.Acquired {
+				return result.ReleaseFunc, nil
+			}
+			backoff = nextBackoff(backoff, rng)
+			timer.Reset(backoff)
+		}
+	}
+}
+
 // AcquireHaikuSlotWithWait acquires a slot for Haiku model requests.
 // Unlike regular slot acquisition, this allows the same session to have multiple
 // concurrent requests sharing the same slot (up to 3 parallel requests).
@@ -405,22 +480,52 @@ func (h *ConcurrencyHelper) AcquireHaikuSlotWithWait(c *gin.Context, accountID i
 	}
 }
 
-// IsHaikuModel checks if the model is a Haiku model (claude-3-5-haiku, claude-3-haiku, etc.)
-func IsHaikuModel(model string) bool {
-	// Check for common Haiku model patterns
-	return len(model) >= 5 && (model == "claude-3-5-haiku-latest" ||
-		model == "claude-3-haiku-20240307" ||
-		// Generic pattern: contains "haiku" (case-sensitive, Claude model names are lowercase)
-		(len(model) > 0 && containsHaiku(model)))
+// ModelCategory represents the category of Claude model
+type ModelCategory string
+
+const (
+	ModelCategoryOpus   ModelCategory = "opus"
+	ModelCategorySonnet ModelCategory = "sonnet"
+	ModelCategoryHaiku  ModelCategory = "haiku"
+)
+
+// GetModelCategory returns the category of a Claude model.
+// Returns empty string if the model is not recognized (should be treated as error for Claude Code).
+func GetModelCategory(model string) ModelCategory {
+	if containsSubstring(model, "opus") {
+		return ModelCategoryOpus
+	}
+	if containsSubstring(model, "sonnet") {
+		return ModelCategorySonnet
+	}
+	if containsSubstring(model, "haiku") {
+		return ModelCategoryHaiku
+	}
+	return "" // Unrecognized model
 }
 
-// containsHaiku checks if string contains "haiku"
-func containsHaiku(s string) bool {
-	if len(s) < 5 {
+// IsHaikuModel checks if the model is a Haiku model (claude-3-5-haiku, claude-3-haiku, etc.)
+func IsHaikuModel(model string) bool {
+	return GetModelCategory(model) == ModelCategoryHaiku
+}
+
+// IsOpusModel checks if the model is an Opus model
+func IsOpusModel(model string) bool {
+	return GetModelCategory(model) == ModelCategoryOpus
+}
+
+// IsSonnetModel checks if the model is a Sonnet model
+func IsSonnetModel(model string) bool {
+	return GetModelCategory(model) == ModelCategorySonnet
+}
+
+// containsSubstring checks if string contains a substring
+func containsSubstring(s, substr string) bool {
+	if len(s) < len(substr) {
 		return false
 	}
-	for i := 0; i <= len(s)-5; i++ {
-		if s[i:i+5] == "haiku" {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
 			return true
 		}
 	}

@@ -439,7 +439,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		if err != nil {
 			return nil, err
 		}
-		result, err := s.tryAcquireAccountSlot(ctx, account, sessionHash)
+		result, err := s.tryAcquireAccountSlot(ctx, account, sessionHash, requestedModel)
 		if err == nil && result.Acquired {
 			return &AccountSelectionResult{
 				Account:     account,
@@ -504,7 +504,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				s.isAccountAllowedForPlatform(account, platform, useMixed) &&
 				account.IsSchedulable() &&
 				(requestedModel == "" || s.isModelSupportedByAccount(account, requestedModel)) {
-				result, err := s.tryAcquireAccountSlot(ctx, account, sessionHash)
+				result, err := s.tryAcquireAccountSlot(ctx, account, sessionHash, requestedModel)
 				if err == nil && result.Acquired {
 					_ = s.cache.RefreshSessionTTL(ctx, derefGroupID(groupID), sessionHash, stickySessionTTL)
 					return &AccountSelectionResult{
@@ -561,7 +561,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 	loadMap, err := s.concurrencyService.GetAccountsLoadBatch(ctx, accountLoads)
 	if err != nil {
-		if result, ok := s.tryAcquireByLegacyOrder(ctx, candidates, groupID, sessionHash, preferOAuth); ok {
+		if result, ok := s.tryAcquireByLegacyOrder(ctx, candidates, groupID, sessionHash, preferOAuth, requestedModel); ok {
 			return result, nil
 		}
 	} else {
@@ -608,7 +608,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			})
 
 			for _, item := range available {
-				result, err := s.tryAcquireAccountSlot(ctx, item.account, sessionHash)
+				result, err := s.tryAcquireAccountSlot(ctx, item.account, sessionHash, requestedModel)
 				if err == nil && result.Acquired {
 					if sessionHash != "" && s.cache != nil {
 						_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, item.account.ID, stickySessionTTL)
@@ -640,12 +640,12 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	return nil, errors.New("no available accounts")
 }
 
-func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, preferOAuth bool) (*AccountSelectionResult, bool) {
+func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, preferOAuth bool, requestedModel string) (*AccountSelectionResult, bool) {
 	ordered := append([]*Account(nil), candidates...)
 	sortAccountsByPriorityAndLastUsed(ordered, preferOAuth)
 
 	for _, acc := range ordered {
-		result, err := s.tryAcquireAccountSlot(ctx, acc, sessionHash)
+		result, err := s.tryAcquireAccountSlot(ctx, acc, sessionHash, requestedModel)
 		if err == nil && result.Acquired {
 			if sessionHash != "" && s.cache != nil {
 				_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, acc.ID, stickySessionTTL)
@@ -797,18 +797,54 @@ func (s *GatewayService) isAccountInGroup(account *Account, groupID *int64) bool
 	return false
 }
 
-func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, account *Account, sessionHash string) (*AcquireResult, error) {
+func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, account *Account, sessionHash string, requestedModel string) (*AcquireResult, error) {
 	if s.concurrencyService == nil {
 		return &AcquireResult{Acquired: true, SlotIndex: -1, ReleaseFunc: func() {}}, nil
 	}
+
 	// OAuth 账号使用基于槽位编号的并发控制
-	// 同一个用户 session 始终映射到同一个槽位，确保：
-	// 1. 同一 session 不会并发（槽位互斥）
-	// 2. 同一 session 每次请求使用相同的槽位（哈希映射）
 	if account.IsOAuth() && sessionHash != "" && account.Concurrency > 0 {
+		// 判断模型类别（仅 Claude 平台）
+		modelCategory := getModelCategory(requestedModel)
+
+		// Opus 和 Sonnet 使用各自的槽位池（硬隔离）
+		// Haiku 使用原有逻辑（跟随 session 绑定的槽位，支持同 session 并行）
+		if modelCategory == "opus" || modelCategory == "sonnet" {
+			return s.concurrencyService.AcquireAccountSlotByModel(ctx, account.ID, account.Concurrency, sessionHash, modelCategory)
+		}
+
+		// Haiku 或未识别的模型：使用原有逻辑
 		return s.concurrencyService.AcquireAccountSlotByIndex(ctx, account.ID, account.Concurrency, sessionHash)
 	}
 	return s.concurrencyService.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
+}
+
+// getModelCategory returns the model category (opus/sonnet/haiku) from model name.
+// Returns empty string if not recognized.
+func getModelCategory(model string) string {
+	if containsModelKeyword(model, "opus") {
+		return "opus"
+	}
+	if containsModelKeyword(model, "sonnet") {
+		return "sonnet"
+	}
+	if containsModelKeyword(model, "haiku") {
+		return "haiku"
+	}
+	return ""
+}
+
+// containsModelKeyword checks if the model name contains a keyword
+func containsModelKeyword(model, keyword string) bool {
+	if len(model) < len(keyword) {
+		return false
+	}
+	for i := 0; i <= len(model)-len(keyword); i++ {
+		if model[i:i+len(keyword)] == keyword {
+			return true
+		}
+	}
+	return false
 }
 
 func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {

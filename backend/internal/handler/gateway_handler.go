@@ -464,16 +464,32 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					&streamStarted,
 				)
 			} else if account.IsOAuth() && sessionKey != "" {
-				// Use session-aware slot acquisition for OAuth accounts
-				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeoutBySession(
-					c,
-					account.ID,
-					selection.WaitPlan.MaxConcurrency,
-					sessionKey,
-					selection.WaitPlan.Timeout,
-					reqStream,
-					&streamStarted,
-				)
+				// Check model category for Opus/Sonnet pool isolation
+				modelCategory := GetModelCategory(reqModel)
+				if modelCategory == ModelCategoryOpus || modelCategory == ModelCategorySonnet {
+					// Use model-pool-aware slot acquisition (hard isolation)
+					accountReleaseFunc, err = h.concurrencyHelper.AcquireModelPoolSlotWithWait(
+						c,
+						account.ID,
+						selection.WaitPlan.MaxConcurrency,
+						sessionKey,
+						string(modelCategory),
+						selection.WaitPlan.Timeout,
+						reqStream,
+						&streamStarted,
+					)
+				} else {
+					// Unrecognized model: use session-aware slot acquisition
+					accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeoutBySession(
+						c,
+						account.ID,
+						selection.WaitPlan.MaxConcurrency,
+						sessionKey,
+						selection.WaitPlan.Timeout,
+						reqStream,
+						&streamStarted,
+					)
+				}
 			} else {
 				accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
 					c,

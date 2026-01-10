@@ -27,6 +27,12 @@ type ConcurrencyCache interface {
 	// 返回实际获取到的槽位编号，-1 表示全部满了
 	AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error)
 
+	// 在指定范围内获取槽位（硬隔离，不跨范围 fallback）
+	// 用于模型槽位池隔离：Opus 池和 Sonnet 池各自独立
+	// rangeStart: 范围起始（包含），rangeEnd: 范围结束（不包含）
+	// 返回实际获取到的槽位编号，-1 表示范围内全部满了
+	AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, rangeStart int, rangeEnd int) (int, error)
+
 	// Session 互斥锁：防止同一 session 并发请求
 	AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) (bool, error)
 	ReleaseSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) error
@@ -590,5 +596,119 @@ func (s *ConcurrencyService) AcquireSlotForHaikuByIndex(ctx context.Context, acc
 	return &HaikuSlotResult{
 		Acquired:  false,
 		SlotIndex: slotIndex,
+	}, nil
+}
+
+// ============================================
+// Model Slot Pool (模型槽位池隔离)
+// ============================================
+
+// ModelSlotRange represents the slot range for a model category
+type ModelSlotRange struct {
+	Start int // 起始槽位（包含）
+	End   int // 结束槽位（不包含）
+}
+
+// CalculateModelSlotRange calculates the slot range for Opus and Sonnet models.
+// Opus : Sonnet = 2 : 3
+// Layout: [0, opusEnd) is Opus pool, [opusEnd, total) is Sonnet pool
+// Haiku does not use model pool isolation, it follows session binding.
+// Special case: when totalSlots < 2, both pools share all slots (no isolation possible).
+func CalculateModelSlotRange(totalSlots int) (opus, sonnet ModelSlotRange) {
+	if totalSlots <= 0 {
+		return ModelSlotRange{0, 0}, ModelSlotRange{0, 0}
+	}
+
+	// Special case: with only 1 slot, both pools share it (no isolation possible)
+	if totalSlots == 1 {
+		return ModelSlotRange{0, 1}, ModelSlotRange{0, 1}
+	}
+
+	// Opus 占 2/5，至少 1 个槽位
+	opusSlots := (totalSlots * 2) / 5
+	if opusSlots < 1 {
+		opusSlots = 1
+	}
+	// 确保 Sonnet 至少有 1 个槽位
+	if opusSlots >= totalSlots {
+		opusSlots = totalSlots - 1
+	}
+
+	opus = ModelSlotRange{Start: 0, End: opusSlots}
+	sonnet = ModelSlotRange{Start: opusSlots, End: totalSlots}
+	return opus, sonnet
+}
+
+// AcquireAccountSlotByModel attempts to acquire a slot for a specific model category.
+// Opus and Sonnet have separate slot pools (hard isolation).
+// Returns the acquired slot index, or -1 if the model's pool is full.
+func (s *ConcurrencyService) AcquireAccountSlotByModel(ctx context.Context, accountID int64, maxConcurrency int, sessionHash string, modelCategory string) (*AcquireResult, error) {
+	if maxConcurrency <= 0 {
+		return &AcquireResult{
+			Acquired:    true,
+			SlotIndex:   -1,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	// Calculate model slot ranges
+	opusRange, sonnetRange := CalculateModelSlotRange(maxConcurrency)
+
+	// Determine which range to use based on model category
+	var slotRange ModelSlotRange
+	switch modelCategory {
+	case "opus":
+		slotRange = opusRange
+	case "sonnet":
+		slotRange = sonnetRange
+	default:
+		// Should not happen for Claude Code (only opus/sonnet/haiku)
+		return nil, fmt.Errorf("unsupported model category for slot pool: %s", modelCategory)
+	}
+
+	// Calculate target slot within the range
+	rangeSize := slotRange.End - slotRange.Start
+	if rangeSize <= 0 {
+		return &AcquireResult{
+			Acquired:    false,
+			SlotIndex:   -1,
+			ReleaseFunc: nil,
+		}, nil
+	}
+	targetSlotInRange := hashToSlotIndex(sessionHash, rangeSize)
+	targetSlot := slotRange.Start + targetSlotInRange
+
+	// Try to acquire slot within the model's range (hard isolation)
+	acquiredSlot, err := s.cache.AcquireSlotInRange(ctx, accountID, targetSlot, slotRange.Start, slotRange.End)
+	if err != nil {
+		return nil, err
+	}
+
+	if acquiredSlot >= 0 {
+		log.Printf("[model-slot] account=%d model=%s session=%.16s target=%d acquired=%d range=[%d,%d)",
+			accountID, modelCategory, sessionHash, targetSlot, acquiredSlot, slotRange.Start, slotRange.End)
+		return &AcquireResult{
+			Acquired:  true,
+			SlotIndex: acquiredSlot,
+			ReleaseFunc: func() {
+				log.Printf("[model-slot-release] account=%d slot=%d releasing", accountID, acquiredSlot)
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.cache.ReleaseAccountSlotByIndex(bgCtx, accountID, acquiredSlot); err != nil {
+					log.Printf("[model-slot-release] account=%d slot=%d FAILED: %v", accountID, acquiredSlot, err)
+				} else {
+					log.Printf("[model-slot-release] account=%d slot=%d success", accountID, acquiredSlot)
+				}
+			},
+		}, nil
+	}
+
+	// Model's pool is full (hard isolation - no cross-pool fallback)
+	log.Printf("[model-slot] account=%d model=%s session=%.16s FULL range=[%d,%d)",
+		accountID, modelCategory, sessionHash, slotRange.Start, slotRange.End)
+	return &AcquireResult{
+		Acquired:    false,
+		SlotIndex:   targetSlot, // Return target slot for waiting
+		ReleaseFunc: nil,
 	}, nil
 }

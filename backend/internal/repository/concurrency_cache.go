@@ -302,6 +302,57 @@ var (
 		return -1
 	`)
 
+	// acquireSlotInRangeScript - 在指定范围内获取槽位（硬隔离，不跨范围 fallback）
+	// 用于模型槽位池隔离：Opus 池和 Sonnet 池各自独立
+	// KEYS[1] = 有序集合键 (concurrency:account:{id})
+	// ARGV[1] = TTL（秒）
+	// ARGV[2] = targetSlotIndex (目标槽位编号)
+	// ARGV[3] = rangeStart (范围起始，包含)
+	// ARGV[4] = rangeEnd (范围结束，不包含)
+	// 返回: 获取到的槽位编号，-1 表示范围内全部满了
+	acquireSlotInRangeScript = redis.NewScript(`
+		local key = KEYS[1]
+		local ttl = tonumber(ARGV[1])
+		local targetSlot = tonumber(ARGV[2])
+		local rangeStart = tonumber(ARGV[3])
+		local rangeEnd = tonumber(ARGV[4])
+
+		-- 使用 Redis 服务器时间
+		local timeResult = redis.call('TIME')
+		local now = tonumber(timeResult[1])
+		local expireBefore = now - ttl
+
+		-- 清理过期槽位
+		redis.call('ZREMRANGEBYSCORE', key, '-inf', expireBefore)
+
+		-- 1. 先尝试获取目标槽位（如果在范围内）
+		if targetSlot >= rangeStart and targetSlot < rangeEnd then
+			local targetSlotID = 'slot_' .. targetSlot
+			local exists = redis.call('ZSCORE', key, targetSlotID)
+			if exists == false then
+				redis.call('ZADD', key, now, targetSlotID)
+				redis.call('EXPIRE', key, ttl)
+				return targetSlot
+			end
+		end
+
+		-- 2. 目标槽位被占或不在范围内，在范围内尝试其他槽位
+		for i = rangeStart, rangeEnd - 1 do
+			if i ~= targetSlot then
+				local slotID = 'slot_' .. i
+				local slotExists = redis.call('ZSCORE', key, slotID)
+				if slotExists == false then
+					redis.call('ZADD', key, now, slotID)
+					redis.call('EXPIRE', key, ttl)
+					return i
+				end
+			end
+		end
+
+		-- 3. 范围内全部满了（硬隔离，不跨范围 fallback）
+		return -1
+	`)
+
 	// acquireSessionMutexScript - 获取 session 互斥锁（防止同一 session 并发）
 	// KEYS[1] = session_mutex:{accountID}:{sessionHash}
 	// ARGV[1] = TTL（秒）
@@ -553,6 +604,20 @@ func (c *concurrencyCache) ReleaseAccountSlotByIndex(ctx context.Context, accoun
 func (c *concurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error) {
 	key := accountSlotKey(accountID)
 	result, err := acquireSlotWithFallbackScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, maxConcurrency).Int()
+	if err != nil {
+		return -1, err
+	}
+	return result, nil
+}
+
+// AcquireSlotInRange 在指定范围内获取槽位（硬隔离，不跨范围 fallback）
+// 用于模型槽位池隔离：Opus 池和 Sonnet 池各自独立
+// rangeStart: 范围起始（包含）
+// rangeEnd: 范围结束（不包含）
+// 返回实际获取到的槽位编号，-1 表示范围内全部满了
+func (c *concurrencyCache) AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, rangeStart int, rangeEnd int) (int, error) {
+	key := accountSlotKey(accountID)
+	result, err := acquireSlotInRangeScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, rangeStart, rangeEnd).Int()
 	if err != nil {
 		return -1, err
 	}
