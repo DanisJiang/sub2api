@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
@@ -12,7 +11,10 @@ import (
 
 const (
 	fingerprintKeyPrefix = "fingerprint:"
-	fingerprintTTL       = 24 * time.Hour
+	// fingerprintTTL 设置为 0 表示永不过期
+	// ClientID 是账号的"客户端安装ID"，应该永久保持不变
+	// 只有账号被删除时才需要清理对应的指纹缓存
+	fingerprintTTL = 0
 )
 
 // fingerprintKey generates the Redis key for account fingerprint cache.

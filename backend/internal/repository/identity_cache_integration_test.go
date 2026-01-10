@@ -38,14 +38,15 @@ func (s *IdentityCacheSuite) TestSetAndGetFingerprint() {
 	require.Equal(s.T(), "ua", gotFP.UserAgent)
 }
 
-func (s *IdentityCacheSuite) TestFingerprint_TTL() {
+func (s *IdentityCacheSuite) TestFingerprint_NoExpiration() {
 	fp := &service.Fingerprint{ClientID: "c1", UserAgent: "ua"}
 	require.NoError(s.T(), s.cache.SetFingerprint(s.ctx, 2, fp))
 
 	fpKey := fmt.Sprintf("%s%d", fingerprintKeyPrefix, 2)
 	ttl, err := s.rdb.TTL(s.ctx, fpKey).Result()
 	require.NoError(s.T(), err, "TTL fpKey")
-	s.AssertTTLWithin(ttl, 1*time.Second, fingerprintTTL)
+	// TTL 为 0 表示永不过期，Redis 返回 -1
+	require.Equal(s.T(), time.Duration(-1), ttl, "fingerprint should never expire (TTL=-1)")
 }
 
 func (s *IdentityCacheSuite) TestGetFingerprint_JSONCorruption() {
