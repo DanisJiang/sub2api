@@ -100,6 +100,11 @@ func (Group) Fields() []ent.Field {
 		field.JSON("allowed_models", []string{}).
 			Optional().
 			Comment("模型白名单，为空表示允许所有模型"),
+
+		// 模型映射 (added by migration 037)
+		field.JSON("model_mapping", map[string]string{}).
+			Optional().
+			Comment("模型名称映射，key 为请求模型，value 为实际发送模型"),
 	}
 }
 

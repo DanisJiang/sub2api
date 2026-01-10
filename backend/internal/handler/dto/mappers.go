@@ -75,6 +75,11 @@ func GroupFromServiceShallow(g *service.Group) *Group {
 	if allowedModels == nil {
 		allowedModels = []string{}
 	}
+	// 确保 ModelMapping 不为 nil，避免 JSON 序列化为 null
+	modelMapping := g.ModelMapping
+	if modelMapping == nil {
+		modelMapping = map[string]string{}
+	}
 	return &Group{
 		ID:               g.ID,
 		Name:             g.Name,
@@ -93,6 +98,7 @@ func GroupFromServiceShallow(g *service.Group) *Group {
 		ClaudeCodeOnly:   g.ClaudeCodeOnly,
 		FallbackGroupID:  g.FallbackGroupID,
 		AllowedModels:    allowedModels,
+		ModelMapping:     modelMapping,
 		CreatedAt:        g.CreatedAt,
 		UpdatedAt:        g.UpdatedAt,
 		AccountCount:     g.AccountCount,

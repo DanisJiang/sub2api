@@ -59,6 +59,9 @@ type Group struct {
 	// 模型白名单
 	AllowedModels []string `json:"allowed_models"`
 
+	// 模型映射
+	ModelMapping map[string]string `json:"model_mapping"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 

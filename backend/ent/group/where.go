@@ -1075,6 +1075,16 @@ func AllowedModelsNotNil() predicate.Group {
 	return predicate.Group(sql.FieldNotNull(FieldAllowedModels))
 }
 
+// ModelMappingIsNil applies the IsNil predicate on the "model_mapping" field.
+func ModelMappingIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldModelMapping))
+}
+
+// ModelMappingNotNil applies the NotNil predicate on the "model_mapping" field.
+func ModelMappingNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldModelMapping))
+}
+
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.
 func HasAPIKeys() predicate.Group {
 	return predicate.Group(func(s *sql.Selector) {

@@ -49,7 +49,8 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
 		SetNillableFallbackGroupID(groupIn.FallbackGroupID).
-		SetAllowedModels(groupIn.AllowedModels)
+		SetAllowedModels(groupIn.AllowedModels).
+		SetModelMapping(groupIn.ModelMapping)
 
 	created, err := builder.Save(ctx)
 	if err == nil {
@@ -91,7 +92,8 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetNillableImagePrice4k(groupIn.ImagePrice4K).
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
-		SetAllowedModels(groupIn.AllowedModels)
+		SetAllowedModels(groupIn.AllowedModels).
+		SetModelMapping(groupIn.ModelMapping)
 
 	// 处理 FallbackGroupID：nil 时清除，否则设置
 	if groupIn.FallbackGroupID != nil {

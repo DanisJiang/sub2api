@@ -953,6 +953,14 @@ export default {
         description: '输入模型名称添加到白名单，留空表示不限制',
         inputPlaceholder: '输入模型名称，如 claude-sonnet-4-20250514',
         empty: '未设置白名单，允许所有模型'
+      },
+      modelMapping: {
+        title: '模型映射',
+        tooltip: '将用户请求的模型名映射为发送给上游的实际模型名。例如将 claude-opus-4-5 映射为 claude-opus-4-5-20251101。',
+        description: '设置模型名称映射，左边是用户请求的模型，右边是实际发送的模型',
+        keyPlaceholder: '请求模型，如 claude-opus-4-5',
+        valuePlaceholder: '实际模型，如 claude-opus-4-5-20251101',
+        empty: '未设置映射，使用原始模型名称'
       }
     },
 

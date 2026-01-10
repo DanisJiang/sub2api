@@ -414,6 +414,18 @@ func (_u *GroupUpdate) ClearAllowedModels() *GroupUpdate {
 	return _u
 }
 
+// SetModelMapping sets the "model_mapping" field.
+func (_u *GroupUpdate) SetModelMapping(v map[string]string) *GroupUpdate {
+	_u.mutation.SetModelMapping(v)
+	return _u
+}
+
+// ClearModelMapping clears the value of the "model_mapping" field.
+func (_u *GroupUpdate) ClearModelMapping() *GroupUpdate {
+	_u.mutation.ClearModelMapping()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdate) AddAPIKeyIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -832,6 +844,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AllowedModelsCleared() {
 		_spec.ClearField(group.FieldAllowedModels, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ModelMapping(); ok {
+		_spec.SetField(group.FieldModelMapping, field.TypeJSON, value)
+	}
+	if _u.mutation.ModelMappingCleared() {
+		_spec.ClearField(group.FieldModelMapping, field.TypeJSON)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1526,6 +1544,18 @@ func (_u *GroupUpdateOne) ClearAllowedModels() *GroupUpdateOne {
 	return _u
 }
 
+// SetModelMapping sets the "model_mapping" field.
+func (_u *GroupUpdateOne) SetModelMapping(v map[string]string) *GroupUpdateOne {
+	_u.mutation.SetModelMapping(v)
+	return _u
+}
+
+// ClearModelMapping clears the value of the "model_mapping" field.
+func (_u *GroupUpdateOne) ClearModelMapping() *GroupUpdateOne {
+	_u.mutation.ClearModelMapping()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1974,6 +2004,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if _u.mutation.AllowedModelsCleared() {
 		_spec.ClearField(group.FieldAllowedModels, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ModelMapping(); ok {
+		_spec.SetField(group.FieldModelMapping, field.TypeJSON, value)
+	}
+	if _u.mutation.ModelMappingCleared() {
+		_spec.ClearField(group.FieldModelMapping, field.TypeJSON)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

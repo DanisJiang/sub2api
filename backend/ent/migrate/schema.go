@@ -257,6 +257,7 @@ var (
 		{Name: "claude_code_only", Type: field.TypeBool, Default: false},
 		{Name: "fallback_group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "allowed_models", Type: field.TypeJSON, Nullable: true},
+		{Name: "model_mapping", Type: field.TypeJSON, Nullable: true},
 	}
 	// GroupsTable holds the schema information for the "groups" table.
 	GroupsTable = &schema.Table{

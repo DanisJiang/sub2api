@@ -876,6 +876,14 @@ export default {
         description: 'Enter model names to add to whitelist, leave empty for no restrictions',
         inputPlaceholder: 'Enter model name, e.g. claude-sonnet-4-20250514',
         empty: 'No whitelist set, all models allowed'
+      },
+      modelMapping: {
+        title: 'Model Mapping',
+        tooltip: 'Map user-requested model names to actual model names sent to upstream. For example, map claude-opus-4-5 to claude-opus-4-5-20251101.',
+        description: 'Set model name mappings. Left is the requested model, right is the actual model sent.',
+        keyPlaceholder: 'Request model, e.g. claude-opus-4-5',
+        valuePlaceholder: 'Actual model, e.g. claude-opus-4-5-20251101',
+        empty: 'No mapping set, use original model names'
       }
     },
 

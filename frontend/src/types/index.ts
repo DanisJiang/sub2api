@@ -268,6 +268,8 @@ export interface Group {
   fallback_group_id: number | null
   // 模型白名单
   allowed_models: string[]
+  // 模型映射
+  model_mapping: Record<string, string>
   account_count?: number
   created_at: string
   updated_at: string

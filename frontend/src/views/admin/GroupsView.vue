@@ -524,6 +524,84 @@
           </p>
         </div>
 
+        <!-- 模型映射 -->
+        <div class="border-t pt-4">
+          <div class="mb-1.5 flex items-center gap-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.groups.modelMapping.title') }}
+            </label>
+            <div class="group relative inline-flex">
+              <Icon
+                name="questionCircle"
+                size="sm"
+                :stroke-width="2"
+                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
+              />
+              <div class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800">
+                  <p class="text-xs leading-relaxed text-gray-300">
+                    {{ t('admin.groups.modelMapping.tooltip') }}
+                  </p>
+                  <div class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.groups.modelMapping.description') }}
+          </p>
+          <!-- 输入框添加映射 -->
+          <div class="flex gap-2 mb-2">
+            <input
+              v-model="createMappingKey"
+              type="text"
+              class="input flex-1"
+              :placeholder="t('admin.groups.modelMapping.keyPlaceholder')"
+            />
+            <span class="flex items-center text-gray-400">→</span>
+            <input
+              v-model="createMappingValue"
+              type="text"
+              class="input flex-1"
+              :placeholder="t('admin.groups.modelMapping.valuePlaceholder')"
+              @keyup.enter="addMappingToCreate"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="addMappingToCreate"
+            >
+              {{ t('common.add') }}
+            </button>
+          </div>
+          <!-- 已添加的映射 -->
+          <div v-if="Object.keys(createForm.model_mapping).length > 0" class="space-y-1 p-2 rounded border border-gray-200 dark:border-gray-700">
+            <div
+              v-for="(value, key) in createForm.model_mapping"
+              :key="key"
+              class="flex items-center gap-2 text-xs"
+            >
+              <span class="px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {{ key }}
+              </span>
+              <span class="text-gray-400">→</span>
+              <span class="px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                {{ value }}
+              </span>
+              <button
+                type="button"
+                class="ml-auto text-gray-400 hover:text-red-500"
+                @click="removeMappingFromCreate(key as string)"
+              >
+                <Icon name="x" size="xs" />
+              </button>
+            </div>
+          </div>
+          <p v-else class="text-xs text-gray-400 dark:text-gray-500 italic">
+            {{ t('admin.groups.modelMapping.empty') }}
+          </p>
+        </div>
+
       </form>
 
       <template #footer>
@@ -890,6 +968,84 @@
           </p>
         </div>
 
+        <!-- 模型映射 -->
+        <div class="border-t pt-4">
+          <div class="mb-1.5 flex items-center gap-1">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.groups.modelMapping.title') }}
+            </label>
+            <div class="group relative inline-flex">
+              <Icon
+                name="questionCircle"
+                size="sm"
+                :stroke-width="2"
+                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
+              />
+              <div class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800">
+                  <p class="text-xs leading-relaxed text-gray-300">
+                    {{ t('admin.groups.modelMapping.tooltip') }}
+                  </p>
+                  <div class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.groups.modelMapping.description') }}
+          </p>
+          <!-- 输入框添加映射 -->
+          <div class="flex gap-2 mb-2">
+            <input
+              v-model="editMappingKey"
+              type="text"
+              class="input flex-1"
+              :placeholder="t('admin.groups.modelMapping.keyPlaceholder')"
+            />
+            <span class="flex items-center text-gray-400">→</span>
+            <input
+              v-model="editMappingValue"
+              type="text"
+              class="input flex-1"
+              :placeholder="t('admin.groups.modelMapping.valuePlaceholder')"
+              @keyup.enter="addMappingToEdit"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="addMappingToEdit"
+            >
+              {{ t('common.add') }}
+            </button>
+          </div>
+          <!-- 已添加的映射 -->
+          <div v-if="Object.keys(editForm.model_mapping).length > 0" class="space-y-1 p-2 rounded border border-gray-200 dark:border-gray-700">
+            <div
+              v-for="(value, key) in editForm.model_mapping"
+              :key="key"
+              class="flex items-center gap-2 text-xs"
+            >
+              <span class="px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                {{ key }}
+              </span>
+              <span class="text-gray-400">→</span>
+              <span class="px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                {{ value }}
+              </span>
+              <button
+                type="button"
+                class="ml-auto text-gray-400 hover:text-red-500"
+                @click="removeMappingFromEdit(key as string)"
+              >
+                <Icon name="x" size="xs" />
+              </button>
+            </div>
+          </div>
+          <p v-else class="text-xs text-gray-400 dark:text-gray-500 italic">
+            {{ t('admin.groups.modelMapping.empty') }}
+          </p>
+        </div>
+
       </form>
 
       <template #footer>
@@ -1053,6 +1209,12 @@ const searchQuery = ref('')
 const createModelInput = ref('')
 const editModelInput = ref('')
 
+// 模型映射输入
+const createMappingKey = ref('')
+const createMappingValue = ref('')
+const editMappingKey = ref('')
+const editMappingValue = ref('')
+
 const addModelToCreate = () => {
   const model = createModelInput.value.trim()
   if (model && !createForm.allowed_models.includes(model)) {
@@ -1081,6 +1243,35 @@ const removeModelFromEdit = (model: string) => {
   if (index > -1) {
     editForm.allowed_models.splice(index, 1)
   }
+}
+
+// 模型映射管理函数
+const addMappingToCreate = () => {
+  const key = createMappingKey.value.trim()
+  const value = createMappingValue.value.trim()
+  if (key && value && !createForm.model_mapping[key]) {
+    createForm.model_mapping[key] = value
+  }
+  createMappingKey.value = ''
+  createMappingValue.value = ''
+}
+
+const removeMappingFromCreate = (key: string) => {
+  delete createForm.model_mapping[key]
+}
+
+const addMappingToEdit = () => {
+  const key = editMappingKey.value.trim()
+  const value = editMappingValue.value.trim()
+  if (key && value && !editForm.model_mapping[key]) {
+    editForm.model_mapping[key] = value
+  }
+  editMappingKey.value = ''
+  editMappingValue.value = ''
+}
+
+const removeMappingFromEdit = (key: string) => {
+  delete editForm.model_mapping[key]
 }
 
 const filters = reactive({
@@ -1132,7 +1323,9 @@ const createForm = reactive({
   claude_code_only: false,
   fallback_group_id: null as number | null,
   // 模型白名单
-  allowed_models: [] as string[]
+  allowed_models: [] as string[],
+  // 模型映射
+  model_mapping: {} as Record<string, string>
 })
 
 const editForm = reactive({
@@ -1154,7 +1347,9 @@ const editForm = reactive({
   claude_code_only: false,
   fallback_group_id: null as number | null,
   // 模型白名单
-  allowed_models: [] as string[]
+  allowed_models: [] as string[],
+  // 模型映射
+  model_mapping: {} as Record<string, string>
 })
 
 // 根据分组类型返回不同的删除确认消息
@@ -1227,6 +1422,7 @@ const closeCreateModal = () => {
   createForm.claude_code_only = false
   createForm.fallback_group_id = null
   createForm.allowed_models = []
+  createForm.model_mapping = {}
 }
 
 const handleCreateGroup = async () => {
@@ -1271,6 +1467,7 @@ const handleEdit = (group: Group) => {
   editForm.claude_code_only = group.claude_code_only || false
   editForm.fallback_group_id = group.fallback_group_id
   editForm.allowed_models = group.allowed_models || []
+  editForm.model_mapping = group.model_mapping || {}
   showEditModal.value = true
 }
 

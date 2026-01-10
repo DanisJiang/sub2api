@@ -4229,6 +4229,7 @@ type GroupMutation struct {
 	addfallback_group_id     *int64
 	allowed_models           *[]string
 	appendallowed_models     []string
+	model_mapping            *map[string]string
 	clearedFields            map[string]struct{}
 	api_keys                 map[int64]struct{}
 	removedapi_keys          map[int64]struct{}
@@ -5404,6 +5405,55 @@ func (m *GroupMutation) ResetAllowedModels() {
 	delete(m.clearedFields, group.FieldAllowedModels)
 }
 
+// SetModelMapping sets the "model_mapping" field.
+func (m *GroupMutation) SetModelMapping(value map[string]string) {
+	m.model_mapping = &value
+}
+
+// ModelMapping returns the value of the "model_mapping" field in the mutation.
+func (m *GroupMutation) ModelMapping() (r map[string]string, exists bool) {
+	v := m.model_mapping
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelMapping returns the old "model_mapping" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldModelMapping(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelMapping is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelMapping requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelMapping: %w", err)
+	}
+	return oldValue.ModelMapping, nil
+}
+
+// ClearModelMapping clears the value of the "model_mapping" field.
+func (m *GroupMutation) ClearModelMapping() {
+	m.model_mapping = nil
+	m.clearedFields[group.FieldModelMapping] = struct{}{}
+}
+
+// ModelMappingCleared returns if the "model_mapping" field was cleared in this mutation.
+func (m *GroupMutation) ModelMappingCleared() bool {
+	_, ok := m.clearedFields[group.FieldModelMapping]
+	return ok
+}
+
+// ResetModelMapping resets all changes to the "model_mapping" field.
+func (m *GroupMutation) ResetModelMapping() {
+	m.model_mapping = nil
+	delete(m.clearedFields, group.FieldModelMapping)
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by ids.
 func (m *GroupMutation) AddAPIKeyIDs(ids ...int64) {
 	if m.api_keys == nil {
@@ -5762,7 +5812,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 20)
+	fields := make([]string, 0, 21)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -5823,6 +5873,9 @@ func (m *GroupMutation) Fields() []string {
 	if m.allowed_models != nil {
 		fields = append(fields, group.FieldAllowedModels)
 	}
+	if m.model_mapping != nil {
+		fields = append(fields, group.FieldModelMapping)
+	}
 	return fields
 }
 
@@ -5871,6 +5924,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.FallbackGroupID()
 	case group.FieldAllowedModels:
 		return m.AllowedModels()
+	case group.FieldModelMapping:
+		return m.ModelMapping()
 	}
 	return nil, false
 }
@@ -5920,6 +5975,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldFallbackGroupID(ctx)
 	case group.FieldAllowedModels:
 		return m.OldAllowedModels(ctx)
+	case group.FieldModelMapping:
+		return m.OldModelMapping(ctx)
 	}
 	return nil, fmt.Errorf("unknown Group field %s", name)
 }
@@ -6068,6 +6125,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAllowedModels(v)
+		return nil
+	case group.FieldModelMapping:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelMapping(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Group field %s", name)
@@ -6240,6 +6304,9 @@ func (m *GroupMutation) ClearedFields() []string {
 	if m.FieldCleared(group.FieldAllowedModels) {
 		fields = append(fields, group.FieldAllowedModels)
 	}
+	if m.FieldCleared(group.FieldModelMapping) {
+		fields = append(fields, group.FieldModelMapping)
+	}
 	return fields
 }
 
@@ -6283,6 +6350,9 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldAllowedModels:
 		m.ClearAllowedModels()
+		return nil
+	case group.FieldModelMapping:
+		m.ClearModelMapping()
 		return nil
 	}
 	return fmt.Errorf("unknown Group nullable field %s", name)
@@ -6351,6 +6421,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldAllowedModels:
 		m.ResetAllowedModels()
+		return nil
+	case group.FieldModelMapping:
+		m.ResetModelMapping()
 		return nil
 	}
 	return fmt.Errorf("unknown Group field %s", name)

@@ -55,6 +55,8 @@ const (
 	FieldFallbackGroupID = "fallback_group_id"
 	// FieldAllowedModels holds the string denoting the allowed_models field in the database.
 	FieldAllowedModels = "allowed_models"
+	// FieldModelMapping holds the string denoting the model_mapping field in the database.
+	FieldModelMapping = "model_mapping"
 	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
 	EdgeAPIKeys = "api_keys"
 	// EdgeRedeemCodes holds the string denoting the redeem_codes edge name in mutations.
@@ -150,6 +152,7 @@ var Columns = []string{
 	FieldClaudeCodeOnly,
 	FieldFallbackGroupID,
 	FieldAllowedModels,
+	FieldModelMapping,
 }
 
 var (

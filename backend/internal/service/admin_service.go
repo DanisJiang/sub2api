@@ -103,9 +103,10 @@ type CreateGroupInput struct {
 	ImagePrice1K    *float64
 	ImagePrice2K    *float64
 	ImagePrice4K    *float64
-	ClaudeCodeOnly  bool     // 仅允许 Claude Code 客户端
-	FallbackGroupID *int64   // 降级分组 ID
-	AllowedModels   []string // 模型白名单
+	ClaudeCodeOnly  bool              // 仅允许 Claude Code 客户端
+	FallbackGroupID *int64            // 降级分组 ID
+	AllowedModels   []string          // 模型白名单
+	ModelMapping    map[string]string // 模型映射
 }
 
 type UpdateGroupInput struct {
@@ -123,9 +124,10 @@ type UpdateGroupInput struct {
 	ImagePrice1K    *float64
 	ImagePrice2K    *float64
 	ImagePrice4K    *float64
-	ClaudeCodeOnly  *bool     // 仅允许 Claude Code 客户端
-	FallbackGroupID *int64    // 降级分组 ID
-	AllowedModels   *[]string // 模型白名单（使用指针区分"未提供"和"设置为空数组"）
+	ClaudeCodeOnly  *bool              // 仅允许 Claude Code 客户端
+	FallbackGroupID *int64             // 降级分组 ID
+	AllowedModels   *[]string          // 模型白名单（使用指针区分"未提供"和"设置为空数组"）
+	ModelMapping    *map[string]string // 模型映射（使用指针区分"未提供"和"设置为空map"）
 }
 
 type CreateAccountInput struct {

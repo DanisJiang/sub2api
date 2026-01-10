@@ -58,6 +58,8 @@ type Group struct {
 	FallbackGroupID *int64 `json:"fallback_group_id,omitempty"`
 	// 模型白名单，为空表示允许所有模型
 	AllowedModels []string `json:"allowed_models,omitempty"`
+	// 模型名称映射，key 为请求模型，value 为实际发送模型
+	ModelMapping map[string]string `json:"model_mapping,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupQuery when eager-loading is set.
 	Edges        GroupEdges `json:"edges"`
@@ -164,7 +166,7 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case group.FieldAllowedModels:
+		case group.FieldAllowedModels, group.FieldModelMapping:
 			values[i] = new([]byte)
 		case group.FieldIsExclusive, group.FieldClaudeCodeOnly:
 			values[i] = new(sql.NullBool)
@@ -328,6 +330,14 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field allowed_models: %w", err)
 				}
 			}
+		case group.FieldModelMapping:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field model_mapping", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ModelMapping); err != nil {
+					return fmt.Errorf("unmarshal field model_mapping: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -481,6 +491,9 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("allowed_models=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AllowedModels))
+	builder.WriteString(", ")
+	builder.WriteString("model_mapping=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ModelMapping))
 	builder.WriteByte(')')
 	return builder.String()
 }

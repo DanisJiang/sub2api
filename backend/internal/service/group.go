@@ -29,6 +29,9 @@ type Group struct {
 	// 模型白名单
 	AllowedModels []string
 
+	// 模型映射
+	ModelMapping map[string]string
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -88,4 +91,16 @@ func (g *Group) IsModelAllowed(model string) bool {
 		}
 	}
 	return false
+}
+
+// MapModel 将请求的模型名映射为实际发送的模型名
+// 如果没有映射规则，返回原模型名
+func (g *Group) MapModel(model string) string {
+	if len(g.ModelMapping) == 0 {
+		return model
+	}
+	if mapped, ok := g.ModelMapping[model]; ok && mapped != "" {
+		return mapped
+	}
+	return model
 }

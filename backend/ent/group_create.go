@@ -292,6 +292,12 @@ func (_c *GroupCreate) SetAllowedModels(v []string) *GroupCreate {
 	return _c
 }
 
+// SetModelMapping sets the "model_mapping" field.
+func (_c *GroupCreate) SetModelMapping(v map[string]string) *GroupCreate {
+	_c.mutation.SetModelMapping(v)
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -622,6 +628,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AllowedModels(); ok {
 		_spec.SetField(group.FieldAllowedModels, field.TypeJSON, value)
 		_node.AllowedModels = value
+	}
+	if value, ok := _c.mutation.ModelMapping(); ok {
+		_spec.SetField(group.FieldModelMapping, field.TypeJSON, value)
+		_node.ModelMapping = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1121,6 +1131,24 @@ func (u *GroupUpsert) ClearAllowedModels() *GroupUpsert {
 	return u
 }
 
+// SetModelMapping sets the "model_mapping" field.
+func (u *GroupUpsert) SetModelMapping(v map[string]string) *GroupUpsert {
+	u.Set(group.FieldModelMapping, v)
+	return u
+}
+
+// UpdateModelMapping sets the "model_mapping" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateModelMapping() *GroupUpsert {
+	u.SetExcluded(group.FieldModelMapping)
+	return u
+}
+
+// ClearModelMapping clears the value of the "model_mapping" field.
+func (u *GroupUpsert) ClearModelMapping() *GroupUpsert {
+	u.SetNull(group.FieldModelMapping)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1562,6 +1590,27 @@ func (u *GroupUpsertOne) UpdateAllowedModels() *GroupUpsertOne {
 func (u *GroupUpsertOne) ClearAllowedModels() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearAllowedModels()
+	})
+}
+
+// SetModelMapping sets the "model_mapping" field.
+func (u *GroupUpsertOne) SetModelMapping(v map[string]string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelMapping(v)
+	})
+}
+
+// UpdateModelMapping sets the "model_mapping" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateModelMapping() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelMapping()
+	})
+}
+
+// ClearModelMapping clears the value of the "model_mapping" field.
+func (u *GroupUpsertOne) ClearModelMapping() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearModelMapping()
 	})
 }
 
@@ -2172,6 +2221,27 @@ func (u *GroupUpsertBulk) UpdateAllowedModels() *GroupUpsertBulk {
 func (u *GroupUpsertBulk) ClearAllowedModels() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearAllowedModels()
+	})
+}
+
+// SetModelMapping sets the "model_mapping" field.
+func (u *GroupUpsertBulk) SetModelMapping(v map[string]string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelMapping(v)
+	})
+}
+
+// UpdateModelMapping sets the "model_mapping" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateModelMapping() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelMapping()
+	})
+}
+
+// ClearModelMapping clears the value of the "model_mapping" field.
+func (u *GroupUpsertBulk) ClearModelMapping() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearModelMapping()
 	})
 }
 

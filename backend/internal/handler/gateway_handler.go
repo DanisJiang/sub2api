@@ -120,6 +120,16 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 
+	// 【新增】应用分组模型映射
+	if apiKey.Group != nil {
+		mappedModel := apiKey.Group.MapModel(reqModel)
+		if mappedModel != reqModel {
+			log.Printf("Model mapping applied: %s -> %s (group_id=%d)", reqModel, mappedModel, apiKey.Group.ID)
+			parsedReq.Model = mappedModel
+			reqModel = mappedModel
+		}
+	}
+
 	// Track if we've started streaming (for error handling)
 	streamStarted := false
 
