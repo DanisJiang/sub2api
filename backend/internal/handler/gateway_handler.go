@@ -1065,9 +1065,9 @@ func (h *GatewayHandler) waitForUserInputPacing(c *gin.Context, accountID int64,
 		return nil
 	}
 
-	// 计算随机等待时间：5-15秒
-	minWaitSeconds := 5
-	maxWaitSeconds := 15
+	// 计算随机等待时间：10-20秒
+	minWaitSeconds := 10
+	maxWaitSeconds := 20
 	randomWaitSeconds := minWaitSeconds + rand.Intn(maxWaitSeconds-minWaitSeconds+1)
 	randomWaitDuration := time.Duration(randomWaitSeconds) * time.Second
 
