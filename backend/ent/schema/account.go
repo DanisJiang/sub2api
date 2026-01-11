@@ -172,6 +172,23 @@ func (Account) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			MaxLen(20),
+
+		// ========== OAuth 账号 RPM/30m 限制相关字段 ==========
+
+		// max_rpm: 每分钟最大请求数（0 表示使用默认值）
+		field.Int("max_rpm").
+			Default(0).
+			Comment("Maximum requests per minute for OAuth accounts (0 = use default)"),
+
+		// max_30m_requests: 30 分钟内最大请求数（0 表示不限制）
+		field.Int("max_30m_requests").
+			Default(0).
+			Comment("Maximum requests in 30 minutes for OAuth accounts (0 = no limit)"),
+
+		// rate_limit_cooldown_minutes: 触发 30 分钟限制后的冷却时间（分钟，0 表示不冷却）
+		field.Int("rate_limit_cooldown_minutes").
+			Default(0).
+			Comment("Cooldown duration in minutes after hitting 30m limit (0 = no cooldown)"),
 	}
 }
 

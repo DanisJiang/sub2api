@@ -89,6 +89,9 @@ var (
 		{Name: "session_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "session_window_end", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "session_window_status", Type: field.TypeString, Nullable: true, Size: 20},
+		{Name: "max_rpm", Type: field.TypeInt, Default: 0},
+		{Name: "max_30m_requests", Type: field.TypeInt, Default: 0},
+		{Name: "rate_limit_cooldown_minutes", Type: field.TypeInt, Default: 0},
 		{Name: "proxy_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// AccountsTable holds the schema information for the "accounts" table.
@@ -99,7 +102,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[24]},
+				Columns:    []*schema.Column{AccountsColumns[27]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -123,7 +126,7 @@ var (
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[24]},
+				Columns: []*schema.Column{AccountsColumns[27]},
 			},
 			{
 				Name:    "account_priority",

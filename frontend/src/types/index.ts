@@ -428,6 +428,10 @@ export interface Account {
   last_used_at: string | null
   expires_at: number | null
   auto_pause_on_expired: boolean
+  // OAuth account RPM/30m limit settings
+  max_rpm: number
+  max_30m_requests: number
+  rate_limit_cooldown_minutes: number
   created_at: string
   updated_at: string
   proxy?: Proxy
@@ -521,6 +525,9 @@ export interface CreateAccountRequest {
   expires_at?: number | null
   auto_pause_on_expired?: boolean
   confirm_mixed_channel_risk?: boolean
+  max_rpm?: number
+  max_30m_requests?: number
+  rate_limit_cooldown_minutes?: number
 }
 
 export interface UpdateAccountRequest {
@@ -538,6 +545,9 @@ export interface UpdateAccountRequest {
   expires_at?: number | null
   auto_pause_on_expired?: boolean
   confirm_mixed_channel_risk?: boolean
+  max_rpm?: number
+  max_30m_requests?: number
+  rate_limit_cooldown_minutes?: number
 }
 
 export interface CreateProxyRequest {

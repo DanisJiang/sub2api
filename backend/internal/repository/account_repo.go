@@ -107,6 +107,11 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 		builder.SetSessionWindowStatus(account.SessionWindowStatus)
 	}
 
+	// OAuth 账号 RPM/30m 限制配置
+	builder.SetMaxRpm(account.MaxRPM).
+		SetMax30mRequests(account.Max30mRequests).
+		SetRateLimitCooldownMinutes(account.RateLimitCooldownMinutes)
+
 	created, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
@@ -335,6 +340,11 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	if account.Notes == nil {
 		builder.ClearNotes()
 	}
+
+	// OAuth 账号 RPM/30m 限制配置
+	builder.SetMaxRpm(account.MaxRPM).
+		SetMax30mRequests(account.Max30mRequests).
+		SetRateLimitCooldownMinutes(account.RateLimitCooldownMinutes)
 
 	updated, err := builder.Save(ctx)
 	if err != nil {
@@ -1140,6 +1150,10 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStart:  m.SessionWindowStart,
 		SessionWindowEnd:    m.SessionWindowEnd,
 		SessionWindowStatus: derefString(m.SessionWindowStatus),
+		// OAuth 账号 RPM/30m 限制配置
+		MaxRPM:                   m.MaxRpm,
+		Max30mRequests:           m.Max30mRequests,
+		RateLimitCooldownMinutes: m.RateLimitCooldownMinutes,
 	}
 }
 

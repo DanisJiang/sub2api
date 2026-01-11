@@ -989,46 +989,52 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
 type AccountMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *int64
-	created_at            *time.Time
-	updated_at            *time.Time
-	deleted_at            *time.Time
-	name                  *string
-	notes                 *string
-	platform              *string
-	_type                 *string
-	credentials           *map[string]interface{}
-	extra                 *map[string]interface{}
-	concurrency           *int
-	addconcurrency        *int
-	priority              *int
-	addpriority           *int
-	status                *string
-	error_message         *string
-	last_used_at          *time.Time
-	expires_at            *time.Time
-	auto_pause_on_expired *bool
-	schedulable           *bool
-	rate_limited_at       *time.Time
-	rate_limit_reset_at   *time.Time
-	overload_until        *time.Time
-	session_window_start  *time.Time
-	session_window_end    *time.Time
-	session_window_status *string
-	clearedFields         map[string]struct{}
-	groups                map[int64]struct{}
-	removedgroups         map[int64]struct{}
-	clearedgroups         bool
-	proxy                 *int64
-	clearedproxy          bool
-	usage_logs            map[int64]struct{}
-	removedusage_logs     map[int64]struct{}
-	clearedusage_logs     bool
-	done                  bool
-	oldValue              func(context.Context) (*Account, error)
-	predicates            []predicate.Account
+	op                             Op
+	typ                            string
+	id                             *int64
+	created_at                     *time.Time
+	updated_at                     *time.Time
+	deleted_at                     *time.Time
+	name                           *string
+	notes                          *string
+	platform                       *string
+	_type                          *string
+	credentials                    *map[string]interface{}
+	extra                          *map[string]interface{}
+	concurrency                    *int
+	addconcurrency                 *int
+	priority                       *int
+	addpriority                    *int
+	status                         *string
+	error_message                  *string
+	last_used_at                   *time.Time
+	expires_at                     *time.Time
+	auto_pause_on_expired          *bool
+	schedulable                    *bool
+	rate_limited_at                *time.Time
+	rate_limit_reset_at            *time.Time
+	overload_until                 *time.Time
+	session_window_start           *time.Time
+	session_window_end             *time.Time
+	session_window_status          *string
+	max_rpm                        *int
+	addmax_rpm                     *int
+	max_30m_requests               *int
+	addmax_30m_requests            *int
+	rate_limit_cooldown_minutes    *int
+	addrate_limit_cooldown_minutes *int
+	clearedFields                  map[string]struct{}
+	groups                         map[int64]struct{}
+	removedgroups                  map[int64]struct{}
+	clearedgroups                  bool
+	proxy                          *int64
+	clearedproxy                   bool
+	usage_logs                     map[int64]struct{}
+	removedusage_logs              map[int64]struct{}
+	clearedusage_logs              bool
+	done                           bool
+	oldValue                       func(context.Context) (*Account, error)
+	predicates                     []predicate.Account
 }
 
 var _ ent.Mutation = (*AccountMutation)(nil)
@@ -2189,6 +2195,174 @@ func (m *AccountMutation) ResetSessionWindowStatus() {
 	delete(m.clearedFields, account.FieldSessionWindowStatus)
 }
 
+// SetMaxRpm sets the "max_rpm" field.
+func (m *AccountMutation) SetMaxRpm(i int) {
+	m.max_rpm = &i
+	m.addmax_rpm = nil
+}
+
+// MaxRpm returns the value of the "max_rpm" field in the mutation.
+func (m *AccountMutation) MaxRpm() (r int, exists bool) {
+	v := m.max_rpm
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMaxRpm returns the old "max_rpm" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldMaxRpm(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMaxRpm is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMaxRpm requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMaxRpm: %w", err)
+	}
+	return oldValue.MaxRpm, nil
+}
+
+// AddMaxRpm adds i to the "max_rpm" field.
+func (m *AccountMutation) AddMaxRpm(i int) {
+	if m.addmax_rpm != nil {
+		*m.addmax_rpm += i
+	} else {
+		m.addmax_rpm = &i
+	}
+}
+
+// AddedMaxRpm returns the value that was added to the "max_rpm" field in this mutation.
+func (m *AccountMutation) AddedMaxRpm() (r int, exists bool) {
+	v := m.addmax_rpm
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMaxRpm resets all changes to the "max_rpm" field.
+func (m *AccountMutation) ResetMaxRpm() {
+	m.max_rpm = nil
+	m.addmax_rpm = nil
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (m *AccountMutation) SetMax30mRequests(i int) {
+	m.max_30m_requests = &i
+	m.addmax_30m_requests = nil
+}
+
+// Max30mRequests returns the value of the "max_30m_requests" field in the mutation.
+func (m *AccountMutation) Max30mRequests() (r int, exists bool) {
+	v := m.max_30m_requests
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMax30mRequests returns the old "max_30m_requests" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldMax30mRequests(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMax30mRequests is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMax30mRequests requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMax30mRequests: %w", err)
+	}
+	return oldValue.Max30mRequests, nil
+}
+
+// AddMax30mRequests adds i to the "max_30m_requests" field.
+func (m *AccountMutation) AddMax30mRequests(i int) {
+	if m.addmax_30m_requests != nil {
+		*m.addmax_30m_requests += i
+	} else {
+		m.addmax_30m_requests = &i
+	}
+}
+
+// AddedMax30mRequests returns the value that was added to the "max_30m_requests" field in this mutation.
+func (m *AccountMutation) AddedMax30mRequests() (r int, exists bool) {
+	v := m.addmax_30m_requests
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMax30mRequests resets all changes to the "max_30m_requests" field.
+func (m *AccountMutation) ResetMax30mRequests() {
+	m.max_30m_requests = nil
+	m.addmax_30m_requests = nil
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (m *AccountMutation) SetRateLimitCooldownMinutes(i int) {
+	m.rate_limit_cooldown_minutes = &i
+	m.addrate_limit_cooldown_minutes = nil
+}
+
+// RateLimitCooldownMinutes returns the value of the "rate_limit_cooldown_minutes" field in the mutation.
+func (m *AccountMutation) RateLimitCooldownMinutes() (r int, exists bool) {
+	v := m.rate_limit_cooldown_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRateLimitCooldownMinutes returns the old "rate_limit_cooldown_minutes" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldRateLimitCooldownMinutes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRateLimitCooldownMinutes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRateLimitCooldownMinutes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRateLimitCooldownMinutes: %w", err)
+	}
+	return oldValue.RateLimitCooldownMinutes, nil
+}
+
+// AddRateLimitCooldownMinutes adds i to the "rate_limit_cooldown_minutes" field.
+func (m *AccountMutation) AddRateLimitCooldownMinutes(i int) {
+	if m.addrate_limit_cooldown_minutes != nil {
+		*m.addrate_limit_cooldown_minutes += i
+	} else {
+		m.addrate_limit_cooldown_minutes = &i
+	}
+}
+
+// AddedRateLimitCooldownMinutes returns the value that was added to the "rate_limit_cooldown_minutes" field in this mutation.
+func (m *AccountMutation) AddedRateLimitCooldownMinutes() (r int, exists bool) {
+	v := m.addrate_limit_cooldown_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRateLimitCooldownMinutes resets all changes to the "rate_limit_cooldown_minutes" field.
+func (m *AccountMutation) ResetRateLimitCooldownMinutes() {
+	m.rate_limit_cooldown_minutes = nil
+	m.addrate_limit_cooldown_minutes = nil
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by ids.
 func (m *AccountMutation) AddGroupIDs(ids ...int64) {
 	if m.groups == nil {
@@ -2358,7 +2532,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 24)
+	fields := make([]string, 0, 27)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -2431,6 +2605,15 @@ func (m *AccountMutation) Fields() []string {
 	if m.session_window_status != nil {
 		fields = append(fields, account.FieldSessionWindowStatus)
 	}
+	if m.max_rpm != nil {
+		fields = append(fields, account.FieldMaxRpm)
+	}
+	if m.max_30m_requests != nil {
+		fields = append(fields, account.FieldMax30mRequests)
+	}
+	if m.rate_limit_cooldown_minutes != nil {
+		fields = append(fields, account.FieldRateLimitCooldownMinutes)
+	}
 	return fields
 }
 
@@ -2487,6 +2670,12 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.SessionWindowEnd()
 	case account.FieldSessionWindowStatus:
 		return m.SessionWindowStatus()
+	case account.FieldMaxRpm:
+		return m.MaxRpm()
+	case account.FieldMax30mRequests:
+		return m.Max30mRequests()
+	case account.FieldRateLimitCooldownMinutes:
+		return m.RateLimitCooldownMinutes()
 	}
 	return nil, false
 }
@@ -2544,6 +2733,12 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldSessionWindowEnd(ctx)
 	case account.FieldSessionWindowStatus:
 		return m.OldSessionWindowStatus(ctx)
+	case account.FieldMaxRpm:
+		return m.OldMaxRpm(ctx)
+	case account.FieldMax30mRequests:
+		return m.OldMax30mRequests(ctx)
+	case account.FieldRateLimitCooldownMinutes:
+		return m.OldRateLimitCooldownMinutes(ctx)
 	}
 	return nil, fmt.Errorf("unknown Account field %s", name)
 }
@@ -2721,6 +2916,27 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetSessionWindowStatus(v)
 		return nil
+	case account.FieldMaxRpm:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMaxRpm(v)
+		return nil
+	case account.FieldMax30mRequests:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMax30mRequests(v)
+		return nil
+	case account.FieldRateLimitCooldownMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRateLimitCooldownMinutes(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)
 }
@@ -2735,6 +2951,15 @@ func (m *AccountMutation) AddedFields() []string {
 	if m.addpriority != nil {
 		fields = append(fields, account.FieldPriority)
 	}
+	if m.addmax_rpm != nil {
+		fields = append(fields, account.FieldMaxRpm)
+	}
+	if m.addmax_30m_requests != nil {
+		fields = append(fields, account.FieldMax30mRequests)
+	}
+	if m.addrate_limit_cooldown_minutes != nil {
+		fields = append(fields, account.FieldRateLimitCooldownMinutes)
+	}
 	return fields
 }
 
@@ -2747,6 +2972,12 @@ func (m *AccountMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedConcurrency()
 	case account.FieldPriority:
 		return m.AddedPriority()
+	case account.FieldMaxRpm:
+		return m.AddedMaxRpm()
+	case account.FieldMax30mRequests:
+		return m.AddedMax30mRequests()
+	case account.FieldRateLimitCooldownMinutes:
+		return m.AddedRateLimitCooldownMinutes()
 	}
 	return nil, false
 }
@@ -2769,6 +3000,27 @@ func (m *AccountMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddPriority(v)
+		return nil
+	case account.FieldMaxRpm:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMaxRpm(v)
+		return nil
+	case account.FieldMax30mRequests:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMax30mRequests(v)
+		return nil
+	case account.FieldRateLimitCooldownMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRateLimitCooldownMinutes(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Account numeric field %s", name)
@@ -2943,6 +3195,15 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldSessionWindowStatus:
 		m.ResetSessionWindowStatus()
+		return nil
+	case account.FieldMaxRpm:
+		m.ResetMaxRpm()
+		return nil
+	case account.FieldMax30mRequests:
+		m.ResetMax30mRequests()
+		return nil
+	case account.FieldRateLimitCooldownMinutes:
+		m.ResetRateLimitCooldownMinutes()
 		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)

@@ -40,6 +40,11 @@ type Account struct {
 	SessionWindowEnd    *time.Time
 	SessionWindowStatus string
 
+	// OAuth 账号 RPM/30m 限制配置
+	MaxRPM                    int // 每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests            int // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes  int // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
+
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64
@@ -128,6 +133,27 @@ func (a *Account) IsGeminiCodeAssist() bool {
 
 func (a *Account) CanGetUsage() bool {
 	return a.Type == AccountTypeOAuth
+}
+
+// GetEffectiveMaxRPM 获取有效的 RPM 限制
+// 如果账号未配置（0），返回默认值
+func (a *Account) GetEffectiveMaxRPM(defaultRPM int) int {
+	if a.MaxRPM > 0 {
+		return a.MaxRPM
+	}
+	return defaultRPM
+}
+
+// GetEffectiveMax30mRequests 获取有效的 30 分钟请求限制
+// 如果账号未配置（0），返回 0 表示不限制
+func (a *Account) GetEffectiveMax30mRequests() int {
+	return a.Max30mRequests
+}
+
+// GetEffectiveCooldownMinutes 获取有效的冷却时间（分钟）
+// 如果账号未配置（0），返回 0 表示不冷却
+func (a *Account) GetEffectiveCooldownMinutes() int {
+	return a.RateLimitCooldownMinutes
 }
 
 func (a *Account) GetCredential(key string) string {

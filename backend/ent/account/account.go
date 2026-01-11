@@ -63,6 +63,12 @@ const (
 	FieldSessionWindowEnd = "session_window_end"
 	// FieldSessionWindowStatus holds the string denoting the session_window_status field in the database.
 	FieldSessionWindowStatus = "session_window_status"
+	// FieldMaxRpm holds the string denoting the max_rpm field in the database.
+	FieldMaxRpm = "max_rpm"
+	// FieldMax30mRequests holds the string denoting the max_30m_requests field in the database.
+	FieldMax30mRequests = "max_30m_requests"
+	// FieldRateLimitCooldownMinutes holds the string denoting the rate_limit_cooldown_minutes field in the database.
+	FieldRateLimitCooldownMinutes = "rate_limit_cooldown_minutes"
 	// EdgeGroups holds the string denoting the groups edge name in mutations.
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
@@ -128,6 +134,9 @@ var Columns = []string{
 	FieldSessionWindowStart,
 	FieldSessionWindowEnd,
 	FieldSessionWindowStatus,
+	FieldMaxRpm,
+	FieldMax30mRequests,
+	FieldRateLimitCooldownMinutes,
 }
 
 var (
@@ -184,6 +193,12 @@ var (
 	DefaultSchedulable bool
 	// SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	SessionWindowStatusValidator func(string) error
+	// DefaultMaxRpm holds the default value on creation for the "max_rpm" field.
+	DefaultMaxRpm int
+	// DefaultMax30mRequests holds the default value on creation for the "max_30m_requests" field.
+	DefaultMax30mRequests int
+	// DefaultRateLimitCooldownMinutes holds the default value on creation for the "rate_limit_cooldown_minutes" field.
+	DefaultRateLimitCooldownMinutes int
 )
 
 // OrderOption defines the ordering options for the Account queries.
@@ -302,6 +317,21 @@ func BySessionWindowEnd(opts ...sql.OrderTermOption) OrderOption {
 // BySessionWindowStatus orders the results by the session_window_status field.
 func BySessionWindowStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSessionWindowStatus, opts...).ToFunc()
+}
+
+// ByMaxRpm orders the results by the max_rpm field.
+func ByMaxRpm(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxRpm, opts...).ToFunc()
+}
+
+// ByMax30mRequests orders the results by the max_30m_requests field.
+func ByMax30mRequests(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMax30mRequests, opts...).ToFunc()
+}
+
+// ByRateLimitCooldownMinutes orders the results by the rate_limit_cooldown_minutes field.
+func ByRateLimitCooldownMinutes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRateLimitCooldownMinutes, opts...).ToFunc()
 }
 
 // ByGroupsCount orders the results by groups count.

@@ -415,6 +415,69 @@ func (_u *AccountUpdate) ClearSessionWindowStatus() *AccountUpdate {
 	return _u
 }
 
+// SetMaxRpm sets the "max_rpm" field.
+func (_u *AccountUpdate) SetMaxRpm(v int) *AccountUpdate {
+	_u.mutation.ResetMaxRpm()
+	_u.mutation.SetMaxRpm(v)
+	return _u
+}
+
+// SetNillableMaxRpm sets the "max_rpm" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableMaxRpm(v *int) *AccountUpdate {
+	if v != nil {
+		_u.SetMaxRpm(*v)
+	}
+	return _u
+}
+
+// AddMaxRpm adds value to the "max_rpm" field.
+func (_u *AccountUpdate) AddMaxRpm(v int) *AccountUpdate {
+	_u.mutation.AddMaxRpm(v)
+	return _u
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (_u *AccountUpdate) SetMax30mRequests(v int) *AccountUpdate {
+	_u.mutation.ResetMax30mRequests()
+	_u.mutation.SetMax30mRequests(v)
+	return _u
+}
+
+// SetNillableMax30mRequests sets the "max_30m_requests" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableMax30mRequests(v *int) *AccountUpdate {
+	if v != nil {
+		_u.SetMax30mRequests(*v)
+	}
+	return _u
+}
+
+// AddMax30mRequests adds value to the "max_30m_requests" field.
+func (_u *AccountUpdate) AddMax30mRequests(v int) *AccountUpdate {
+	_u.mutation.AddMax30mRequests(v)
+	return _u
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (_u *AccountUpdate) SetRateLimitCooldownMinutes(v int) *AccountUpdate {
+	_u.mutation.ResetRateLimitCooldownMinutes()
+	_u.mutation.SetRateLimitCooldownMinutes(v)
+	return _u
+}
+
+// SetNillableRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableRateLimitCooldownMinutes(v *int) *AccountUpdate {
+	if v != nil {
+		_u.SetRateLimitCooldownMinutes(*v)
+	}
+	return _u
+}
+
+// AddRateLimitCooldownMinutes adds value to the "rate_limit_cooldown_minutes" field.
+func (_u *AccountUpdate) AddRateLimitCooldownMinutes(v int) *AccountUpdate {
+	_u.mutation.AddRateLimitCooldownMinutes(v)
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdate) AddGroupIDs(ids ...int64) *AccountUpdate {
 	_u.mutation.AddGroupIDs(ids...)
@@ -691,6 +754,24 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.SessionWindowStatusCleared() {
 		_spec.ClearField(account.FieldSessionWindowStatus, field.TypeString)
+	}
+	if value, ok := _u.mutation.MaxRpm(); ok {
+		_spec.SetField(account.FieldMaxRpm, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxRpm(); ok {
+		_spec.AddField(account.FieldMaxRpm, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.Max30mRequests(); ok {
+		_spec.SetField(account.FieldMax30mRequests, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMax30mRequests(); ok {
+		_spec.AddField(account.FieldMax30mRequests, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RateLimitCooldownMinutes(); ok {
+		_spec.SetField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRateLimitCooldownMinutes(); ok {
+		_spec.AddField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1227,6 +1308,69 @@ func (_u *AccountUpdateOne) ClearSessionWindowStatus() *AccountUpdateOne {
 	return _u
 }
 
+// SetMaxRpm sets the "max_rpm" field.
+func (_u *AccountUpdateOne) SetMaxRpm(v int) *AccountUpdateOne {
+	_u.mutation.ResetMaxRpm()
+	_u.mutation.SetMaxRpm(v)
+	return _u
+}
+
+// SetNillableMaxRpm sets the "max_rpm" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableMaxRpm(v *int) *AccountUpdateOne {
+	if v != nil {
+		_u.SetMaxRpm(*v)
+	}
+	return _u
+}
+
+// AddMaxRpm adds value to the "max_rpm" field.
+func (_u *AccountUpdateOne) AddMaxRpm(v int) *AccountUpdateOne {
+	_u.mutation.AddMaxRpm(v)
+	return _u
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (_u *AccountUpdateOne) SetMax30mRequests(v int) *AccountUpdateOne {
+	_u.mutation.ResetMax30mRequests()
+	_u.mutation.SetMax30mRequests(v)
+	return _u
+}
+
+// SetNillableMax30mRequests sets the "max_30m_requests" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableMax30mRequests(v *int) *AccountUpdateOne {
+	if v != nil {
+		_u.SetMax30mRequests(*v)
+	}
+	return _u
+}
+
+// AddMax30mRequests adds value to the "max_30m_requests" field.
+func (_u *AccountUpdateOne) AddMax30mRequests(v int) *AccountUpdateOne {
+	_u.mutation.AddMax30mRequests(v)
+	return _u
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (_u *AccountUpdateOne) SetRateLimitCooldownMinutes(v int) *AccountUpdateOne {
+	_u.mutation.ResetRateLimitCooldownMinutes()
+	_u.mutation.SetRateLimitCooldownMinutes(v)
+	return _u
+}
+
+// SetNillableRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableRateLimitCooldownMinutes(v *int) *AccountUpdateOne {
+	if v != nil {
+		_u.SetRateLimitCooldownMinutes(*v)
+	}
+	return _u
+}
+
+// AddRateLimitCooldownMinutes adds value to the "rate_limit_cooldown_minutes" field.
+func (_u *AccountUpdateOne) AddRateLimitCooldownMinutes(v int) *AccountUpdateOne {
+	_u.mutation.AddRateLimitCooldownMinutes(v)
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdateOne) AddGroupIDs(ids ...int64) *AccountUpdateOne {
 	_u.mutation.AddGroupIDs(ids...)
@@ -1533,6 +1677,24 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if _u.mutation.SessionWindowStatusCleared() {
 		_spec.ClearField(account.FieldSessionWindowStatus, field.TypeString)
+	}
+	if value, ok := _u.mutation.MaxRpm(); ok {
+		_spec.SetField(account.FieldMaxRpm, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxRpm(); ok {
+		_spec.AddField(account.FieldMaxRpm, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.Max30mRequests(); ok {
+		_spec.SetField(account.FieldMax30mRequests, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMax30mRequests(); ok {
+		_spec.AddField(account.FieldMax30mRequests, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RateLimitCooldownMinutes(); ok {
+		_spec.SetField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRateLimitCooldownMinutes(); ok {
+		_spec.AddField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{

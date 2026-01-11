@@ -599,6 +599,54 @@
         </div>
       </div>
 
+      <!-- Anthropic Account RPM/30m Limit Settings -->
+      <div
+        v-if="account?.platform === 'anthropic'"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="mb-3">
+          <label class="input-label mb-0">{{ t('admin.accounts.rpmLimitSettings') }}</label>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.rpmLimitSettingsDesc') }}
+          </p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.maxRpm') }}</label>
+            <input
+              v-model.number="maxRpm"
+              type="number"
+              min="0"
+              class="input"
+              :placeholder="t('admin.accounts.maxRpmPlaceholder')"
+            />
+            <p class="input-hint">{{ t('admin.accounts.maxRpmHint') }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.max30mRequests') }}</label>
+            <input
+              v-model.number="max30mRequests"
+              type="number"
+              min="0"
+              class="input"
+              :placeholder="t('admin.accounts.max30mRequestsPlaceholder')"
+            />
+            <p class="input-hint">{{ t('admin.accounts.max30mRequestsHint') }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.rateLimitCooldown') }}</label>
+            <input
+              v-model.number="rateLimitCooldownMinutes"
+              type="number"
+              min="0"
+              class="input"
+              :placeholder="t('admin.accounts.rateLimitCooldownPlaceholder')"
+            />
+            <p class="input-hint">{{ t('admin.accounts.rateLimitCooldownHint') }}</p>
+          </div>
+        </div>
+      </div>
+
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div>
           <label class="input-label">{{ t('common.status') }}</label>
@@ -762,6 +810,11 @@ const mixedScheduling = ref(false) // For antigravity accounts: enable mixed sch
 const tempUnschedEnabled = ref(false)
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
 
+// OAuth 账号 RPM/30m 限制配置
+const maxRpm = ref(0)         // 每分钟最大请求数（0 = 使用默认值 4）
+const max30mRequests = ref(0) // 30 分钟内最大请求数（0 = 不限制）
+const rateLimitCooldownMinutes = ref(0) // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
+
 // Computed: current preset mappings based on platform
 const presetMappings = computed(() => getPresetMappingsByPlatform(props.account?.platform || 'anthropic'))
 const tempUnschedPresets = computed(() => [
@@ -842,6 +895,11 @@ watch(
       const credentials = newAccount.credentials as Record<string, unknown> | undefined
       interceptWarmupRequests.value = credentials?.intercept_warmup_requests === true
       autoPauseOnExpired.value = newAccount.auto_pause_on_expired === true
+
+      // Load OAuth RPM/30m limit settings
+      maxRpm.value = newAccount.max_rpm || 0
+      max30mRequests.value = newAccount.max_30m_requests || 0
+      rateLimitCooldownMinutes.value = newAccount.rate_limit_cooldown_minutes || 0
 
       // Load mixed scheduling setting (only for antigravity accounts)
       const extra = newAccount.extra as Record<string, unknown> | undefined
@@ -1111,6 +1169,11 @@ const handleSubmit = async () => {
       updatePayload.expires_at = 0
     }
     updatePayload.auto_pause_on_expired = autoPauseOnExpired.value
+
+    // OAuth 账号 RPM/30m 限制配置
+    updatePayload.max_rpm = maxRpm.value
+    updatePayload.max_30m_requests = max30mRequests.value
+    updatePayload.rate_limit_cooldown_minutes = rateLimitCooldownMinutes.value
 
     // For apikey type, handle credentials update
     if (props.account.type === 'apikey') {

@@ -75,37 +75,43 @@ func NewAccountHandler(
 
 // CreateAccountRequest represents create account request
 type CreateAccountRequest struct {
-	Name                    string         `json:"name" binding:"required"`
-	Notes                   *string        `json:"notes"`
-	Platform                string         `json:"platform" binding:"required"`
-	Type                    string         `json:"type" binding:"required,oneof=oauth setup-token apikey"`
-	Credentials             map[string]any `json:"credentials" binding:"required"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             int            `json:"concurrency"`
-	Priority                int            `json:"priority"`
-	GroupIDs                []int64        `json:"group_ids"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	Name                     string         `json:"name" binding:"required"`
+	Notes                    *string        `json:"notes"`
+	Platform                 string         `json:"platform" binding:"required"`
+	Type                     string         `json:"type" binding:"required,oneof=oauth setup-token apikey"`
+	Credentials              map[string]any `json:"credentials" binding:"required"`
+	Extra                    map[string]any `json:"extra"`
+	ProxyID                  *int64         `json:"proxy_id"`
+	Concurrency              int            `json:"concurrency"`
+	Priority                 int            `json:"priority"`
+	GroupIDs                 []int64        `json:"group_ids"`
+	ExpiresAt                *int64         `json:"expires_at"`
+	AutoPauseOnExpired       *bool          `json:"auto_pause_on_expired"`
+	ConfirmMixedChannelRisk  *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	MaxRPM                   int            `json:"max_rpm"`                    // OAuth 账号每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           int            `json:"max_30m_requests"`           // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes int            `json:"rate_limit_cooldown_minutes"` // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 }
 
 // UpdateAccountRequest represents update account request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
-	Name                    string         `json:"name"`
-	Notes                   *string        `json:"notes"`
-	Type                    string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey"`
-	Credentials             map[string]any `json:"credentials"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             *int           `json:"concurrency"`
-	Priority                *int           `json:"priority"`
-	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive"`
-	GroupIDs                *[]int64       `json:"group_ids"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	Name                     string         `json:"name"`
+	Notes                    *string        `json:"notes"`
+	Type                     string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey"`
+	Credentials              map[string]any `json:"credentials"`
+	Extra                    map[string]any `json:"extra"`
+	ProxyID                  *int64         `json:"proxy_id"`
+	Concurrency              *int           `json:"concurrency"`
+	Priority                 *int           `json:"priority"`
+	Status                   string         `json:"status" binding:"omitempty,oneof=active inactive"`
+	GroupIDs                 *[]int64       `json:"group_ids"`
+	ExpiresAt                *int64         `json:"expires_at"`
+	AutoPauseOnExpired       *bool          `json:"auto_pause_on_expired"`
+	ConfirmMixedChannelRisk  *bool          `json:"confirm_mixed_channel_risk"`  // 用户确认混合渠道风险
+	MaxRPM                   *int           `json:"max_rpm"`                     // OAuth 账号每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           *int           `json:"max_30m_requests"`            // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes *int           `json:"rate_limit_cooldown_minutes"` // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -198,19 +204,22 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	account, err := h.adminService.CreateAccount(c.Request.Context(), &service.CreateAccountInput{
-		Name:                  req.Name,
-		Notes:                 req.Notes,
-		Platform:              req.Platform,
-		Type:                  req.Type,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency,
-		Priority:              req.Priority,
-		GroupIDs:              req.GroupIDs,
-		ExpiresAt:             req.ExpiresAt,
-		AutoPauseOnExpired:    req.AutoPauseOnExpired,
-		SkipMixedChannelCheck: skipCheck,
+		Name:                     req.Name,
+		Notes:                    req.Notes,
+		Platform:                 req.Platform,
+		Type:                     req.Type,
+		Credentials:              req.Credentials,
+		Extra:                    req.Extra,
+		ProxyID:                  req.ProxyID,
+		Concurrency:              req.Concurrency,
+		Priority:                 req.Priority,
+		GroupIDs:                 req.GroupIDs,
+		ExpiresAt:                req.ExpiresAt,
+		AutoPauseOnExpired:       req.AutoPauseOnExpired,
+		SkipMixedChannelCheck:    skipCheck,
+		MaxRPM:                   req.MaxRPM,
+		Max30mRequests:           req.Max30mRequests,
+		RateLimitCooldownMinutes: req.RateLimitCooldownMinutes,
 	})
 	if err != nil {
 		// 检查是否为混合渠道错误
@@ -257,19 +266,22 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
-		Name:                  req.Name,
-		Notes:                 req.Notes,
-		Type:                  req.Type,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency, // 指针类型，nil 表示未提供
-		Priority:              req.Priority,    // 指针类型，nil 表示未提供
-		Status:                req.Status,
-		GroupIDs:              req.GroupIDs,
-		ExpiresAt:             req.ExpiresAt,
-		AutoPauseOnExpired:    req.AutoPauseOnExpired,
-		SkipMixedChannelCheck: skipCheck,
+		Name:                     req.Name,
+		Notes:                    req.Notes,
+		Type:                     req.Type,
+		Credentials:              req.Credentials,
+		Extra:                    req.Extra,
+		ProxyID:                  req.ProxyID,
+		Concurrency:              req.Concurrency, // 指针类型，nil 表示未提供
+		Priority:                 req.Priority,    // 指针类型，nil 表示未提供
+		Status:                   req.Status,
+		GroupIDs:                 req.GroupIDs,
+		ExpiresAt:                req.ExpiresAt,
+		AutoPauseOnExpired:       req.AutoPauseOnExpired,
+		SkipMixedChannelCheck:    skipCheck,
+		MaxRPM:                   req.MaxRPM,
+		Max30mRequests:           req.Max30mRequests,
+		RateLimitCooldownMinutes: req.RateLimitCooldownMinutes,
 	})
 	if err != nil {
 		// 检查是否为混合渠道错误

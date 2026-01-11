@@ -165,6 +165,21 @@ func SessionWindowStatus(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldSessionWindowStatus, v))
 }
 
+// MaxRpm applies equality check predicate on the "max_rpm" field. It's identical to MaxRpmEQ.
+func MaxRpm(v int) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldMaxRpm, v))
+}
+
+// Max30mRequests applies equality check predicate on the "max_30m_requests" field. It's identical to Max30mRequestsEQ.
+func Max30mRequests(v int) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldMax30mRequests, v))
+}
+
+// RateLimitCooldownMinutes applies equality check predicate on the "rate_limit_cooldown_minutes" field. It's identical to RateLimitCooldownMinutesEQ.
+func RateLimitCooldownMinutes(v int) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldRateLimitCooldownMinutes, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldCreatedAt, v))
@@ -1258,6 +1273,126 @@ func SessionWindowStatusEqualFold(v string) predicate.Account {
 // SessionWindowStatusContainsFold applies the ContainsFold predicate on the "session_window_status" field.
 func SessionWindowStatusContainsFold(v string) predicate.Account {
 	return predicate.Account(sql.FieldContainsFold(FieldSessionWindowStatus, v))
+}
+
+// MaxRpmEQ applies the EQ predicate on the "max_rpm" field.
+func MaxRpmEQ(v int) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldMaxRpm, v))
+}
+
+// MaxRpmNEQ applies the NEQ predicate on the "max_rpm" field.
+func MaxRpmNEQ(v int) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldMaxRpm, v))
+}
+
+// MaxRpmIn applies the In predicate on the "max_rpm" field.
+func MaxRpmIn(vs ...int) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldMaxRpm, vs...))
+}
+
+// MaxRpmNotIn applies the NotIn predicate on the "max_rpm" field.
+func MaxRpmNotIn(vs ...int) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldMaxRpm, vs...))
+}
+
+// MaxRpmGT applies the GT predicate on the "max_rpm" field.
+func MaxRpmGT(v int) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldMaxRpm, v))
+}
+
+// MaxRpmGTE applies the GTE predicate on the "max_rpm" field.
+func MaxRpmGTE(v int) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldMaxRpm, v))
+}
+
+// MaxRpmLT applies the LT predicate on the "max_rpm" field.
+func MaxRpmLT(v int) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldMaxRpm, v))
+}
+
+// MaxRpmLTE applies the LTE predicate on the "max_rpm" field.
+func MaxRpmLTE(v int) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldMaxRpm, v))
+}
+
+// Max30mRequestsEQ applies the EQ predicate on the "max_30m_requests" field.
+func Max30mRequestsEQ(v int) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldMax30mRequests, v))
+}
+
+// Max30mRequestsNEQ applies the NEQ predicate on the "max_30m_requests" field.
+func Max30mRequestsNEQ(v int) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldMax30mRequests, v))
+}
+
+// Max30mRequestsIn applies the In predicate on the "max_30m_requests" field.
+func Max30mRequestsIn(vs ...int) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldMax30mRequests, vs...))
+}
+
+// Max30mRequestsNotIn applies the NotIn predicate on the "max_30m_requests" field.
+func Max30mRequestsNotIn(vs ...int) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldMax30mRequests, vs...))
+}
+
+// Max30mRequestsGT applies the GT predicate on the "max_30m_requests" field.
+func Max30mRequestsGT(v int) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldMax30mRequests, v))
+}
+
+// Max30mRequestsGTE applies the GTE predicate on the "max_30m_requests" field.
+func Max30mRequestsGTE(v int) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldMax30mRequests, v))
+}
+
+// Max30mRequestsLT applies the LT predicate on the "max_30m_requests" field.
+func Max30mRequestsLT(v int) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldMax30mRequests, v))
+}
+
+// Max30mRequestsLTE applies the LTE predicate on the "max_30m_requests" field.
+func Max30mRequestsLTE(v int) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldMax30mRequests, v))
+}
+
+// RateLimitCooldownMinutesEQ applies the EQ predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesEQ(v int) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldRateLimitCooldownMinutes, v))
+}
+
+// RateLimitCooldownMinutesNEQ applies the NEQ predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesNEQ(v int) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldRateLimitCooldownMinutes, v))
+}
+
+// RateLimitCooldownMinutesIn applies the In predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesIn(vs ...int) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldRateLimitCooldownMinutes, vs...))
+}
+
+// RateLimitCooldownMinutesNotIn applies the NotIn predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesNotIn(vs ...int) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldRateLimitCooldownMinutes, vs...))
+}
+
+// RateLimitCooldownMinutesGT applies the GT predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesGT(v int) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldRateLimitCooldownMinutes, v))
+}
+
+// RateLimitCooldownMinutesGTE applies the GTE predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesGTE(v int) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldRateLimitCooldownMinutes, v))
+}
+
+// RateLimitCooldownMinutesLT applies the LT predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesLT(v int) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldRateLimitCooldownMinutes, v))
+}
+
+// RateLimitCooldownMinutesLTE applies the LTE predicate on the "rate_limit_cooldown_minutes" field.
+func RateLimitCooldownMinutesLTE(v int) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldRateLimitCooldownMinutes, v))
 }
 
 // HasGroups applies the HasEdge predicate on the "groups" edge.

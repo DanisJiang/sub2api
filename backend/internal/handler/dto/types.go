@@ -101,6 +101,11 @@ type Account struct {
 	SessionWindowEnd    *time.Time `json:"session_window_end"`
 	SessionWindowStatus string     `json:"session_window_status"`
 
+	// OAuth 账号 RPM/30m 限制配置
+	MaxRPM                   int `json:"max_rpm"`                     // 每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           int `json:"max_30m_requests"`            // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes int `json:"rate_limit_cooldown_minutes"` // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
+
 	Proxy         *Proxy         `json:"proxy,omitempty"`
 	AccountGroups []AccountGroup `json:"account_groups,omitempty"`
 

@@ -194,6 +194,18 @@ func init() {
 	accountDescSessionWindowStatus := accountFields[20].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
+	// accountDescMaxRpm is the schema descriptor for max_rpm field.
+	accountDescMaxRpm := accountFields[21].Descriptor()
+	// account.DefaultMaxRpm holds the default value on creation for the max_rpm field.
+	account.DefaultMaxRpm = accountDescMaxRpm.Default.(int)
+	// accountDescMax30mRequests is the schema descriptor for max_30m_requests field.
+	accountDescMax30mRequests := accountFields[22].Descriptor()
+	// account.DefaultMax30mRequests holds the default value on creation for the max_30m_requests field.
+	account.DefaultMax30mRequests = accountDescMax30mRequests.Default.(int)
+	// accountDescRateLimitCooldownMinutes is the schema descriptor for rate_limit_cooldown_minutes field.
+	accountDescRateLimitCooldownMinutes := accountFields[23].Descriptor()
+	// account.DefaultRateLimitCooldownMinutes holds the default value on creation for the rate_limit_cooldown_minutes field.
+	account.DefaultRateLimitCooldownMinutes = accountDescRateLimitCooldownMinutes.Default.(int)
 	accountgroupFields := schema.AccountGroup{}.Fields()
 	_ = accountgroupFields
 	// accountgroupDescPriority is the schema descriptor for priority field.

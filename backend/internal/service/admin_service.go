@@ -146,6 +146,10 @@ type CreateAccountInput struct {
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
 	// This should only be set when the caller has explicitly confirmed the risk.
 	SkipMixedChannelCheck bool
+	// OAuth 账号 RPM/30m 限制配置
+	MaxRPM                   int // 每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           int // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes int // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 }
 
 type UpdateAccountInput struct {
@@ -162,6 +166,10 @@ type UpdateAccountInput struct {
 	ExpiresAt             *int64
 	AutoPauseOnExpired    *bool
 	SkipMixedChannelCheck bool // 跳过混合渠道检查（用户已确认风险）
+	// OAuth 账号 RPM/30m 限制配置
+	MaxRPM                   *int // 每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           *int // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes *int // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
@@ -762,17 +770,20 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	account := &Account{
-		Name:        input.Name,
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       input.Extra,
-		ProxyID:     input.ProxyID,
-		Concurrency: input.Concurrency,
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:                     input.Name,
+		Notes:                    normalizeAccountNotes(input.Notes),
+		Platform:                 input.Platform,
+		Type:                     input.Type,
+		Credentials:              input.Credentials,
+		Extra:                    input.Extra,
+		ProxyID:                  input.ProxyID,
+		Concurrency:              input.Concurrency,
+		Priority:                 input.Priority,
+		Status:                   StatusActive,
+		Schedulable:              true,
+		MaxRPM:                   input.MaxRPM,
+		Max30mRequests:           input.Max30mRequests,
+		RateLimitCooldownMinutes: input.RateLimitCooldownMinutes,
 	}
 	if input.ExpiresAt != nil && *input.ExpiresAt > 0 {
 		expiresAt := time.Unix(*input.ExpiresAt, 0)
@@ -848,6 +859,16 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	if input.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
+	}
+	// OAuth 账号 RPM/30m 限制配置
+	if input.MaxRPM != nil {
+		account.MaxRPM = *input.MaxRPM
+	}
+	if input.Max30mRequests != nil {
+		account.Max30mRequests = *input.Max30mRequests
+	}
+	if input.RateLimitCooldownMinutes != nil {
+		account.RateLimitCooldownMinutes = *input.RateLimitCooldownMinutes
 	}
 
 	// 先验证分组是否存在（在任何写操作之前）

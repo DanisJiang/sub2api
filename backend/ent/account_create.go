@@ -321,6 +321,48 @@ func (_c *AccountCreate) SetNillableSessionWindowStatus(v *string) *AccountCreat
 	return _c
 }
 
+// SetMaxRpm sets the "max_rpm" field.
+func (_c *AccountCreate) SetMaxRpm(v int) *AccountCreate {
+	_c.mutation.SetMaxRpm(v)
+	return _c
+}
+
+// SetNillableMaxRpm sets the "max_rpm" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableMaxRpm(v *int) *AccountCreate {
+	if v != nil {
+		_c.SetMaxRpm(*v)
+	}
+	return _c
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (_c *AccountCreate) SetMax30mRequests(v int) *AccountCreate {
+	_c.mutation.SetMax30mRequests(v)
+	return _c
+}
+
+// SetNillableMax30mRequests sets the "max_30m_requests" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableMax30mRequests(v *int) *AccountCreate {
+	if v != nil {
+		_c.SetMax30mRequests(*v)
+	}
+	return _c
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (_c *AccountCreate) SetRateLimitCooldownMinutes(v int) *AccountCreate {
+	_c.mutation.SetRateLimitCooldownMinutes(v)
+	return _c
+}
+
+// SetNillableRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableRateLimitCooldownMinutes(v *int) *AccountCreate {
+	if v != nil {
+		_c.SetRateLimitCooldownMinutes(*v)
+	}
+	return _c
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_c *AccountCreate) AddGroupIDs(ids ...int64) *AccountCreate {
 	_c.mutation.AddGroupIDs(ids...)
@@ -441,6 +483,18 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultSchedulable
 		_c.mutation.SetSchedulable(v)
 	}
+	if _, ok := _c.mutation.MaxRpm(); !ok {
+		v := account.DefaultMaxRpm
+		_c.mutation.SetMaxRpm(v)
+	}
+	if _, ok := _c.mutation.Max30mRequests(); !ok {
+		v := account.DefaultMax30mRequests
+		_c.mutation.SetMax30mRequests(v)
+	}
+	if _, ok := _c.mutation.RateLimitCooldownMinutes(); !ok {
+		v := account.DefaultRateLimitCooldownMinutes
+		_c.mutation.SetRateLimitCooldownMinutes(v)
+	}
 	return nil
 }
 
@@ -506,6 +560,15 @@ func (_c *AccountCreate) check() error {
 		if err := account.SessionWindowStatusValidator(v); err != nil {
 			return &ValidationError{Name: "session_window_status", err: fmt.Errorf(`ent: validator failed for field "Account.session_window_status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.MaxRpm(); !ok {
+		return &ValidationError{Name: "max_rpm", err: errors.New(`ent: missing required field "Account.max_rpm"`)}
+	}
+	if _, ok := _c.mutation.Max30mRequests(); !ok {
+		return &ValidationError{Name: "max_30m_requests", err: errors.New(`ent: missing required field "Account.max_30m_requests"`)}
+	}
+	if _, ok := _c.mutation.RateLimitCooldownMinutes(); !ok {
+		return &ValidationError{Name: "rate_limit_cooldown_minutes", err: errors.New(`ent: missing required field "Account.rate_limit_cooldown_minutes"`)}
 	}
 	return nil
 }
@@ -625,6 +688,18 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SessionWindowStatus(); ok {
 		_spec.SetField(account.FieldSessionWindowStatus, field.TypeString, value)
 		_node.SessionWindowStatus = &value
+	}
+	if value, ok := _c.mutation.MaxRpm(); ok {
+		_spec.SetField(account.FieldMaxRpm, field.TypeInt, value)
+		_node.MaxRpm = value
+	}
+	if value, ok := _c.mutation.Max30mRequests(); ok {
+		_spec.SetField(account.FieldMax30mRequests, field.TypeInt, value)
+		_node.Max30mRequests = value
+	}
+	if value, ok := _c.mutation.RateLimitCooldownMinutes(); ok {
+		_spec.SetField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
+		_node.RateLimitCooldownMinutes = value
 	}
 	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1091,6 +1166,60 @@ func (u *AccountUpsert) ClearSessionWindowStatus() *AccountUpsert {
 	return u
 }
 
+// SetMaxRpm sets the "max_rpm" field.
+func (u *AccountUpsert) SetMaxRpm(v int) *AccountUpsert {
+	u.Set(account.FieldMaxRpm, v)
+	return u
+}
+
+// UpdateMaxRpm sets the "max_rpm" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateMaxRpm() *AccountUpsert {
+	u.SetExcluded(account.FieldMaxRpm)
+	return u
+}
+
+// AddMaxRpm adds v to the "max_rpm" field.
+func (u *AccountUpsert) AddMaxRpm(v int) *AccountUpsert {
+	u.Add(account.FieldMaxRpm, v)
+	return u
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (u *AccountUpsert) SetMax30mRequests(v int) *AccountUpsert {
+	u.Set(account.FieldMax30mRequests, v)
+	return u
+}
+
+// UpdateMax30mRequests sets the "max_30m_requests" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateMax30mRequests() *AccountUpsert {
+	u.SetExcluded(account.FieldMax30mRequests)
+	return u
+}
+
+// AddMax30mRequests adds v to the "max_30m_requests" field.
+func (u *AccountUpsert) AddMax30mRequests(v int) *AccountUpsert {
+	u.Add(account.FieldMax30mRequests, v)
+	return u
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (u *AccountUpsert) SetRateLimitCooldownMinutes(v int) *AccountUpsert {
+	u.Set(account.FieldRateLimitCooldownMinutes, v)
+	return u
+}
+
+// UpdateRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateRateLimitCooldownMinutes() *AccountUpsert {
+	u.SetExcluded(account.FieldRateLimitCooldownMinutes)
+	return u
+}
+
+// AddRateLimitCooldownMinutes adds v to the "rate_limit_cooldown_minutes" field.
+func (u *AccountUpsert) AddRateLimitCooldownMinutes(v int) *AccountUpsert {
+	u.Add(account.FieldRateLimitCooldownMinutes, v)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1553,6 +1682,69 @@ func (u *AccountUpsertOne) UpdateSessionWindowStatus() *AccountUpsertOne {
 func (u *AccountUpsertOne) ClearSessionWindowStatus() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearSessionWindowStatus()
+	})
+}
+
+// SetMaxRpm sets the "max_rpm" field.
+func (u *AccountUpsertOne) SetMaxRpm(v int) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetMaxRpm(v)
+	})
+}
+
+// AddMaxRpm adds v to the "max_rpm" field.
+func (u *AccountUpsertOne) AddMaxRpm(v int) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddMaxRpm(v)
+	})
+}
+
+// UpdateMaxRpm sets the "max_rpm" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateMaxRpm() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateMaxRpm()
+	})
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (u *AccountUpsertOne) SetMax30mRequests(v int) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetMax30mRequests(v)
+	})
+}
+
+// AddMax30mRequests adds v to the "max_30m_requests" field.
+func (u *AccountUpsertOne) AddMax30mRequests(v int) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddMax30mRequests(v)
+	})
+}
+
+// UpdateMax30mRequests sets the "max_30m_requests" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateMax30mRequests() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateMax30mRequests()
+	})
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (u *AccountUpsertOne) SetRateLimitCooldownMinutes(v int) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetRateLimitCooldownMinutes(v)
+	})
+}
+
+// AddRateLimitCooldownMinutes adds v to the "rate_limit_cooldown_minutes" field.
+func (u *AccountUpsertOne) AddRateLimitCooldownMinutes(v int) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddRateLimitCooldownMinutes(v)
+	})
+}
+
+// UpdateRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateRateLimitCooldownMinutes() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateRateLimitCooldownMinutes()
 	})
 }
 
@@ -2184,6 +2376,69 @@ func (u *AccountUpsertBulk) UpdateSessionWindowStatus() *AccountUpsertBulk {
 func (u *AccountUpsertBulk) ClearSessionWindowStatus() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearSessionWindowStatus()
+	})
+}
+
+// SetMaxRpm sets the "max_rpm" field.
+func (u *AccountUpsertBulk) SetMaxRpm(v int) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetMaxRpm(v)
+	})
+}
+
+// AddMaxRpm adds v to the "max_rpm" field.
+func (u *AccountUpsertBulk) AddMaxRpm(v int) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddMaxRpm(v)
+	})
+}
+
+// UpdateMaxRpm sets the "max_rpm" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateMaxRpm() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateMaxRpm()
+	})
+}
+
+// SetMax30mRequests sets the "max_30m_requests" field.
+func (u *AccountUpsertBulk) SetMax30mRequests(v int) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetMax30mRequests(v)
+	})
+}
+
+// AddMax30mRequests adds v to the "max_30m_requests" field.
+func (u *AccountUpsertBulk) AddMax30mRequests(v int) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddMax30mRequests(v)
+	})
+}
+
+// UpdateMax30mRequests sets the "max_30m_requests" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateMax30mRequests() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateMax30mRequests()
+	})
+}
+
+// SetRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field.
+func (u *AccountUpsertBulk) SetRateLimitCooldownMinutes(v int) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetRateLimitCooldownMinutes(v)
+	})
+}
+
+// AddRateLimitCooldownMinutes adds v to the "rate_limit_cooldown_minutes" field.
+func (u *AccountUpsertBulk) AddRateLimitCooldownMinutes(v int) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddRateLimitCooldownMinutes(v)
+	})
+}
+
+// UpdateRateLimitCooldownMinutes sets the "rate_limit_cooldown_minutes" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateRateLimitCooldownMinutes() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateRateLimitCooldownMinutes()
 	})
 }
 

@@ -561,9 +561,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 
 		// 【RPM 限制】等待直到账号 RPM 低于上限
-		// 如果 RPM >= 8，等待最早的请求过期后再继续
-		if account.IsOAuth() {
-			if waitErr := h.concurrencyHelper.WaitForRPMSlot(c, account.ID, reqStream, &streamStarted); waitErr != nil {
+		// 如果 RPM >= 上限，等待最早的请求过期后再继续
+		if account.IsAnthropic() {
+			if waitErr := h.concurrencyHelper.WaitForRPMSlot(c, account.ID, account.MaxRPM, reqStream, &streamStarted); waitErr != nil {
 				// 等待被中断（客户端断开），释放资源并返回
 				if sessionMutexRelease != nil {
 					sessionMutexRelease()
@@ -626,16 +626,20 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 
 		// 【RPM/30m 限制】记录请求并检查 30 分钟总量
-		// 如果达到 180 请求/30分钟，暂停该账号 10 分钟
-		if account.IsOAuth() {
-			recordResult := h.concurrencyHelper.RecordAccountRequest(context.Background(), account.ID)
+		// 如果达到账号配置的 30 分钟限制，暂停该账号（使用账号配置的冷却时间）
+		if account.IsAnthropic() {
+			recordResult := h.concurrencyHelper.RecordAccountRequest(context.Background(), account.ID, account.Max30mRequests)
 			if recordResult.ShouldPause {
 				// 使用现有的 SetTempUnschedulable 接口暂停账号
 				pauseCtx, pauseCancel := context.WithTimeout(context.Background(), 5*time.Second)
-				if err := h.gatewayService.PauseAccountFor30mLimit(pauseCtx, account.ID, 0, recordResult.RequestCount); err != nil {
+				cooldownMinutes := account.RateLimitCooldownMinutes
+				cooldownDuration := time.Duration(cooldownMinutes) * time.Minute
+				if err := h.gatewayService.PauseAccountFor30mLimit(pauseCtx, account.ID, cooldownDuration, recordResult.RequestCount); err != nil {
 					log.Printf("[30m-limit] failed to pause account: account=%d err=%v", account.ID, err)
+				} else if cooldownMinutes > 0 {
+					log.Printf("[30m-limit] account=%d paused for %d minutes (count=%d)", account.ID, cooldownMinutes, recordResult.RequestCount)
 				} else {
-					log.Printf("[30m-limit] account=%d reached limit but pause disabled (count=%d)", account.ID, recordResult.RequestCount)
+					log.Printf("[30m-limit] account=%d reached limit but cooldown=0 (count=%d)", account.ID, recordResult.RequestCount)
 				}
 				pauseCancel()
 			}

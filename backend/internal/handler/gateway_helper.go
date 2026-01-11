@@ -537,10 +537,10 @@ func containsSubstring(s, substr string) bool {
 // ============================================
 
 const (
-	// accountMaxRPM 单个账号的最大 RPM
-	accountMaxRPM = 4
-	// accountMax30mRequests 单个账号 30 分钟内的最大请求数
-	accountMax30mRequests = 100
+	// defaultAccountMaxRPM 单个账号的默认最大 RPM（账号未配置时使用）
+	defaultAccountMaxRPM = 4
+	// defaultAccountMax30mRequests 单个账号 30 分钟内的默认最大请求数（账号未配置时使用）
+	defaultAccountMax30mRequests = 100
 	// rpmWindowSeconds RPM 滑动窗口（秒）
 	rpmWindowSeconds = 60
 )
@@ -552,9 +552,16 @@ const (
 // WaitForRPMSlot waits until the account's RPM is below the limit.
 // Returns error if context is cancelled or max wait time exceeded.
 // If RPM is already below limit, returns immediately.
-func (h *ConcurrencyHelper) WaitForRPMSlot(c *gin.Context, accountID int64, isStream bool, streamStarted *bool) error {
+// maxRPM: 0 表示使用默认值，>0 表示使用账号配置的值
+func (h *ConcurrencyHelper) WaitForRPMSlot(c *gin.Context, accountID int64, maxRPM int, isStream bool, streamStarted *bool) error {
 	if h.concurrencyService == nil {
 		return nil
+	}
+
+	// 使用账号配置的 RPM 限制，0 表示使用默认值
+	effectiveMaxRPM := maxRPM
+	if effectiveMaxRPM <= 0 {
+		effectiveMaxRPM = defaultAccountMaxRPM
 	}
 
 	ctx := c.Request.Context()
@@ -566,7 +573,7 @@ func (h *ConcurrencyHelper) WaitForRPMSlot(c *gin.Context, accountID int64, isSt
 		return nil
 	}
 
-	if currentRPM < accountMaxRPM {
+	if currentRPM < effectiveMaxRPM {
 		// RPM is below limit, no need to wait
 		return nil
 	}
@@ -596,7 +603,7 @@ func (h *ConcurrencyHelper) WaitForRPMSlot(c *gin.Context, accountID int64, isSt
 	waitDuration := time.Duration(waitMs) * time.Millisecond
 
 	// Log the wait
-	fmt.Printf("[rpm-limit] account=%d rpm=%d waiting=%v\n", accountID, currentRPM, waitDuration)
+	fmt.Printf("[rpm-limit] account=%d rpm=%d maxRPM=%d waiting=%v\n", accountID, currentRPM, effectiveMaxRPM, waitDuration)
 
 	return h.waitWithPing(c, waitDuration, isStream, streamStarted)
 }
@@ -660,7 +667,8 @@ type RecordAccountRequestResult struct {
 // RecordAccountRequest records a request for an account and returns rate limit status.
 // The caller is responsible for pausing the account using gatewayService.PauseAccountFor30mLimit
 // if ShouldPause is true.
-func (h *ConcurrencyHelper) RecordAccountRequest(ctx context.Context, accountID int64) RecordAccountRequestResult {
+// max30mRequests: 0 表示不限制，>0 表示使用账号配置的值
+func (h *ConcurrencyHelper) RecordAccountRequest(ctx context.Context, accountID int64, max30mRequests int) RecordAccountRequestResult {
 	if h.concurrencyService == nil {
 		return RecordAccountRequestResult{}
 	}
@@ -675,6 +683,11 @@ func (h *ConcurrencyHelper) RecordAccountRequest(ctx context.Context, accountID 
 		fmt.Printf("[30m-limit] failed to record request: account=%d err=%v\n", accountID, err)
 	}
 
+	// 如果 max30mRequests 为 0，表示不限制 30 分钟总量
+	if max30mRequests <= 0 {
+		return RecordAccountRequestResult{}
+	}
+
 	// Check 30m count
 	count30m, err := h.concurrencyService.GetAccountRequestCount30m(ctx, accountID)
 	if err != nil {
@@ -682,8 +695,8 @@ func (h *ConcurrencyHelper) RecordAccountRequest(ctx context.Context, accountID 
 		return RecordAccountRequestResult{}
 	}
 
-	if count30m >= accountMax30mRequests {
-		fmt.Printf("[30m-limit] account=%d reached limit (count=%d)\n", accountID, count30m)
+	if count30m >= max30mRequests {
+		fmt.Printf("[30m-limit] account=%d reached limit (count=%d, max=%d)\n", accountID, count30m, max30mRequests)
 		return RecordAccountRequestResult{
 			ShouldPause:  true,
 			RequestCount: count30m,

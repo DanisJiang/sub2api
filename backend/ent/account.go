@@ -67,6 +67,12 @@ type Account struct {
 	SessionWindowEnd *time.Time `json:"session_window_end,omitempty"`
 	// SessionWindowStatus holds the value of the "session_window_status" field.
 	SessionWindowStatus *string `json:"session_window_status,omitempty"`
+	// Maximum requests per minute for OAuth accounts (0 = use default)
+	MaxRpm int `json:"max_rpm,omitempty"`
+	// Maximum requests in 30 minutes for OAuth accounts (0 = no limit)
+	Max30mRequests int `json:"max_30m_requests,omitempty"`
+	// Cooldown duration in minutes after hitting 30m limit (0 = no cooldown)
+	RateLimitCooldownMinutes int `json:"rate_limit_cooldown_minutes,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AccountQuery when eager-loading is set.
 	Edges        AccountEdges `json:"edges"`
@@ -135,7 +141,7 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case account.FieldAutoPauseOnExpired, account.FieldSchedulable:
 			values[i] = new(sql.NullBool)
-		case account.FieldID, account.FieldProxyID, account.FieldConcurrency, account.FieldPriority:
+		case account.FieldID, account.FieldProxyID, account.FieldConcurrency, account.FieldPriority, account.FieldMaxRpm, account.FieldMax30mRequests, account.FieldRateLimitCooldownMinutes:
 			values[i] = new(sql.NullInt64)
 		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldSessionWindowStatus:
 			values[i] = new(sql.NullString)
@@ -322,6 +328,24 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 				_m.SessionWindowStatus = new(string)
 				*_m.SessionWindowStatus = value.String
 			}
+		case account.FieldMaxRpm:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_rpm", values[i])
+			} else if value.Valid {
+				_m.MaxRpm = int(value.Int64)
+			}
+		case account.FieldMax30mRequests:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_30m_requests", values[i])
+			} else if value.Valid {
+				_m.Max30mRequests = int(value.Int64)
+			}
+		case account.FieldRateLimitCooldownMinutes:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field rate_limit_cooldown_minutes", values[i])
+			} else if value.Valid {
+				_m.RateLimitCooldownMinutes = int(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -473,6 +497,15 @@ func (_m *Account) String() string {
 		builder.WriteString("session_window_status=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("max_rpm=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MaxRpm))
+	builder.WriteString(", ")
+	builder.WriteString("max_30m_requests=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Max30mRequests))
+	builder.WriteString(", ")
+	builder.WriteString("rate_limit_cooldown_minutes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RateLimitCooldownMinutes))
 	builder.WriteByte(')')
 	return builder.String()
 }
