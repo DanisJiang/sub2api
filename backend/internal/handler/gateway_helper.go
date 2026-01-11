@@ -540,7 +540,7 @@ const (
 	// accountMaxRPM 单个账号的最大 RPM
 	accountMaxRPM = 6
 	// accountMax30mRequests 单个账号 30 分钟内的最大请求数
-	accountMax30mRequests = 180
+	accountMax30mRequests = 120
 	// rpmWindowSeconds RPM 滑动窗口（秒）
 	rpmWindowSeconds = 60
 )
