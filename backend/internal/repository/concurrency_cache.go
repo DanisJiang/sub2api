@@ -59,14 +59,14 @@ const (
 	// 账号 RPM 限制相关常量
 	// 键格式: rpm_limit:{accountID}
 	rpmLimitKeyPrefix = "rpm_limit:"
-	rpmWindowSeconds  = 60 // 1 分钟滑动窗口
+	rpmWindowSeconds  = 60  // 1 分钟滑动窗口
 	rpmLimitTTL       = 120 // TTL 设置为 2 分钟，确保数据不会过早过期
 
 	// 账号 30 分钟总量限制相关常量
 	// 键格式: rate_30m:{accountID}
-	rate30mKeyPrefix    = "rate_30m:"
+	rate30mKeyPrefix     = "rate_30m:"
 	rate30mWindowSeconds = 1800 // 30 分钟滑动窗口
-	rate30mLimitTTL     = 3600 // TTL 设置为 1 小时
+	rate30mLimitTTL      = 3600 // TTL 设置为 1 小时
 
 	// 账号暂停调度标记
 	// 键格式: account_paused:{accountID}

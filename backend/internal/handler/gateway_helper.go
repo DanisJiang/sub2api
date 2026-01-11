@@ -541,8 +541,6 @@ const (
 	accountMaxRPM = 8
 	// accountMax30mRequests 单个账号 30 分钟内的最大请求数
 	accountMax30mRequests = 180
-	// accountPauseDuration 触发 30m 限制后暂停调度的时长
-	accountPauseDuration = 10 * time.Minute
 	// rpmWindowSeconds RPM 滑动窗口（秒）
 	rpmWindowSeconds = 60
 )
