@@ -24,6 +24,10 @@ type Tx struct {
 	Announcement *AnnouncementClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// PromoCode is the client for interacting with the PromoCode builders.
+	PromoCode *PromoCodeClient
+	// PromoCodeUsage is the client for interacting with the PromoCodeUsage builders.
+	PromoCodeUsage *PromoCodeUsageClient
 	// Proxy is the client for interacting with the Proxy builders.
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
@@ -178,6 +182,8 @@ func (tx *Tx) init() {
 	tx.AccountGroup = NewAccountGroupClient(tx.config)
 	tx.Announcement = NewAnnouncementClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
+	tx.PromoCode = NewPromoCodeClient(tx.config)
+	tx.PromoCodeUsage = NewPromoCodeUsageClient(tx.config)
 	tx.Proxy = NewProxyClient(tx.config)
 	tx.RedeemCode = NewRedeemCodeClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)

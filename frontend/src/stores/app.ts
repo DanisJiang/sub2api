@@ -30,6 +30,7 @@ export const useAppStore = defineStore('app', () => {
   const contactInfo = ref<string>('')
   const apiBaseUrl = ref<string>('')
   const docUrl = ref<string>('')
+  const cachedPublicSettings = ref<PublicSettings | null>(null)
 
   // Version cache state
   const versionLoaded = ref<boolean>(false)
@@ -279,12 +280,35 @@ export const useAppStore = defineStore('app', () => {
   // ==================== Public Settings Management ====================
 
   /**
+   * Apply settings to store state (internal helper to avoid code duplication)
+   */
+  function applySettings(config: PublicSettings): void {
+    cachedPublicSettings.value = config
+    siteName.value = config.site_name || 'Sub2API'
+    siteLogo.value = config.site_logo || ''
+    siteVersion.value = config.version || ''
+    contactInfo.value = config.contact_info || ''
+    apiBaseUrl.value = config.api_base_url || ''
+    docUrl.value = config.doc_url || ''
+    publicSettingsLoaded.value = true
+  }
+
+  /**
    * Fetch public settings (uses cache unless force=true)
    * @param force - Force refresh from API
    */
   async function fetchPublicSettings(force = false): Promise<PublicSettings | null> {
+    // Check for injected config from server (eliminates flash)
+    if (!publicSettingsLoaded.value && !force && window.__APP_CONFIG__) {
+      applySettings(window.__APP_CONFIG__)
+      return window.__APP_CONFIG__
+    }
+
     // Return cached data if available and not forcing refresh
     if (publicSettingsLoaded.value && !force) {
+      if (cachedPublicSettings.value) {
+        return { ...cachedPublicSettings.value }
+      }
       return {
         registration_enabled: false,
         email_verify_enabled: false,
@@ -296,6 +320,8 @@ export const useAppStore = defineStore('app', () => {
         api_base_url: apiBaseUrl.value,
         contact_info: contactInfo.value,
         doc_url: docUrl.value,
+        home_content: '',
+        linuxdo_oauth_enabled: false,
         version: siteVersion.value
       }
     }
@@ -308,13 +334,7 @@ export const useAppStore = defineStore('app', () => {
     publicSettingsLoading.value = true
     try {
       const data = await fetchPublicSettingsAPI()
-      siteName.value = data.site_name || 'Sub2API'
-      siteLogo.value = data.site_logo || ''
-      siteVersion.value = data.version || ''
-      contactInfo.value = data.contact_info || ''
-      apiBaseUrl.value = data.api_base_url || ''
-      docUrl.value = data.doc_url || ''
-      publicSettingsLoaded.value = true
+      applySettings(data)
       return data
     } catch (error) {
       console.error('Failed to fetch public settings:', error)
@@ -329,6 +349,20 @@ export const useAppStore = defineStore('app', () => {
    */
   function clearPublicSettingsCache(): void {
     publicSettingsLoaded.value = false
+    cachedPublicSettings.value = null
+  }
+
+  /**
+   * Initialize settings from injected config (window.__APP_CONFIG__)
+   * This is called synchronously before Vue app mounts to prevent flash
+   * @returns true if config was found and applied, false otherwise
+   */
+  function initFromInjectedConfig(): boolean {
+    if (window.__APP_CONFIG__) {
+      applySettings(window.__APP_CONFIG__)
+      return true
+    }
+    return false
   }
 
   // ==================== Return Store API ====================
@@ -348,6 +382,7 @@ export const useAppStore = defineStore('app', () => {
     contactInfo,
     apiBaseUrl,
     docUrl,
+    cachedPublicSettings,
 
     // Version state
     versionLoaded,
@@ -384,6 +419,7 @@ export const useAppStore = defineStore('app', () => {
 
     // Public settings actions
     fetchPublicSettings,
-    clearPublicSettingsCache
+    clearPublicSettingsCache,
+    initFromInjectedConfig
   }
 })

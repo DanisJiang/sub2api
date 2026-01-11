@@ -143,6 +143,7 @@ export default {
     copiedToClipboard: '已复制到剪贴板',
     copyFailed: '复制失败',
     contactSupport: '联系客服',
+    optional: '可选',
     selectOption: '请选择',
     searchPlaceholder: '搜索...',
     noOptionsFound: '无匹配选项',
@@ -176,6 +177,7 @@ export default {
     accounts: '账号管理',
     proxies: 'IP管理',
     redeemCodes: '兑换码',
+    promoCodes: '优惠码',
     settings: '系统设置',
     myAccount: '我的账户',
     lightMode: '浅色模式',
@@ -229,6 +231,26 @@ export default {
     sendingCode: '发送中...',
     clickToResend: '点击重新发送验证码',
     resendCode: '重新发送验证码',
+    promoCodeLabel: '优惠码',
+    promoCodePlaceholder: '输入优惠码（可选）',
+    promoCodeValid: '有效！注册后将获得 ${amount} 赠送余额',
+    promoCodeInvalid: '无效的优惠码',
+    promoCodeNotFound: '优惠码不存在',
+    promoCodeExpired: '此优惠码已过期',
+    promoCodeDisabled: '此优惠码已被禁用',
+    promoCodeMaxUsed: '此优惠码已达到使用上限',
+    promoCodeAlreadyUsed: '您已使用过此优惠码',
+    promoCodeValidating: '优惠码正在验证中，请稍候',
+    promoCodeInvalidCannotRegister: '优惠码无效，请检查后重试或清空优惠码',
+    linuxdo: {
+      signIn: '使用 Linux.do 登录',
+      orContinue: '或使用邮箱密码继续',
+      callbackTitle: '正在完成登录',
+      callbackProcessing: '正在验证登录信息，请稍候...',
+      callbackHint: '如果页面未自动跳转，请返回登录页重试。',
+      callbackMissingToken: '登录信息缺失，请返回重试。',
+      backToLogin: '返回登录'
+    },
     oauth: {
       code: '授权码',
       state: '状态',
@@ -341,6 +363,12 @@ export default {
         note: '请确保配置目录存在。macOS/Linux 用户可运行 mkdir -p ~/.codex 创建目录。',
         noteWindows: '按 Win+R，输入 %userprofile%\\.codex 打开配置目录。如目录不存在，请先手动创建。',
       },
+      cliTabs: {
+        claudeCode: 'Claude Code',
+        geminiCli: 'Gemini CLI',
+        codexCli: 'Codex CLI',
+        opencode: 'OpenCode',
+      },
       antigravity: {
         description: '为 Antigravity 分组配置 API 访问。请根据您使用的客户端选择对应的配置方式。',
         claudeCode: 'Claude Code',
@@ -353,6 +381,11 @@ export default {
         modelComment: '如果你有 Gemini 3 权限可以填：gemini-3-pro-preview',
         note: '这些环境变量将在当前终端会话中生效。如需永久配置，请将其添加到 ~/.bashrc、~/.zshrc 或相应的配置文件中。',
       },
+      opencode: {
+        title: 'OpenCode 配置示例',
+        subtitle: 'opencode.json',
+        hint: '示例仅用于演示分组配置，模型与选项可按需调整。',
+      },
     },
     customKeyLabel: '自定义密钥',
     customKeyPlaceholder: '输入自定义密钥（至少16个字符）',
@@ -360,6 +393,14 @@ export default {
     customKeyTooShort: '自定义密钥至少需要16个字符',
     customKeyInvalidChars: '自定义密钥只能包含字母、数字、下划线和连字符',
     customKeyRequired: '请输入自定义密钥',
+    ipRestriction: 'IP 限制',
+    ipWhitelist: 'IP 白名单',
+    ipWhitelistPlaceholder: '192.168.1.100\n10.0.0.0/8',
+    ipWhitelistHint: '每行一个 IP 或 CIDR，设置后仅允许这些 IP 使用此密钥',
+    ipBlacklist: 'IP 黑名单',
+    ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
+    ipBlacklistHint: '每行一个 IP 或 CIDR，这些 IP 将被禁止使用此密钥',
+    ipRestrictionEnabled: '已配置 IP 限制',
     ccSwitchNotInstalled: 'CC-Switch 未安装或协议处理程序未注册。请先安装 CC-Switch 或手动复制 API 密钥。',
     ccsClientSelect: {
       title: '选择客户端',
@@ -420,9 +461,6 @@ export default {
     exportFailed: '使用数据导出失败',
     exportExcelSuccess: '使用数据导出成功（Excel格式）',
     exportExcelFailed: '使用数据导出失败',
-    billingType: '消费类型',
-    balance: '余额',
-    subscription: '订阅',
     imageUnit: '张',
     claudeCode: 'Claude Code 客户端',
     otherClient: '第三方客户端',
@@ -1231,12 +1269,18 @@ export default {
       accountCreatedSuccess: '账号添加成功',
       accountUpdatedSuccess: '账号更新成功',
       accountDeletedSuccess: '账号删除成功',
+      bulkSchedulableEnabled: '成功启用 {count} 个账号的调度',
+      bulkSchedulableDisabled: '成功停止 {count} 个账号的调度',
+      bulkSchedulablePartial: '部分调度更新成功：成功 {success} 个，失败 {failed} 个',
+      bulkSchedulableResultUnknown: '批量调度结果不完整，请稍后重试或刷新列表',
       bulkActions: {
         selected: '已选择 {count} 个账号',
         selectCurrentPage: '本页全选',
         clear: '清除选择',
         edit: '批量编辑账号',
-        delete: '批量删除'
+        delete: '批量删除',
+        enableScheduling: '批量启用调度',
+        disableScheduling: '批量停止调度'
       },
       bulkEdit: {
         title: '批量编辑账号',
@@ -1632,6 +1676,7 @@ export default {
       startTest: '开始测试',
       retry: '重试',
       copyOutput: '复制输出',
+      outputCopied: '输出已复制',
       startingTestForAccount: '开始测试账号：{name}',
       testAccountTypeLabel: '账号类型：{type}',
 	      selectTestModel: '选择测试模型',
@@ -1879,6 +1924,65 @@ export default {
       failedToDelete: '删除兑换码失败'
     },
 
+    // Promo Codes
+    promo: {
+      title: '优惠码管理',
+      description: '创建和管理注册优惠码',
+      createCode: '创建优惠码',
+      editCode: '编辑优惠码',
+      deleteCode: '删除优惠码',
+      searchCodes: '搜索优惠码...',
+      allStatus: '全部状态',
+      columns: {
+        code: '优惠码',
+        bonusAmount: '赠送金额',
+        maxUses: '最大使用次数',
+        usedCount: '已使用',
+        usage: '使用量',
+        status: '状态',
+        expiresAt: '过期时间',
+        createdAt: '创建时间',
+        actions: '操作'
+      },
+      // 表单标签（扁平结构便于模板使用）
+      code: '优惠码',
+      autoGenerate: '留空自动生成',
+      codePlaceholder: '输入优惠码或留空',
+      bonusAmount: '赠送金额 ($)',
+      maxUses: '最大使用次数',
+      zeroUnlimited: '0 = 无限制',
+      expiresAt: '过期时间',
+      notes: '备注',
+      notesPlaceholder: '可选备注信息',
+      status: '状态',
+      neverExpires: '永不过期',
+      // 状态标签
+      statusActive: '启用',
+      statusDisabled: '禁用',
+      statusExpired: '已过期',
+      statusMaxUsed: '已用完',
+      // 使用记录
+      usageRecords: '使用记录',
+      viewUsages: '查看使用记录',
+      noUsages: '暂无使用记录',
+      userPrefix: '用户 #{id}',
+      copied: '已复制！',
+      // 消息
+      noCodesYet: '暂无优惠码',
+      createFirstCode: '创建您的第一个优惠码，为新用户提供注册奖励。',
+      codeCreated: '优惠码创建成功',
+      codeUpdated: '优惠码更新成功',
+      codeDeleted: '优惠码删除成功',
+      deleteCodeConfirm: '确定要删除此优惠码吗？此操作无法撤销。',
+      copyRegisterLink: '复制注册链接',
+      registerLinkCopied: '注册链接已复制到剪贴板',
+      failedToLoad: '加载优惠码失败',
+      failedToCreate: '创建优惠码失败',
+      failedToUpdate: '更新优惠码失败',
+      failedToDelete: '删除优惠码失败',
+      failedToLoadUsages: '加载使用记录失败'
+    },
+
     // Usage Records
     usage: {
       title: '使用记录',
@@ -1897,7 +2001,6 @@ export default {
       allAccounts: '全部账户',
       allGroups: '全部分组',
       allTypes: '全部类型',
-      allBillingTypes: '全部计费',
       inputCost: '输入成本',
       outputCost: '输出成本',
       cacheCreationCost: '缓存创建成本',
@@ -1906,7 +2009,8 @@ export default {
       outputTokens: '输出 Token',
       cacheCreationTokens: '缓存创建 Token',
       cacheReadTokens: '缓存读取 Token',
-      failedToLoad: '加载使用记录失败'
+      failedToLoad: '加载使用记录失败',
+      ipAddress: 'IP'
     },
 
     // Announcements
@@ -1961,6 +2065,25 @@ export default {
         cloudflareDashboard: 'Cloudflare Dashboard',
         secretKeyHint: '服务端验证密钥（请保密）',
         secretKeyConfiguredHint: '密钥已配置，留空以保留当前值。'      },
+      linuxdo: {
+        title: 'LinuxDo Connect 登录',
+        description: '配置 LinuxDo Connect OAuth，用于 Sub2API 用户登录',
+        enable: '启用 LinuxDo 登录',
+        enableHint: '在登录/注册页面显示 LinuxDo 登录入口',
+        clientId: 'Client ID',
+        clientIdPlaceholder: '例如：hprJ5pC3...',
+        clientIdHint: '从 Connect.Linux.Do 后台获取',
+        clientSecret: 'Client Secret',
+        clientSecretPlaceholder: '********',
+        clientSecretHint: '用于后端交换 token（请保密）',
+        clientSecretConfiguredPlaceholder: '********',
+        clientSecretConfiguredHint: '密钥已配置，留空以保留当前值。',
+        redirectUrl: '回调地址（Redirect URL）',
+        redirectUrlPlaceholder: 'https://your-domain.com/api/v1/auth/oauth/linuxdo/callback',
+        redirectUrlHint: '需与 Connect.Linux.Do 中配置的回调地址一致（必须是 http(s) 完整 URL）',
+        quickSetCopy: '使用当前站点生成并复制',
+        redirectUrlSetAndCopied: '已使用当前站点生成回调地址并复制到剪贴板'
+      },
       defaults: {
         title: '用户默认设置',
         description: '新用户的默认值',
@@ -2001,7 +2124,11 @@ export default {
         logoHint: 'PNG、JPG 或 SVG 格式，最大 300KB。建议：80x80px 正方形图片。',
         logoSizeError: '图片大小超过 300KB 限制（{size}KB）',
         logoTypeError: '请选择图片文件',
-        logoReadError: '读取图片文件失败'
+        logoReadError: '读取图片文件失败',
+        homeContent: '首页内容',
+        homeContentPlaceholder: '在此输入首页内容，支持 Markdown & HTML 代码。如果输入的是一个链接，则会使用该链接作为 iframe 的 src 属性。',
+        homeContentHint: '自定义首页内容，支持 Markdown/HTML。如果输入的是链接（以 http:// 或 https:// 开头），则会使用该链接作为 iframe 的 src 属性，这允许你设置任意网页作为首页。设置后首页的状态信息将不再显示。',
+        homeContentIframeWarning: '⚠️ iframe 模式提示：部分网站设置了 X-Frame-Options 或 CSP 安全策略，禁止被嵌入到 iframe 中。如果页面显示空白或报错，请确认目标网站允许被嵌入，或考虑使用 HTML 模式自行构建页面内容。'
       },
       smtp: {
         title: 'SMTP 设置',

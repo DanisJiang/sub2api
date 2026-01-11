@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	pkgerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -139,6 +140,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	// 获取 User-Agent
 	userAgent := c.Request.UserAgent()
+
+	// 获取客户端 IP
+	clientIP := ip.GetClientIP(c)
 
 	// 0. 检查wait队列是否已满
 	maxWait := service.CalculateMaxWait(subject.Concurrency)
@@ -310,7 +314,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 
 			// 异步记录使用量（subscription已在函数开头获取）
-			go func(result *service.ForwardResult, usedAccount *service.Account, ua string) {
+			go func(result *service.ForwardResult, usedAccount *service.Account, ua string, cip string) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
@@ -320,10 +324,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					Account:      usedAccount,
 					Subscription: subscription,
 					UserAgent:    ua,
+					IPAddress:    cip,
 				}); err != nil {
 					log.Printf("Record usage failed: %v", err)
 				}
-			}(result, account, userAgent)
+			}(result, account, userAgent, clientIP)
 			return
 		}
 	}
@@ -646,7 +651,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 
 		// 异步记录使用量（subscription已在函数开头获取）
-		go func(result *service.ForwardResult, usedAccount *service.Account, ua string) {
+		go func(result *service.ForwardResult, usedAccount *service.Account, ua string, cip string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
@@ -656,10 +661,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				Account:      usedAccount,
 				Subscription: subscription,
 				UserAgent:    ua,
+				IPAddress:    cip,
 			}); err != nil {
 				log.Printf("Record usage failed: %v", err)
 			}
-		}(result, account, userAgent)
+		}(result, account, userAgent, clientIP)
 		return
 	}
 }

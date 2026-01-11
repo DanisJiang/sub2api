@@ -22,6 +22,7 @@ export interface SystemSettings {
   api_base_url: string
   contact_info: string
   doc_url: string
+  home_content: string
   // SMTP settings
   smtp_host: string
   smtp_port: number
@@ -34,6 +35,11 @@ export interface SystemSettings {
   turnstile_enabled: boolean
   turnstile_site_key: string
   turnstile_secret_key_configured: boolean
+  // LinuxDo Connect OAuth 登录（终端用户 SSO）
+  linuxdo_connect_enabled: boolean
+  linuxdo_connect_client_id: string
+  linuxdo_connect_client_secret_configured: boolean
+  linuxdo_connect_redirect_url: string
   // Identity patch configuration (Claude -> Gemini)
   enable_identity_patch: boolean
   identity_patch_prompt: string
@@ -54,6 +60,7 @@ export interface UpdateSettingsRequest {
   api_base_url?: string
   contact_info?: string
   doc_url?: string
+  home_content?: string
   smtp_host?: string
   smtp_port?: number
   smtp_username?: string
@@ -64,6 +71,10 @@ export interface UpdateSettingsRequest {
   turnstile_enabled?: boolean
   turnstile_site_key?: string
   turnstile_secret_key?: string
+  linuxdo_connect_enabled?: boolean
+  linuxdo_connect_client_id?: string
+  linuxdo_connect_client_secret?: string
+  linuxdo_connect_redirect_url?: string
   enable_identity_patch?: boolean
   identity_patch_prompt?: string
   require_claude_code?: boolean

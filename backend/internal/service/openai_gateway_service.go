@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 	"github.com/gin-gonic/gin"
@@ -528,22 +530,38 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	// Extract model and stream from parsed body
 	reqModel, _ := reqBody["model"].(string)
 	reqStream, _ := reqBody["stream"].(bool)
+	promptCacheKey := ""
+	if v, ok := reqBody["prompt_cache_key"].(string); ok {
+		promptCacheKey = strings.TrimSpace(v)
+	}
 
 	// Track if body needs re-serialization
 	bodyModified := false
 	originalModel := reqModel
 
-	// Apply model mapping
-	mappedModel := account.GetMappedModel(reqModel)
-	if mappedModel != reqModel {
-		reqBody["model"] = mappedModel
-		bodyModified = true
+	isCodexCLI := openai.IsCodexCLIRequest(c.GetHeader("User-Agent"))
+
+	// Apply model mapping (skip for Codex CLI for transparent forwarding)
+	mappedModel := reqModel
+	if !isCodexCLI {
+		mappedModel = account.GetMappedModel(reqModel)
+		if mappedModel != reqModel {
+			reqBody["model"] = mappedModel
+			bodyModified = true
+		}
 	}
 
-	// For OAuth accounts using ChatGPT internal API, add store: false
-	if account.Type == AccountTypeOAuth {
-		reqBody["store"] = false
-		bodyModified = true
+	if account.Type == AccountTypeOAuth && !isCodexCLI {
+		codexResult := applyCodexOAuthTransform(reqBody)
+		if codexResult.Modified {
+			bodyModified = true
+		}
+		if codexResult.NormalizedModel != "" {
+			mappedModel = codexResult.NormalizedModel
+		}
+		if codexResult.PromptCacheKey != "" {
+			promptCacheKey = codexResult.PromptCacheKey
+		}
 	}
 
 	// Re-serialize body only if modified
@@ -562,7 +580,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	// Build upstream request
-	upstreamReq, err := s.buildUpstreamRequest(ctx, c, account, body, token, reqStream)
+	upstreamReq, err := s.buildUpstreamRequest(ctx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI)
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +641,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}, nil
 }
 
-func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool) (*http.Request, error) {
+func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
 	// Determine target URL based on account type
 	var targetURL string
 	switch account.Type {
@@ -663,12 +681,6 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 		if chatgptAccountID != "" {
 			req.Header.Set("chatgpt-account-id", chatgptAccountID)
 		}
-		// Set accept header based on stream mode
-		if isStream {
-			req.Header.Set("accept", "text/event-stream")
-		} else {
-			req.Header.Set("accept", "application/json")
-		}
 	}
 
 	// Whitelist passthrough headers
@@ -678,6 +690,22 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 			for _, v := range values {
 				req.Header.Add(key, v)
 			}
+		}
+	}
+	if account.Type == AccountTypeOAuth {
+		req.Header.Set("OpenAI-Beta", "responses=experimental")
+		if isCodexCLI {
+			req.Header.Set("originator", "codex_cli_rs")
+		} else {
+			req.Header.Set("originator", "opencode")
+		}
+		req.Header.Set("accept", "text/event-stream")
+		if promptCacheKey != "" {
+			req.Header.Set("conversation_id", promptCacheKey)
+			req.Header.Set("session_id", promptCacheKey)
+		} else {
+			req.Header.Del("conversation_id")
+			req.Header.Del("session_id")
 		}
 	}
 
@@ -697,6 +725,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 
 func (s *OpenAIGatewayService) handleErrorResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account) (*OpenAIForwardResult, error) {
 	body, _ := io.ReadAll(resp.Body)
+	logUpstreamErrorBody(account.ID, resp.StatusCode, body)
 
 	// Check custom error codes
 	if !account.ShouldHandleErrorCode(resp.StatusCode) {
@@ -753,6 +782,24 @@ func (s *OpenAIGatewayService) handleErrorResponse(ctx context.Context, resp *ht
 	})
 
 	return nil, fmt.Errorf("upstream error: %d", resp.StatusCode)
+}
+
+func logUpstreamErrorBody(accountID int64, statusCode int, body []byte) {
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GATEWAY_LOG_UPSTREAM_ERROR_BODY"))) != "true" {
+		return
+	}
+
+	maxBytes := 2048
+	if rawMax := strings.TrimSpace(os.Getenv("GATEWAY_LOG_UPSTREAM_ERROR_BODY_MAX_BYTES")); rawMax != "" {
+		if parsed, err := strconv.Atoi(rawMax); err == nil && parsed > 0 {
+			maxBytes = parsed
+		}
+	}
+	if len(body) > maxBytes {
+		body = body[:maxBytes]
+	}
+
+	log.Printf("Upstream error body: account=%d status=%d body=%q", accountID, statusCode, string(body))
 }
 
 // openaiStreamingResult streaming response result
@@ -1007,6 +1054,13 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 		return nil, err
 	}
 
+	if account.Type == AccountTypeOAuth {
+		bodyLooksLikeSSE := bytes.Contains(body, []byte("data:")) || bytes.Contains(body, []byte("event:"))
+		if isEventStreamResponse(resp.Header) || bodyLooksLikeSSE {
+			return s.handleOAuthSSEToJSON(resp, c, body, originalModel, mappedModel)
+		}
+	}
+
 	// Parse usage
 	var response struct {
 		Usage struct {
@@ -1044,6 +1098,110 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	c.Data(resp.StatusCode, contentType, body)
 
 	return usage, nil
+}
+
+func isEventStreamResponse(header http.Header) bool {
+	contentType := strings.ToLower(header.Get("Content-Type"))
+	return strings.Contains(contentType, "text/event-stream")
+}
+
+func (s *OpenAIGatewayService) handleOAuthSSEToJSON(resp *http.Response, c *gin.Context, body []byte, originalModel, mappedModel string) (*OpenAIUsage, error) {
+	bodyText := string(body)
+	finalResponse, ok := extractCodexFinalResponse(bodyText)
+
+	usage := &OpenAIUsage{}
+	if ok {
+		var response struct {
+			Usage struct {
+				InputTokens       int `json:"input_tokens"`
+				OutputTokens      int `json:"output_tokens"`
+				InputTokenDetails struct {
+					CachedTokens int `json:"cached_tokens"`
+				} `json:"input_tokens_details"`
+			} `json:"usage"`
+		}
+		if err := json.Unmarshal(finalResponse, &response); err == nil {
+			usage.InputTokens = response.Usage.InputTokens
+			usage.OutputTokens = response.Usage.OutputTokens
+			usage.CacheReadInputTokens = response.Usage.InputTokenDetails.CachedTokens
+		}
+		body = finalResponse
+		if originalModel != mappedModel {
+			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
+		}
+	} else {
+		usage = s.parseSSEUsageFromBody(bodyText)
+		if originalModel != mappedModel {
+			bodyText = s.replaceModelInSSEBody(bodyText, mappedModel, originalModel)
+		}
+		body = []byte(bodyText)
+	}
+
+	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.cfg.Security.ResponseHeaders)
+
+	contentType := "application/json; charset=utf-8"
+	if !ok {
+		contentType = resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "text/event-stream"
+		}
+	}
+	c.Data(resp.StatusCode, contentType, body)
+
+	return usage, nil
+}
+
+func extractCodexFinalResponse(body string) ([]byte, bool) {
+	lines := strings.Split(body, "\n")
+	for _, line := range lines {
+		if !openaiSSEDataRe.MatchString(line) {
+			continue
+		}
+		data := openaiSSEDataRe.ReplaceAllString(line, "")
+		if data == "" || data == "[DONE]" {
+			continue
+		}
+		var event struct {
+			Type     string          `json:"type"`
+			Response json.RawMessage `json:"response"`
+		}
+		if json.Unmarshal([]byte(data), &event) != nil {
+			continue
+		}
+		if event.Type == "response.done" || event.Type == "response.completed" {
+			if len(event.Response) > 0 {
+				return event.Response, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func (s *OpenAIGatewayService) parseSSEUsageFromBody(body string) *OpenAIUsage {
+	usage := &OpenAIUsage{}
+	lines := strings.Split(body, "\n")
+	for _, line := range lines {
+		if !openaiSSEDataRe.MatchString(line) {
+			continue
+		}
+		data := openaiSSEDataRe.ReplaceAllString(line, "")
+		if data == "" || data == "[DONE]" {
+			continue
+		}
+		s.parseSSEUsage(data, usage)
+	}
+	return usage
+}
+
+func (s *OpenAIGatewayService) replaceModelInSSEBody(body, fromModel, toModel string) string {
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		if !openaiSSEDataRe.MatchString(line) {
+			continue
+		}
+		lines[i] = s.replaceModelInSSELine(line, fromModel, toModel)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (s *OpenAIGatewayService) validateUpstreamBaseURL(raw string) (string, error) {
@@ -1093,6 +1251,7 @@ type OpenAIRecordUsageInput struct {
 	Account      *Account
 	Subscription *UserSubscription
 	UserAgent    string // 请求的 User-Agent
+	IPAddress    string // 请求的客户端 IP 地址
 }
 
 // RecordUsage records usage and deducts balance
@@ -1165,6 +1324,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	// 添加 UserAgent
 	if input.UserAgent != "" {
 		usageLog.UserAgent = &input.UserAgent
+	}
+
+	// 添加 IPAddress
+	if input.IPAddress != "" {
+		usageLog.IPAddress = &input.IPAddress
 	}
 
 	if apiKey.GroupID != nil {

@@ -146,7 +146,8 @@ export default {
     copiedToClipboard: 'Copied to clipboard',
     copyFailed: 'Failed to copy',
     contactSupport: 'Contact Support',
-        selectOption: 'Select an option',
+    optional: 'optional',
+    selectOption: 'Select an option',
         searchPlaceholder: 'Search...', 
         noOptionsFound: 'No options found',
         noGroupsAvailable: 'No groups available',
@@ -178,6 +179,7 @@ export default {
     accounts: 'Accounts',
     proxies: 'Proxies',
     redeemCodes: 'Redeem Codes',
+    promoCodes: 'Promo Codes',
     settings: 'Settings',
     myAccount: 'My Account',
     lightMode: 'Light Mode',
@@ -231,6 +233,26 @@ export default {
     sendingCode: 'Sending...',
     clickToResend: 'Click to resend code',
     resendCode: 'Resend verification code',
+    promoCodeLabel: 'Promo Code',
+    promoCodePlaceholder: 'Enter promo code (optional)',
+    promoCodeValid: 'Valid! You will receive ${amount} bonus balance',
+    promoCodeInvalid: 'Invalid promo code',
+    promoCodeNotFound: 'Promo code not found',
+    promoCodeExpired: 'This promo code has expired',
+    promoCodeDisabled: 'This promo code is disabled',
+    promoCodeMaxUsed: 'This promo code has reached its usage limit',
+    promoCodeAlreadyUsed: 'You have already used this promo code',
+    promoCodeValidating: 'Promo code is being validated, please wait',
+    promoCodeInvalidCannotRegister: 'Invalid promo code. Please check and try again or clear the promo code field',
+    linuxdo: {
+      signIn: 'Continue with Linux.do',
+      orContinue: 'or continue with email',
+      callbackTitle: 'Signing you in',
+      callbackProcessing: 'Completing login, please wait...',
+      callbackHint: 'If you are not redirected automatically, go back to the login page and try again.',
+      callbackMissingToken: 'Missing login token, please try again.',
+      backToLogin: 'Back to Login'
+    },
     oauth: {
       code: 'Code',
       state: 'State',
@@ -344,6 +366,12 @@ export default {
         note: 'Make sure the config directory exists. macOS/Linux users can run mkdir -p ~/.codex to create it.',
         noteWindows: 'Press Win+R and enter %userprofile%\\.codex to open the config directory. Create it manually if it does not exist.',
       },
+      cliTabs: {
+        claudeCode: 'Claude Code',
+        geminiCli: 'Gemini CLI',
+        codexCli: 'Codex CLI',
+        opencode: 'OpenCode',
+      },
       antigravity: {
         description: 'Configure API access for Antigravity group. Select the configuration method based on your client.',
         claudeCode: 'Claude Code',
@@ -356,6 +384,11 @@ export default {
         modelComment: 'If you have Gemini 3 access, you can use: gemini-3-pro-preview',
         note: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
       },
+      opencode: {
+        title: 'OpenCode Example',
+        subtitle: 'opencode.json',
+        hint: 'This is a group configuration example. Adjust model and options as needed.',
+      },
     },
     customKeyLabel: 'Custom Key',
     customKeyPlaceholder: 'Enter your custom key (min 16 chars)',
@@ -363,6 +396,14 @@ export default {
     customKeyTooShort: 'Custom key must be at least 16 characters',
     customKeyInvalidChars: 'Custom key can only contain letters, numbers, underscores, and hyphens',
     customKeyRequired: 'Please enter a custom key',
+    ipRestriction: 'IP Restriction',
+    ipWhitelist: 'IP Whitelist',
+    ipWhitelistPlaceholder: '192.168.1.100\n10.0.0.0/8',
+    ipWhitelistHint: 'One IP or CIDR per line. Only these IPs can use this key when set.',
+    ipBlacklist: 'IP Blacklist',
+    ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
+    ipBlacklistHint: 'One IP or CIDR per line. These IPs will be blocked from using this key.',
+    ipRestrictionEnabled: 'IP restriction enabled',
     ccSwitchNotInstalled: 'CC-Switch is not installed or the protocol handler is not registered. Please install CC-Switch first or manually copy the API key.',
     ccsClientSelect: {
       title: 'Select Client',
@@ -423,9 +464,6 @@ export default {
     exportFailed: 'Failed to export usage data',
     exportExcelSuccess: 'Usage data exported successfully (Excel format)',
     exportExcelFailed: 'Failed to export usage data',
-    billingType: 'Billing',
-    balance: 'Balance',
-    subscription: 'Subscription',
     imageUnit: ' images',
     claudeCode: 'Claude Code Client',
     otherClient: 'Third-party Client',
@@ -1095,12 +1133,18 @@ export default {
       tokenRefreshed: 'Token refreshed successfully',
       accountDeleted: 'Account deleted successfully',
       rateLimitCleared: 'Rate limit cleared successfully',
+      bulkSchedulableEnabled: 'Successfully enabled scheduling for {count} account(s)',
+      bulkSchedulableDisabled: 'Successfully disabled scheduling for {count} account(s)',
+      bulkSchedulablePartial: 'Scheduling updated partially: {success} succeeded, {failed} failed',
+      bulkSchedulableResultUnknown: 'Bulk scheduling result incomplete. Please retry or refresh.',
       bulkActions: {
         selected: '{count} account(s) selected',
         selectCurrentPage: 'Select this page',
         clear: 'Clear selection',
         edit: 'Bulk Edit',
-        delete: 'Bulk Delete'
+        delete: 'Bulk Delete',
+        enableScheduling: 'Enable Scheduling',
+        disableScheduling: 'Disable Scheduling'
       },
       bulkEdit: {
         title: 'Bulk Edit Accounts',
@@ -1517,6 +1561,7 @@ export default {
       testing: 'Testing...',
       retry: 'Retry',
       copyOutput: 'Copy output',
+      outputCopied: 'Output copied',
       startingTestForAccount: 'Starting test for account: {name}',
       testAccountTypeLabel: 'Account type: {type}',
       selectTestModel: 'Select Test Model',
@@ -1734,6 +1779,65 @@ export default {
       }
     },
 
+    // Promo Codes
+    promo: {
+      title: 'Promo Code Management',
+      description: 'Create and manage registration promo codes',
+      createCode: 'Create Promo Code',
+      editCode: 'Edit Promo Code',
+      deleteCode: 'Delete Promo Code',
+      searchCodes: 'Search codes...',
+      allStatus: 'All Status',
+      columns: {
+        code: 'Code',
+        bonusAmount: 'Bonus Amount',
+        maxUses: 'Max Uses',
+        usedCount: 'Used',
+        usage: 'Usage',
+        status: 'Status',
+        expiresAt: 'Expires At',
+        createdAt: 'Created At',
+        actions: 'Actions'
+      },
+      // Form labels (flat structure for template usage)
+      code: 'Promo Code',
+      autoGenerate: 'auto-generate if empty',
+      codePlaceholder: 'Enter promo code or leave empty',
+      bonusAmount: 'Bonus Amount ($)',
+      maxUses: 'Max Uses',
+      zeroUnlimited: '0 = unlimited',
+      expiresAt: 'Expires At',
+      notes: 'Notes',
+      notesPlaceholder: 'Optional notes for this code',
+      status: 'Status',
+      neverExpires: 'Never expires',
+      // Status labels
+      statusActive: 'Active',
+      statusDisabled: 'Disabled',
+      statusExpired: 'Expired',
+      statusMaxUsed: 'Used Up',
+      // Usage records
+      usageRecords: 'Usage Records',
+      viewUsages: 'View Usages',
+      noUsages: 'No usage records yet',
+      userPrefix: 'User #{id}',
+      copied: 'Copied!',
+      // Messages
+      noCodesYet: 'No promo codes yet',
+      createFirstCode: 'Create your first promo code to offer registration bonuses.',
+      codeCreated: 'Promo code created successfully',
+      codeUpdated: 'Promo code updated successfully',
+      codeDeleted: 'Promo code deleted successfully',
+      deleteCodeConfirm: 'Are you sure you want to delete this promo code? This action cannot be undone.',
+      copyRegisterLink: 'Copy register link',
+      registerLinkCopied: 'Register link copied to clipboard',
+      failedToLoad: 'Failed to load promo codes',
+      failedToCreate: 'Failed to create promo code',
+      failedToUpdate: 'Failed to update promo code',
+      failedToDelete: 'Failed to delete promo code',
+      failedToLoadUsages: 'Failed to load usage records'
+    },
+
     // Usage Records
     usage: {
       title: 'Usage Records',
@@ -1752,7 +1856,6 @@ export default {
       allAccounts: 'All Accounts',
       allGroups: 'All Groups',
       allTypes: 'All Types',
-      allBillingTypes: 'All Billing',
       inputCost: 'Input Cost',
       outputCost: 'Output Cost',
       cacheCreationCost: 'Cache Creation Cost',
@@ -1761,7 +1864,8 @@ export default {
       outputTokens: 'Output Tokens',
       cacheCreationTokens: 'Cache Creation Tokens',
       cacheReadTokens: 'Cache Read Tokens',
-      failedToLoad: 'Failed to load usage records'
+      failedToLoad: 'Failed to load usage records',
+      ipAddress: 'IP'
     },
 
     // Announcements
@@ -1816,6 +1920,26 @@ export default {
         cloudflareDashboard: 'Cloudflare Dashboard',
         secretKeyHint: 'Server-side verification key (keep this secret)',
         secretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.'      },
+      linuxdo: {
+        title: 'LinuxDo Connect Login',
+        description: 'Configure LinuxDo Connect OAuth for Sub2API end-user login',
+        enable: 'Enable LinuxDo Login',
+        enableHint: 'Show LinuxDo login on the login/register pages',
+        clientId: 'Client ID',
+        clientIdPlaceholder: 'e.g., hprJ5pC3...',
+        clientIdHint: 'Get this from Connect.Linux.Do',
+        clientSecret: 'Client Secret',
+        clientSecretPlaceholder: '********',
+        clientSecretHint: 'Used by backend to exchange tokens (keep it secret)',
+        clientSecretConfiguredPlaceholder: '********',
+        clientSecretConfiguredHint: 'Secret configured. Leave empty to keep the current value.',
+        redirectUrl: 'Redirect URL',
+        redirectUrlPlaceholder: 'https://your-domain.com/api/v1/auth/oauth/linuxdo/callback',
+        redirectUrlHint:
+          'Must match the redirect URL configured in Connect.Linux.Do (must be an absolute http(s) URL)',
+        quickSetCopy: 'Generate & Copy (current site)',
+        redirectUrlSetAndCopied: 'Redirect URL generated and copied to clipboard'
+      },
       defaults: {
         title: 'Default User Settings',
         description: 'Default values for new users',
@@ -1857,7 +1981,11 @@ export default {
         logoHint: 'PNG, JPG, or SVG. Max 300KB. Recommended: 80x80px square image.',
         logoSizeError: 'Image size exceeds 300KB limit ({size}KB)',
         logoTypeError: 'Please select an image file',
-        logoReadError: 'Failed to read the image file'
+        logoReadError: 'Failed to read the image file',
+        homeContent: 'Home Page Content',
+        homeContentPlaceholder: 'Enter custom content for the home page. Supports Markdown & HTML. If a URL is entered, it will be displayed as an iframe.',
+        homeContentHint: 'Customize the home page content. Supports Markdown/HTML. If you enter a URL (starting with http:// or https://), it will be used as an iframe src to embed an external page. When set, the default status information will no longer be displayed.',
+        homeContentIframeWarning: '⚠️ iframe mode note: Some websites have X-Frame-Options or CSP security policies that prevent embedding in iframes. If the page appears blank or shows an error, please verify the target website allows embedding, or consider using HTML mode to build your own content.'
       },
       smtp: {
         title: 'SMTP Settings',

@@ -22,7 +22,7 @@ import (
 	"github.com/lib/pq"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, billing_type, client_type, stream, duration_ms, first_token_ms, user_agent, image_count, image_size, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, billing_type, client_type, stream, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, created_at"
 
 type usageLogRepository struct {
 	client *dbent.Client
@@ -111,6 +111,7 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 			duration_ms,
 			first_token_ms,
 			user_agent,
+			ip_address,
 			image_count,
 			image_size,
 			created_at
@@ -131,6 +132,7 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 	duration := nullInt(log.DurationMs)
 	firstToken := nullInt(log.FirstTokenMs)
 	userAgent := nullString(log.UserAgent)
+	ipAddress := nullString(log.IPAddress)
 	imageSize := nullString(log.ImageSize)
 
 	var requestIDArg any
@@ -165,6 +167,7 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 		duration,
 		firstToken,
 		userAgent,
+		ipAddress,
 		log.ImageCount,
 		imageSize,
 		createdAt,
@@ -268,16 +271,60 @@ func (r *usageLogRepository) GetUserStats(ctx context.Context, userID int64, sta
 type DashboardStats = usagestats.DashboardStats
 
 func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
-	var stats DashboardStats
-	today := timezone.Today()
-	now := time.Now()
+	stats := &DashboardStats{}
+	now := time.Now().UTC()
+	todayUTC := truncateToDayUTC(now)
 
-	// 合并用户统计查询
+	if err := r.fillDashboardEntityStats(ctx, stats, todayUTC, now); err != nil {
+		return nil, err
+	}
+	if err := r.fillDashboardUsageStatsAggregated(ctx, stats, todayUTC, now); err != nil {
+		return nil, err
+	}
+
+	rpm, tpm, err := r.getPerformanceStats(ctx, 0)
+	if err != nil {
+		return nil, err
+	}
+	stats.Rpm = rpm
+	stats.Tpm = tpm
+
+	return stats, nil
+}
+
+func (r *usageLogRepository) GetDashboardStatsWithRange(ctx context.Context, start, end time.Time) (*DashboardStats, error) {
+	startUTC := start.UTC()
+	endUTC := end.UTC()
+	if !endUTC.After(startUTC) {
+		return nil, errors.New("统计时间范围无效")
+	}
+
+	stats := &DashboardStats{}
+	now := time.Now().UTC()
+	todayUTC := truncateToDayUTC(now)
+
+	if err := r.fillDashboardEntityStats(ctx, stats, todayUTC, now); err != nil {
+		return nil, err
+	}
+	if err := r.fillDashboardUsageStatsFromUsageLogs(ctx, stats, startUTC, endUTC, todayUTC, now); err != nil {
+		return nil, err
+	}
+
+	rpm, tpm, err := r.getPerformanceStats(ctx, 0)
+	if err != nil {
+		return nil, err
+	}
+	stats.Rpm = rpm
+	stats.Tpm = tpm
+
+	return stats, nil
+}
+
+func (r *usageLogRepository) fillDashboardEntityStats(ctx context.Context, stats *DashboardStats, todayUTC, now time.Time) error {
 	userStatsQuery := `
 		SELECT
 			COUNT(*) as total_users,
-			COUNT(CASE WHEN created_at >= $1 THEN 1 END) as today_new_users,
-			(SELECT COUNT(DISTINCT user_id) FROM usage_logs WHERE created_at >= $2) as active_users
+			COUNT(CASE WHEN created_at >= $1 THEN 1 END) as today_new_users
 		FROM users
 		WHERE deleted_at IS NULL
 	`
@@ -285,15 +332,13 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 		ctx,
 		r.sql,
 		userStatsQuery,
-		[]any{today, today},
+		[]any{todayUTC},
 		&stats.TotalUsers,
 		&stats.TodayNewUsers,
-		&stats.ActiveUsers,
 	); err != nil {
-		return nil, err
+		return err
 	}
 
-	// 合并API Key统计查询
 	apiKeyStatsQuery := `
 		SELECT
 			COUNT(*) as total_api_keys,
@@ -309,10 +354,9 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 		&stats.TotalAPIKeys,
 		&stats.ActiveAPIKeys,
 	); err != nil {
-		return nil, err
+		return err
 	}
 
-	// 合并账户统计查询
 	accountStatsQuery := `
 		SELECT
 			COUNT(*) as total_accounts,
@@ -334,22 +378,26 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 		&stats.RateLimitAccounts,
 		&stats.OverloadAccounts,
 	); err != nil {
-		return nil, err
+		return err
 	}
 
-	// 累计 Token 统计
+	return nil
+}
+
+func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Context, stats *DashboardStats, todayUTC, now time.Time) error {
 	totalStatsQuery := `
 		SELECT
-			COUNT(*) as total_requests,
+			COALESCE(SUM(total_requests), 0) as total_requests,
 			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
 			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
 			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
-			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
-		FROM usage_logs
+			COALESCE(SUM(total_duration_ms), 0) as total_duration_ms
+		FROM usage_dashboard_daily
 	`
+	var totalDurationMs int64
 	if err := scanSingleRow(
 		ctx,
 		r.sql,
@@ -362,13 +410,100 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 		&stats.TotalCacheReadTokens,
 		&stats.TotalCost,
 		&stats.TotalActualCost,
-		&stats.AverageDurationMs,
+		&totalDurationMs,
 	); err != nil {
-		return nil, err
+		return err
 	}
 	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens + stats.TotalCacheCreationTokens + stats.TotalCacheReadTokens
+	if stats.TotalRequests > 0 {
+		stats.AverageDurationMs = float64(totalDurationMs) / float64(stats.TotalRequests)
+	}
 
-	// 今日 Token 统计
+	todayStatsQuery := `
+		SELECT
+			total_requests as today_requests,
+			input_tokens as today_input_tokens,
+			output_tokens as today_output_tokens,
+			cache_creation_tokens as today_cache_creation_tokens,
+			cache_read_tokens as today_cache_read_tokens,
+			total_cost as today_cost,
+			actual_cost as today_actual_cost,
+			active_users as active_users
+		FROM usage_dashboard_daily
+		WHERE bucket_date = $1::date
+	`
+	if err := scanSingleRow(
+		ctx,
+		r.sql,
+		todayStatsQuery,
+		[]any{todayUTC},
+		&stats.TodayRequests,
+		&stats.TodayInputTokens,
+		&stats.TodayOutputTokens,
+		&stats.TodayCacheCreationTokens,
+		&stats.TodayCacheReadTokens,
+		&stats.TodayCost,
+		&stats.TodayActualCost,
+		&stats.ActiveUsers,
+	); err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+	}
+	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
+
+	hourlyActiveQuery := `
+		SELECT active_users
+		FROM usage_dashboard_hourly
+		WHERE bucket_start = $1
+	`
+	hourStart := now.UTC().Truncate(time.Hour)
+	if err := scanSingleRow(ctx, r.sql, hourlyActiveQuery, []any{hourStart}, &stats.HourlyActiveUsers); err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Context, stats *DashboardStats, startUTC, endUTC, todayUTC, now time.Time) error {
+	totalStatsQuery := `
+		SELECT
+			COUNT(*) as total_requests,
+			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
+			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
+			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
+			COALESCE(SUM(total_cost), 0) as total_cost,
+			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			COALESCE(SUM(COALESCE(duration_ms, 0)), 0) as total_duration_ms
+		FROM usage_logs
+		WHERE created_at >= $1 AND created_at < $2
+	`
+	var totalDurationMs int64
+	if err := scanSingleRow(
+		ctx,
+		r.sql,
+		totalStatsQuery,
+		[]any{startUTC, endUTC},
+		&stats.TotalRequests,
+		&stats.TotalInputTokens,
+		&stats.TotalOutputTokens,
+		&stats.TotalCacheCreationTokens,
+		&stats.TotalCacheReadTokens,
+		&stats.TotalCost,
+		&stats.TotalActualCost,
+		&totalDurationMs,
+	); err != nil {
+		return err
+	}
+	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens + stats.TotalCacheCreationTokens + stats.TotalCacheReadTokens
+	if stats.TotalRequests > 0 {
+		stats.AverageDurationMs = float64(totalDurationMs) / float64(stats.TotalRequests)
+	}
+
+	todayEnd := todayUTC.Add(24 * time.Hour)
 	todayStatsQuery := `
 		SELECT
 			COUNT(*) as today_requests,
@@ -379,13 +514,13 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 			COALESCE(SUM(total_cost), 0) as today_cost,
 			COALESCE(SUM(actual_cost), 0) as today_actual_cost
 		FROM usage_logs
-		WHERE created_at >= $1
+		WHERE created_at >= $1 AND created_at < $2
 	`
 	if err := scanSingleRow(
 		ctx,
 		r.sql,
 		todayStatsQuery,
-		[]any{today},
+		[]any{todayUTC, todayEnd},
 		&stats.TodayRequests,
 		&stats.TodayInputTokens,
 		&stats.TodayOutputTokens,
@@ -394,19 +529,31 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 		&stats.TodayCost,
 		&stats.TodayActualCost,
 	); err != nil {
-		return nil, err
+		return err
 	}
 	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
 
-	// 性能指标：RPM 和 TPM（最近1分钟，全局）
-	rpm, tpm, err := r.getPerformanceStats(ctx, 0)
-	if err != nil {
-		return nil, err
+	activeUsersQuery := `
+		SELECT COUNT(DISTINCT user_id) as active_users
+		FROM usage_logs
+		WHERE created_at >= $1 AND created_at < $2
+	`
+	if err := scanSingleRow(ctx, r.sql, activeUsersQuery, []any{todayUTC, todayEnd}, &stats.ActiveUsers); err != nil {
+		return err
 	}
-	stats.Rpm = rpm
-	stats.Tpm = tpm
 
-	return &stats, nil
+	hourStart := now.UTC().Truncate(time.Hour)
+	hourEnd := hourStart.Add(time.Hour)
+	hourlyActiveQuery := `
+		SELECT COUNT(DISTINCT user_id) as active_users
+		FROM usage_logs
+		WHERE created_at >= $1 AND created_at < $2
+	`
+	if err := scanSingleRow(ctx, r.sql, hourlyActiveQuery, []any{hourStart, hourEnd}, &stats.HourlyActiveUsers); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *usageLogRepository) ListByAccount(ctx context.Context, accountID int64, params pagination.PaginationParams) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -1876,6 +2023,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		durationMs          sql.NullInt64
 		firstTokenMs        sql.NullInt64
 		userAgent           sql.NullString
+		ipAddress           sql.NullString
 		imageCount          int
 		imageSize           sql.NullString
 		createdAt           time.Time
@@ -1909,6 +2057,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&durationMs,
 		&firstTokenMs,
 		&userAgent,
+		&ipAddress,
 		&imageCount,
 		&imageSize,
 		&createdAt,
@@ -1963,6 +2112,9 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 	}
 	if userAgent.Valid {
 		log.UserAgent = &userAgent.String
+	}
+	if ipAddress.Valid {
+		log.IPAddress = &ipAddress.String
 	}
 	if imageSize.Valid {
 		log.ImageSize = &imageSize.String
