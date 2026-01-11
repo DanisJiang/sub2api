@@ -68,6 +68,11 @@ type ConcurrencyCache interface {
 
 	// 清空所有槽位（服务启动时调用，清理因重启导致的遗留槽位）
 	ClearAllSlots(ctx context.Context) (int, error)
+
+	// Slot 响应结束时间管理（用于用户输入节奏控制）
+	// 键格式: slot_response_end:{accountID}:{slotIndex}
+	SetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int, timestamp int64) error
+	GetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int) (int64, error)
 }
 
 // generateRequestID generates a unique request ID for concurrency slot tracking
@@ -711,4 +716,17 @@ func (s *ConcurrencyService) AcquireAccountSlotByModel(ctx context.Context, acco
 		SlotIndex:   targetSlot, // Return target slot for waiting
 		ReleaseFunc: nil,
 	}, nil
+}
+
+// SetSlotResponseEndTime 记录 slot 的响应结束时间
+// 用于用户输入节奏控制：确保同一 slot 处理用户主动输入时有足够间隔
+func (s *ConcurrencyService) SetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int) error {
+	timestamp := time.Now().Unix()
+	return s.cache.SetSlotResponseEndTime(ctx, accountID, slotIndex, timestamp)
+}
+
+// GetSlotResponseEndTime 获取 slot 的上次响应结束时间
+// 返回 Unix 时间戳，如果没有记录则返回 0
+func (s *ConcurrencyService) GetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int) (int64, error) {
+	return s.cache.GetSlotResponseEndTime(ctx, accountID, slotIndex)
 }

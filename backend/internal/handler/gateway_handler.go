@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -535,6 +536,26 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		accountWaitRelease = wrapReleaseOnDone(c.Request.Context(), accountWaitRelease)
 		sessionMutexRelease = wrapReleaseOnDone(c.Request.Context(), sessionMutexRelease)
 
+		// 用户输入节奏控制：对 OAuth 账号的用户主动输入请求，确保和上次响应之间有足够间隔
+		// 目的：模拟真实用户行为，用户不可能在 Claude 输出完成后立即发送下一条消息
+		currentSlotIndex := selection.SlotIndex
+		if account.IsOAuth() && !parsedReq.IsToolResult && currentSlotIndex >= 0 {
+			if waitErr := h.waitForUserInputPacing(c, account.ID, currentSlotIndex); waitErr != nil {
+				// 等待被中断（客户端断开），释放资源并返回
+				if sessionMutexRelease != nil {
+					sessionMutexRelease()
+				}
+				if accountWaitRelease != nil {
+					accountWaitRelease()
+				}
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+				log.Printf("[user-input-pacing] account=%d slot=%d wait interrupted: %v", account.ID, currentSlotIndex, waitErr)
+				return
+			}
+		}
+
 		// 转发请求 - 根据账号平台分流
 		var result *service.ForwardResult
 		if account.Platform == service.PlatformAntigravity {
@@ -542,6 +563,16 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		} else {
 			result, err = h.gatewayService.Forward(c.Request.Context(), c, account, parsedReq)
 		}
+
+		// 记录响应结束时间（用于用户输入节奏控制）
+		if account.IsOAuth() && currentSlotIndex >= 0 {
+			if setErr := h.concurrencyHelper.concurrencyService.SetSlotResponseEndTime(
+				context.Background(), account.ID, currentSlotIndex); setErr != nil {
+				log.Printf("[user-input-pacing] failed to record response end time: account=%d slot=%d err=%v",
+					account.ID, currentSlotIndex, setErr)
+			}
+		}
+
 		// 立即释放资源
 		if sessionMutexRelease != nil {
 			sessionMutexRelease()
@@ -1013,4 +1044,61 @@ func billingErrorDetails(err error) (status int, code, message string) {
 		msg = err.Error()
 	}
 	return http.StatusForbidden, "billing_error", msg
+}
+
+// waitForUserInputPacing 等待用户输入节奏控制
+// 对于 OAuth 账号的用户主动输入请求，确保和上次响应结束之间有足够间隔（5-15秒随机）
+// 目的：模拟真实用户行为，用户不可能在 Claude 输出完成后立即发送下一条消息
+// 返回 error 仅在 context 被取消时（客户端断开连接）
+func (h *GatewayHandler) waitForUserInputPacing(c *gin.Context, accountID int64, slotIndex int) error {
+	// 获取上次响应结束时间
+	lastResponseEnd, err := h.concurrencyHelper.concurrencyService.GetSlotResponseEndTime(c.Request.Context(), accountID, slotIndex)
+	if err != nil {
+		// 获取失败不影响请求，仅记录日志
+		log.Printf("[user-input-pacing] failed to get last response end time: account=%d slot=%d err=%v",
+			accountID, slotIndex, err)
+		return nil
+	}
+
+	// 没有上次响应记录（首次请求或记录已过期），无需等待
+	if lastResponseEnd == 0 {
+		return nil
+	}
+
+	// 计算随机等待时间：5-15秒
+	minWaitSeconds := 5
+	maxWaitSeconds := 15
+	randomWaitSeconds := minWaitSeconds + rand.Intn(maxWaitSeconds-minWaitSeconds+1)
+	randomWaitDuration := time.Duration(randomWaitSeconds) * time.Second
+
+	// 计算已经过去的时间
+	now := time.Now().Unix()
+	elapsedSeconds := now - lastResponseEnd
+	elapsedDuration := time.Duration(elapsedSeconds) * time.Second
+
+	// 计算实际需要等待的时间
+	actualWait := randomWaitDuration - elapsedDuration
+	if actualWait <= 0 {
+		// 已经等待足够长时间，无需额外等待
+		log.Printf("[user-input-pacing] account=%d slot=%d elapsed=%ds >= random=%ds, no wait needed",
+			accountID, slotIndex, elapsedSeconds, randomWaitSeconds)
+		return nil
+	}
+
+	log.Printf("[user-input-pacing] account=%d slot=%d elapsed=%ds, random=%ds, waiting=%v",
+		accountID, slotIndex, elapsedSeconds, randomWaitSeconds, actualWait)
+
+	// 等待，同时监听 context 取消（客户端断开）
+	timer := time.NewTimer(actualWait)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		// 等待完成
+		log.Printf("[user-input-pacing] account=%d slot=%d wait completed", accountID, slotIndex)
+		return nil
+	case <-c.Request.Context().Done():
+		// 客户端断开连接
+		return c.Request.Context().Err()
+	}
 }

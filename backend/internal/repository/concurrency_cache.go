@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/redis/go-redis/v9"
@@ -44,6 +45,13 @@ const (
 	// Slot Owner 键前缀：记录每个槽位的当前占用者
 	// 格式: slot_owner:{accountID}:{slotIndex}
 	slotOwnerKeyPrefix = "slot_owner:"
+
+	// Slot 响应结束时间键前缀：记录每个槽位的响应结束时间戳
+	// 格式: slot_response_end:{accountID}:{slotIndex}
+	slotResponseEndKeyPrefix = "slot_response_end:"
+
+	// Slot 响应结束时间 TTL（秒），设置为 1 小时足够覆盖正常使用场景
+	slotResponseEndTTLSeconds = 3600
 
 	// Haiku 模型同一 session 最大并行数
 	haikuMaxParallel = 3
@@ -896,4 +904,25 @@ func (c *concurrencyCache) ClearAllSlots(ctx context.Context) (int, error) {
 	}
 
 	return totalCleared, nil
+}
+
+// SetSlotResponseEndTime 记录 slot 的响应结束时间
+// 用于用户输入节奏控制
+func (c *concurrencyCache) SetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int, timestamp int64) error {
+	key := fmt.Sprintf("%s%d:%d", slotResponseEndKeyPrefix, accountID, slotIndex)
+	return c.rdb.Set(ctx, key, timestamp, time.Duration(slotResponseEndTTLSeconds)*time.Second).Err()
+}
+
+// GetSlotResponseEndTime 获取 slot 的上次响应结束时间
+// 返回 Unix 时间戳，如果没有记录则返回 0
+func (c *concurrencyCache) GetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int) (int64, error) {
+	key := fmt.Sprintf("%s%d:%d", slotResponseEndKeyPrefix, accountID, slotIndex)
+	result, err := c.rdb.Get(ctx, key).Int64()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return 0, nil // 没有记录，返回 0
+		}
+		return 0, err
+	}
+	return result, nil
 }

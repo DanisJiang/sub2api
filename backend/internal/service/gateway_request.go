@@ -26,6 +26,7 @@ type ParsedRequest struct {
 	System         any    // system 字段内容
 	Messages       []any  // messages 数组
 	HasSystem      bool   // 是否包含 system 字段（包含 null 也视为显式传入）
+	IsToolResult   bool   // 是否为工具回调请求（最后一条 user 消息包含 tool_result）
 }
 
 // ParseGatewayRequest 解析网关请求体并返回结构化结果
@@ -67,9 +68,46 @@ func ParseGatewayRequest(body []byte) (*ParsedRequest, error) {
 	}
 	if messages, ok := req["messages"].([]any); ok {
 		parsed.Messages = messages
+		// 检查最后一条 user 消息是否包含 tool_result
+		parsed.IsToolResult = checkIsToolResult(messages)
 	}
 
 	return parsed, nil
+}
+
+// checkIsToolResult 检查最后一条 user 消息是否包含 tool_result
+// 用于区分"用户主动输入"和"工具回调"请求
+func checkIsToolResult(messages []any) bool {
+	// 从后往前找最后一条 role="user" 的消息
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg, ok := messages[i].(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := msg["role"].(string)
+		if role != "user" {
+			continue
+		}
+		// 找到最后一条 user 消息，检查其 content
+		content, ok := msg["content"].([]any)
+		if !ok {
+			// content 可能是字符串（简单格式），不包含 tool_result
+			return false
+		}
+		// 检查 content 数组中是否包含 tool_result
+		for _, block := range content {
+			blockMap, ok := block.(map[string]any)
+			if !ok {
+				continue
+			}
+			blockType, _ := blockMap["type"].(string)
+			if blockType == "tool_result" {
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }
 
 // FilterThinkingBlocks removes thinking blocks from request body
