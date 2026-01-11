@@ -87,9 +87,9 @@ type CreateAccountRequest struct {
 	GroupIDs                 []int64        `json:"group_ids"`
 	ExpiresAt                *int64         `json:"expires_at"`
 	AutoPauseOnExpired       *bool          `json:"auto_pause_on_expired"`
-	ConfirmMixedChannelRisk  *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
-	MaxRPM                   int            `json:"max_rpm"`                    // OAuth 账号每分钟最大请求数（0 = 使用默认值）
-	Max30mRequests           int            `json:"max_30m_requests"`           // 30 分钟内最大请求数（0 = 不限制）
+	ConfirmMixedChannelRisk  *bool          `json:"confirm_mixed_channel_risk"`  // 用户确认混合渠道风险
+	MaxRPM                   int            `json:"max_rpm"`                     // OAuth 账号每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           int            `json:"max_30m_requests"`            // 30 分钟内最大请求数（0 = 不限制）
 	RateLimitCooldownMinutes int            `json:"rate_limit_cooldown_minutes"` // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 }
 

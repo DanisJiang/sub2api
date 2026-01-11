@@ -539,8 +539,6 @@ func containsSubstring(s, substr string) bool {
 const (
 	// defaultAccountMaxRPM 单个账号的默认最大 RPM（账号未配置时使用）
 	defaultAccountMaxRPM = 4
-	// defaultAccountMax30mRequests 单个账号 30 分钟内的默认最大请求数（账号未配置时使用）
-	defaultAccountMax30mRequests = 100
 	// rpmWindowSeconds RPM 滑动窗口（秒）
 	rpmWindowSeconds = 60
 )

@@ -41,9 +41,9 @@ type Account struct {
 	SessionWindowStatus string
 
 	// OAuth 账号 RPM/30m 限制配置
-	MaxRPM                    int // 每分钟最大请求数（0 = 使用默认值）
-	Max30mRequests            int // 30 分钟内最大请求数（0 = 不限制）
-	RateLimitCooldownMinutes  int // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
+	MaxRPM                   int // 每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           int // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes int // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
