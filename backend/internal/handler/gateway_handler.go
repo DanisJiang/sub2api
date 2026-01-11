@@ -632,10 +632,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			if recordResult.ShouldPause {
 				// 使用现有的 SetTempUnschedulable 接口暂停账号
 				pauseCtx, pauseCancel := context.WithTimeout(context.Background(), 5*time.Second)
-				if err := h.gatewayService.PauseAccountFor30mLimit(pauseCtx, account.ID, 10*time.Minute, recordResult.RequestCount); err != nil {
+				if err := h.gatewayService.PauseAccountFor30mLimit(pauseCtx, account.ID, 20*time.Minute, recordResult.RequestCount); err != nil {
 					log.Printf("[30m-limit] failed to pause account: account=%d err=%v", account.ID, err)
 				} else {
-					log.Printf("[30m-limit] account=%d paused for 10 minutes (count=%d)", account.ID, recordResult.RequestCount)
+					log.Printf("[30m-limit] account=%d paused for 20 minutes (count=%d)", account.ID, recordResult.RequestCount)
 				}
 				pauseCancel()
 			}
