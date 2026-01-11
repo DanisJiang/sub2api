@@ -2754,3 +2754,12 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 
 	return models
 }
+
+// PauseAccountFor30mLimit 因 30 分钟请求总量限制暂停账号调度
+// duration: 暂停时长
+// requestCount: 触发暂停时的请求数
+func (s *GatewayService) PauseAccountFor30mLimit(ctx context.Context, accountID int64, duration time.Duration, requestCount int) error {
+	until := time.Now().Add(duration)
+	reason := fmt.Sprintf("30m rate limit exceeded: %d requests in 30 minutes", requestCount)
+	return s.accountRepo.SetTempUnschedulable(ctx, accountID, until, reason)
+}

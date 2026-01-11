@@ -55,6 +55,22 @@ const (
 
 	// Haiku 模型同一 session 最大并行数
 	haikuMaxParallel = 3
+
+	// 账号 RPM 限制相关常量
+	// 键格式: rpm_limit:{accountID}
+	rpmLimitKeyPrefix = "rpm_limit:"
+	rpmWindowSeconds  = 60 // 1 分钟滑动窗口
+	rpmLimitTTL       = 120 // TTL 设置为 2 分钟，确保数据不会过早过期
+
+	// 账号 30 分钟总量限制相关常量
+	// 键格式: rate_30m:{accountID}
+	rate30mKeyPrefix    = "rate_30m:"
+	rate30mWindowSeconds = 1800 // 30 分钟滑动窗口
+	rate30mLimitTTL     = 3600 // TTL 设置为 1 小时
+
+	// 账号暂停调度标记
+	// 键格式: account_paused:{accountID}
+	accountPausedKeyPrefix = "account_paused:"
 )
 
 var (
@@ -925,4 +941,131 @@ func (c *concurrencyCache) GetSlotResponseEndTime(ctx context.Context, accountID
 		return 0, err
 	}
 	return result, nil
+}
+
+// ============================================
+// 账号 RPM 限制（滑动窗口）
+// ============================================
+
+func rpmLimitKey(accountID int64) string {
+	return fmt.Sprintf("%s%d", rpmLimitKeyPrefix, accountID)
+}
+
+// RecordAccountRequest 记录账号请求（用于 RPM 统计）
+// 使用 ZSET 存储请求时间戳，自动清理过期记录
+func (c *concurrencyCache) RecordAccountRequest(ctx context.Context, accountID int64) error {
+	key := rpmLimitKey(accountID)
+	now := time.Now().UnixMilli()
+	cutoff := now - int64(rpmWindowSeconds*1000)
+
+	pipe := c.rdb.Pipeline()
+	// 清理过期记录
+	pipe.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", cutoff))
+	// 添加当前请求
+	pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: fmt.Sprintf("%d", now)})
+	// 设置 TTL
+	pipe.Expire(ctx, key, time.Duration(rpmLimitTTL)*time.Second)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// GetAccountRPM 获取账号当前 RPM（过去 60 秒的请求数）
+func (c *concurrencyCache) GetAccountRPM(ctx context.Context, accountID int64) (int, error) {
+	key := rpmLimitKey(accountID)
+	now := time.Now().UnixMilli()
+	cutoff := now - int64(rpmWindowSeconds*1000)
+
+	// 先清理过期记录
+	c.rdb.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", cutoff))
+	// 统计当前数量
+	count, err := c.rdb.ZCard(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+// GetAccountOldestRequestTime 获取账号最早的请求时间（毫秒时间戳）
+// 用于计算需要等待多久才能有新配额
+func (c *concurrencyCache) GetAccountOldestRequestTime(ctx context.Context, accountID int64) (int64, error) {
+	key := rpmLimitKey(accountID)
+	now := time.Now().UnixMilli()
+	cutoff := now - int64(rpmWindowSeconds*1000)
+
+	// 先清理过期记录
+	c.rdb.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", cutoff))
+	// 获取最早的记录
+	result, err := c.rdb.ZRangeWithScores(ctx, key, 0, 0).Result()
+	if err != nil {
+		return 0, err
+	}
+	if len(result) == 0 {
+		return 0, nil
+	}
+	return int64(result[0].Score), nil
+}
+
+// ============================================
+// 账号 30 分钟总量限制
+// ============================================
+
+func rate30mKey(accountID int64) string {
+	return fmt.Sprintf("%s%d", rate30mKeyPrefix, accountID)
+}
+
+// RecordAccountRequest30m 记录账号请求（用于 30 分钟总量统计）
+func (c *concurrencyCache) RecordAccountRequest30m(ctx context.Context, accountID int64) error {
+	key := rate30mKey(accountID)
+	now := time.Now().UnixMilli()
+	cutoff := now - int64(rate30mWindowSeconds*1000)
+
+	pipe := c.rdb.Pipeline()
+	// 清理过期记录
+	pipe.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", cutoff))
+	// 添加当前请求
+	pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: fmt.Sprintf("%d", now)})
+	// 设置 TTL
+	pipe.Expire(ctx, key, time.Duration(rate30mLimitTTL)*time.Second)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// GetAccountRequestCount30m 获取账号过去 30 分钟的请求数
+func (c *concurrencyCache) GetAccountRequestCount30m(ctx context.Context, accountID int64) (int, error) {
+	key := rate30mKey(accountID)
+	now := time.Now().UnixMilli()
+	cutoff := now - int64(rate30mWindowSeconds*1000)
+
+	// 先清理过期记录
+	c.rdb.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", cutoff))
+	// 统计当前数量
+	count, err := c.rdb.ZCard(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+// ============================================
+// 账号暂停调度标记
+// ============================================
+
+func accountPausedKey(accountID int64) string {
+	return fmt.Sprintf("%s%d", accountPausedKeyPrefix, accountID)
+}
+
+// SetAccountPaused 设置账号暂停调度标记
+func (c *concurrencyCache) SetAccountPaused(ctx context.Context, accountID int64, duration time.Duration) error {
+	key := accountPausedKey(accountID)
+	return c.rdb.Set(ctx, key, "1", duration).Err()
+}
+
+// IsAccountPaused 检查账号是否被暂停调度
+func (c *concurrencyCache) IsAccountPaused(ctx context.Context, accountID int64) (bool, error) {
+	key := accountPausedKey(accountID)
+	result, err := c.rdb.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	return result > 0, nil
 }

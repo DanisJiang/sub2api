@@ -352,6 +352,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 		account := selection.Account
 
+		// 注意：30 分钟限制使用 SetTempUnschedulable 暂停账号，
+		// 账号选择阶段通过 IsSchedulable() 已经过滤掉被暂停的账号，
+		// 所以这里不需要额外检查
+
 		// 存储槽位编号供后续 RewriteUserID 使用
 		c.Set("slot_index", selection.SlotIndex)
 
@@ -556,6 +560,25 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 		}
 
+		// 【RPM 限制】等待直到账号 RPM 低于上限
+		// 如果 RPM >= 8，等待最早的请求过期后再继续
+		if account.IsOAuth() {
+			if waitErr := h.concurrencyHelper.WaitForRPMSlot(c, account.ID, reqStream, &streamStarted); waitErr != nil {
+				// 等待被中断（客户端断开），释放资源并返回
+				if sessionMutexRelease != nil {
+					sessionMutexRelease()
+				}
+				if accountWaitRelease != nil {
+					accountWaitRelease()
+				}
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+				log.Printf("[rpm-limit] account=%d wait interrupted: %v", account.ID, waitErr)
+				return
+			}
+		}
+
 		// 转发请求 - 根据账号平台分流
 		var result *service.ForwardResult
 		if account.Platform == service.PlatformAntigravity {
@@ -600,6 +623,22 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			// 错误响应已在Forward中处理，这里只记录日志
 			log.Printf("Account %d: Forward request failed: %v", account.ID, err)
 			return
+		}
+
+		// 【RPM/30m 限制】记录请求并检查 30 分钟总量
+		// 如果达到 180 请求/30分钟，暂停该账号 10 分钟
+		if account.IsOAuth() {
+			recordResult := h.concurrencyHelper.RecordAccountRequest(context.Background(), account.ID)
+			if recordResult.ShouldPause {
+				// 使用现有的 SetTempUnschedulable 接口暂停账号
+				pauseCtx, pauseCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				if err := h.gatewayService.PauseAccountFor30mLimit(pauseCtx, account.ID, 10*time.Minute, recordResult.RequestCount); err != nil {
+					log.Printf("[30m-limit] failed to pause account: account=%d err=%v", account.ID, err)
+				} else {
+					log.Printf("[30m-limit] account=%d paused for 10 minutes (count=%d)", account.ID, recordResult.RequestCount)
+				}
+				pauseCancel()
+			}
 		}
 
 		// 异步记录使用量（subscription已在函数开头获取）

@@ -73,6 +73,22 @@ type ConcurrencyCache interface {
 	// 键格式: slot_response_end:{accountID}:{slotIndex}
 	SetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int, timestamp int64) error
 	GetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int) (int64, error)
+
+	// 账号 RPM 限制（滑动窗口）
+	// 键格式: rpm_limit:{accountID}
+	RecordAccountRequest(ctx context.Context, accountID int64) error
+	GetAccountRPM(ctx context.Context, accountID int64) (int, error)
+	GetAccountOldestRequestTime(ctx context.Context, accountID int64) (int64, error)
+
+	// 账号 30 分钟总量限制
+	// 键格式: rate_30m:{accountID}
+	RecordAccountRequest30m(ctx context.Context, accountID int64) error
+	GetAccountRequestCount30m(ctx context.Context, accountID int64) (int, error)
+
+	// 账号暂停调度标记
+	// 键格式: account_paused:{accountID}
+	SetAccountPaused(ctx context.Context, accountID int64, duration time.Duration) error
+	IsAccountPaused(ctx context.Context, accountID int64) (bool, error)
 }
 
 // generateRequestID generates a unique request ID for concurrency slot tracking
@@ -729,4 +745,65 @@ func (s *ConcurrencyService) SetSlotResponseEndTime(ctx context.Context, account
 // 返回 Unix 时间戳，如果没有记录则返回 0
 func (s *ConcurrencyService) GetSlotResponseEndTime(ctx context.Context, accountID int64, slotIndex int) (int64, error) {
 	return s.cache.GetSlotResponseEndTime(ctx, accountID, slotIndex)
+}
+
+// ============================================
+// 账号 RPM 和 30 分钟总量限制
+// ============================================
+
+// RecordAccountRequest 记录账号请求（用于 RPM 统计）
+func (s *ConcurrencyService) RecordAccountRequest(ctx context.Context, accountID int64) error {
+	if s.cache == nil {
+		return nil
+	}
+	return s.cache.RecordAccountRequest(ctx, accountID)
+}
+
+// GetAccountRPM 获取账号当前 RPM（过去 60 秒的请求数）
+func (s *ConcurrencyService) GetAccountRPM(ctx context.Context, accountID int64) (int, error) {
+	if s.cache == nil {
+		return 0, nil
+	}
+	return s.cache.GetAccountRPM(ctx, accountID)
+}
+
+// GetAccountOldestRequestTime 获取账号最早的请求时间（毫秒时间戳）
+// 用于计算需要等待多久才能有新配额
+func (s *ConcurrencyService) GetAccountOldestRequestTime(ctx context.Context, accountID int64) (int64, error) {
+	if s.cache == nil {
+		return 0, nil
+	}
+	return s.cache.GetAccountOldestRequestTime(ctx, accountID)
+}
+
+// RecordAccountRequest30m 记录账号请求（用于 30 分钟总量统计）
+func (s *ConcurrencyService) RecordAccountRequest30m(ctx context.Context, accountID int64) error {
+	if s.cache == nil {
+		return nil
+	}
+	return s.cache.RecordAccountRequest30m(ctx, accountID)
+}
+
+// GetAccountRequestCount30m 获取账号过去 30 分钟的请求数
+func (s *ConcurrencyService) GetAccountRequestCount30m(ctx context.Context, accountID int64) (int, error) {
+	if s.cache == nil {
+		return 0, nil
+	}
+	return s.cache.GetAccountRequestCount30m(ctx, accountID)
+}
+
+// SetAccountPaused 设置账号暂停调度标记
+func (s *ConcurrencyService) SetAccountPaused(ctx context.Context, accountID int64, duration time.Duration) error {
+	if s.cache == nil {
+		return nil
+	}
+	return s.cache.SetAccountPaused(ctx, accountID, duration)
+}
+
+// IsAccountPaused 检查账号是否被暂停调度
+func (s *ConcurrencyService) IsAccountPaused(ctx context.Context, accountID int64) (bool, error) {
+	if s.cache == nil {
+		return false, nil
+	}
+	return s.cache.IsAccountPaused(ctx, accountID)
 }

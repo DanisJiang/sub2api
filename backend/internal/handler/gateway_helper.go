@@ -532,6 +532,169 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
+// ============================================
+// 账号 RPM 和 30 分钟总量限制
+// ============================================
+
+const (
+	// accountMaxRPM 单个账号的最大 RPM
+	accountMaxRPM = 8
+	// accountMax30mRequests 单个账号 30 分钟内的最大请求数
+	accountMax30mRequests = 180
+	// accountPauseDuration 触发 30m 限制后暂停调度的时长
+	accountPauseDuration = 10 * time.Minute
+	// rpmWindowSeconds RPM 滑动窗口（秒）
+	rpmWindowSeconds = 60
+)
+
+// 注意：IsAccountPaused 已移除
+// 30 分钟限制使用 SetTempUnschedulable 暂停账号，
+// 账号选择阶段通过 IsSchedulable() 自动过滤被暂停的账号
+
+// WaitForRPMSlot waits until the account's RPM is below the limit.
+// Returns error if context is cancelled or max wait time exceeded.
+// If RPM is already below limit, returns immediately.
+func (h *ConcurrencyHelper) WaitForRPMSlot(c *gin.Context, accountID int64, isStream bool, streamStarted *bool) error {
+	if h.concurrencyService == nil {
+		return nil
+	}
+
+	ctx := c.Request.Context()
+
+	// Check current RPM
+	currentRPM, err := h.concurrencyService.GetAccountRPM(ctx, accountID)
+	if err != nil {
+		// If error, log and continue (don't block the request)
+		return nil
+	}
+
+	if currentRPM < accountMaxRPM {
+		// RPM is below limit, no need to wait
+		return nil
+	}
+
+	// Need to wait - calculate how long based on oldest request
+	oldestTime, err := h.concurrencyService.GetAccountOldestRequestTime(ctx, accountID)
+	if err != nil || oldestTime == 0 {
+		// If error or no oldest time, wait a fixed amount
+		return h.waitWithPing(c, 5*time.Second, isStream, streamStarted)
+	}
+
+	// Calculate wait time: oldest request will expire at oldestTime + 60s
+	nowMs := time.Now().UnixMilli()
+	expireMs := oldestTime + int64(rpmWindowSeconds*1000)
+	waitMs := expireMs - nowMs
+
+	if waitMs <= 0 {
+		// Already expired, retry check
+		return nil
+	}
+
+	// Cap wait time at 60 seconds (full window)
+	if waitMs > rpmWindowSeconds*1000 {
+		waitMs = rpmWindowSeconds * 1000
+	}
+
+	waitDuration := time.Duration(waitMs) * time.Millisecond
+
+	// Log the wait
+	fmt.Printf("[rpm-limit] account=%d rpm=%d waiting=%v\n", accountID, currentRPM, waitDuration)
+
+	return h.waitWithPing(c, waitDuration, isStream, streamStarted)
+}
+
+// waitWithPing waits for the specified duration, sending pings for streaming requests.
+func (h *ConcurrencyHelper) waitWithPing(c *gin.Context, duration time.Duration, isStream bool, streamStarted *bool) error {
+	ctx := c.Request.Context()
+
+	// Determine if ping is needed
+	needPing := isStream && h.pingFormat != ""
+
+	var flusher http.Flusher
+	if needPing {
+		var ok bool
+		flusher, ok = c.Writer.(http.Flusher)
+		if !ok {
+			needPing = false
+		}
+	}
+
+	var pingCh <-chan time.Time
+	if needPing {
+		pingTicker := time.NewTicker(h.pingInterval)
+		defer pingTicker.Stop()
+		pingCh = pingTicker.C
+	}
+
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case <-pingCh:
+			if !*streamStarted {
+				c.Header("Content-Type", "text/event-stream")
+				c.Header("Cache-Control", "no-cache")
+				c.Header("Connection", "keep-alive")
+				c.Header("X-Accel-Buffering", "no")
+				*streamStarted = true
+			}
+			if _, err := fmt.Fprint(c.Writer, string(h.pingFormat)); err != nil {
+				return err
+			}
+			flusher.Flush()
+
+		case <-timer.C:
+			return nil
+		}
+	}
+}
+
+// RecordAccountRequestResult 记录请求的结果
+type RecordAccountRequestResult struct {
+	ShouldPause  bool // 是否需要暂停账号
+	RequestCount int  // 30分钟内的请求计数
+}
+
+// RecordAccountRequest records a request for an account and returns rate limit status.
+// The caller is responsible for pausing the account using gatewayService.PauseAccountFor30mLimit
+// if ShouldPause is true.
+func (h *ConcurrencyHelper) RecordAccountRequest(ctx context.Context, accountID int64) RecordAccountRequestResult {
+	if h.concurrencyService == nil {
+		return RecordAccountRequestResult{}
+	}
+
+	// Record for RPM tracking
+	if err := h.concurrencyService.RecordAccountRequest(ctx, accountID); err != nil {
+		fmt.Printf("[rpm-limit] failed to record request: account=%d err=%v\n", accountID, err)
+	}
+
+	// Record for 30m tracking
+	if err := h.concurrencyService.RecordAccountRequest30m(ctx, accountID); err != nil {
+		fmt.Printf("[30m-limit] failed to record request: account=%d err=%v\n", accountID, err)
+	}
+
+	// Check 30m count
+	count30m, err := h.concurrencyService.GetAccountRequestCount30m(ctx, accountID)
+	if err != nil {
+		fmt.Printf("[30m-limit] failed to get count: account=%d err=%v\n", accountID, err)
+		return RecordAccountRequestResult{}
+	}
+
+	if count30m >= accountMax30mRequests {
+		fmt.Printf("[30m-limit] account=%d reached limit (count=%d)\n", accountID, count30m)
+		return RecordAccountRequestResult{
+			ShouldPause:  true,
+			RequestCount: count30m,
+		}
+	}
+
+	return RecordAccountRequestResult{RequestCount: count30m}
+}
+
 // nextBackoff 计算下一次退避时间
 // 性能优化：使用指数退避 + 随机抖动，避免惊群效应
 // current: 当前退避时间
