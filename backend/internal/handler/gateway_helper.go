@@ -538,7 +538,7 @@ func containsSubstring(s, substr string) bool {
 
 const (
 	// accountMaxRPM 单个账号的最大 RPM
-	accountMaxRPM = 8
+	accountMaxRPM = 6
 	// accountMax30mRequests 单个账号 30 分钟内的最大请求数
 	accountMax30mRequests = 180
 	// rpmWindowSeconds RPM 滑动窗口（秒）
