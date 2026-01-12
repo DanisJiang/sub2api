@@ -1,15 +1,10 @@
 package handler
+
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log"
-	"math/rand"
-	"net/http"
-	"strings"
-	"time"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
@@ -19,7 +14,14 @@ import (
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"io"
+	"log"
+	"math/rand"
+	"net/http"
+	"strings"
+	"time"
 )
+
 // GatewayHandler handles API gateway requests
 type GatewayHandler struct {
 	gatewayService            *service.GatewayService
@@ -29,6 +31,7 @@ type GatewayHandler struct {
 	billingCacheService       *service.BillingCacheService
 	concurrencyHelper         *ConcurrencyHelper
 }
+
 // NewGatewayHandler creates a new GatewayHandler
 func NewGatewayHandler(
 	gatewayService *service.GatewayService,
@@ -52,6 +55,7 @@ func NewGatewayHandler(
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
 	}
 }
+
 // Messages handles Claude API compatible messages endpoint
 // POST /v1/messages
 func (h *GatewayHandler) Messages(c *gin.Context) {
@@ -646,6 +650,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 }
+
 // Models handles listing available models
 // GET /v1/models
 // Returns models based on account configurations (model_mapping whitelist)
@@ -690,6 +695,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		"data":   claude.DefaultModels,
 	})
 }
+
 // AntigravityModels 返回 Antigravity 支持的全部模型
 // GET /antigravity/models
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
@@ -698,6 +704,7 @@ func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
 		"data":   antigravity.DefaultModels(),
 	})
 }
+
 // Usage handles getting account balance for CC Switch integration
 // GET /v1/usage
 func (h *GatewayHandler) Usage(c *gin.Context) {
@@ -740,6 +747,7 @@ func (h *GatewayHandler) Usage(c *gin.Context) {
 		"unit":      "USD",
 	})
 }
+
 // calculateSubscriptionRemaining 计算订阅剩余可用额度
 // 逻辑：
 // 1. 如果日/周/月任一限额达到100%，返回0
@@ -783,6 +791,7 @@ func (h *GatewayHandler) calculateSubscriptionRemaining(group *service.Group, su
 	}
 	return min
 }
+
 // handleConcurrencyError handles concurrency-related errors with proper 429 response
 func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotType string, streamStarted bool) {
 	h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error",
@@ -808,6 +817,7 @@ func (h *GatewayHandler) mapUpstreamError(statusCode int) (int, string, string) 
 		return http.StatusBadGateway, "upstream_error", "Upstream request failed"
 	}
 }
+
 // handleStreamingAwareError handles errors that may occur after streaming has started
 func (h *GatewayHandler) handleStreamingAwareError(c *gin.Context, status int, errType, message string, streamStarted bool) {
 	if streamStarted {
@@ -838,6 +848,7 @@ func (h *GatewayHandler) handleStreamingAwareError(c *gin.Context, status int, e
 	// Normal case: return JSON response with proper status code
 	h.errorResponse(c, status, errType, message)
 }
+
 // errorResponse 返回Claude API格式的错误响应
 func (h *GatewayHandler) errorResponse(c *gin.Context, status int, errType, message string) {
 	c.JSON(status, gin.H{
@@ -848,6 +859,7 @@ func (h *GatewayHandler) errorResponse(c *gin.Context, status int, errType, mess
 		},
 	})
 }
+
 // CountTokens handles token counting endpoint
 // POST /v1/messages/count_tokens
 // 特点：校验订阅/余额，但不计算并发、不记录使用量
@@ -914,6 +926,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 		return
 	}
 }
+
 // isWarmupRequest 检测是否为预热请求（标题生成、Warmup等）
 func isWarmupRequest(body []byte) bool {
 	// 快速检查：如果body不包含关键字，直接返回false
@@ -955,6 +968,7 @@ func isWarmupRequest(body []byte) bool {
 	}
 	return false
 }
+
 // sendMockWarmupStream 发送流式 mock 响应（用于预热请求拦截）
 func sendMockWarmupStream(c *gin.Context, model string) {
 	c.Header("Content-Type", "text/event-stream")
@@ -994,6 +1008,7 @@ func sendMockWarmupStream(c *gin.Context, model string) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
 // sendMockWarmupResponse 发送非流式 mock 响应（用于预热请求拦截）
 func sendMockWarmupResponse(c *gin.Context, model string) {
 	c.JSON(http.StatusOK, gin.H{
@@ -1023,6 +1038,7 @@ func billingErrorDetails(err error) (status int, code, message string) {
 	}
 	return http.StatusForbidden, "billing_error", msg
 }
+
 // waitForUserInputPacing 等待用户输入节奏控制
 // 对于 OAuth 账号的用户主动输入请求，确保和上次响应结束之间有足够间隔（5-15秒随机）
 // 目的：模拟真实用户行为，用户不可能在 Claude 输出完成后立即发送下一条消息
