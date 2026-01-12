@@ -45,9 +45,9 @@ func ValidateClaudeCodeHeaders(c *gin.Context) bool {
 		return false
 	}
 
-	// 2. anthropic-beta 必须包含 "claude-code-" 或 "oauth-"（Haiku 模型用 oauth）
+	// 2. anthropic-beta 必须包含 "claude-code-" 或 "oauth-" 或 "interleaved-thinking"
 	anthropicBeta := c.GetHeader("anthropic-beta")
-	if !strings.Contains(anthropicBeta, "claude-code-") && !strings.Contains(anthropicBeta, "oauth-") {
+	if !strings.Contains(anthropicBeta, "claude-code-") && !strings.Contains(anthropicBeta, "oauth-") && !strings.Contains(anthropicBeta, "interleaved-thinking") {
 		return false
 	}
 
