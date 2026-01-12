@@ -44,6 +44,9 @@ var claudeCodeSystemPrompts = []string{
 
 	// claudeOtherSystemPrompt2 - Secondary (长提示词的关键部分)
 	"You are an interactive CLI tool that helps users",
+
+	// topicAnalysisPrompt - 用于分析对话主题/生成标题
+	"Analyze if this message indicates a new conversation topic.",
 }
 
 // NewClaudeCodeValidator 创建验证器实例
