@@ -35,11 +35,20 @@ export interface SystemSettings {
   turnstile_enabled: boolean
   turnstile_site_key: string
   turnstile_secret_key_configured: boolean
-  // LinuxDo Connect OAuth 登录（终端用户 SSO）
+
+  // LinuxDo Connect OAuth settings
   linuxdo_connect_enabled: boolean
   linuxdo_connect_client_id: string
   linuxdo_connect_client_secret_configured: boolean
   linuxdo_connect_redirect_url: string
+
+  // Model fallback configuration
+  enable_model_fallback: boolean
+  fallback_model_anthropic: string
+  fallback_model_openai: string
+  fallback_model_gemini: string
+  fallback_model_antigravity: string
+
   // Identity patch configuration (Claude -> Gemini)
   enable_identity_patch: boolean
   identity_patch_prompt: string
@@ -47,6 +56,12 @@ export interface SystemSettings {
   require_claude_code: boolean
   // 禁用上游用量查询
   disable_usage_fetch: boolean
+
+  // Ops Monitoring (vNext)
+  ops_monitoring_enabled: boolean
+  ops_realtime_monitoring_enabled: boolean
+  ops_query_mode_default: 'auto' | 'raw' | 'preagg' | string
+  ops_metrics_interval_seconds: number
 }
 
 export interface UpdateSettingsRequest {
@@ -75,10 +90,19 @@ export interface UpdateSettingsRequest {
   linuxdo_connect_client_id?: string
   linuxdo_connect_client_secret?: string
   linuxdo_connect_redirect_url?: string
+  enable_model_fallback?: boolean
+  fallback_model_anthropic?: string
+  fallback_model_openai?: string
+  fallback_model_gemini?: string
+  fallback_model_antigravity?: string
   enable_identity_patch?: boolean
   identity_patch_prompt?: string
   require_claude_code?: boolean
   disable_usage_fetch?: boolean
+  ops_monitoring_enabled?: boolean
+  ops_realtime_monitoring_enabled?: boolean
+  ops_query_mode_default?: 'auto' | 'raw' | 'preagg' | string
+  ops_metrics_interval_seconds?: number
 }
 
 /**
@@ -183,6 +207,41 @@ export async function deleteAdminApiKey(): Promise<{ message: string }> {
   return data
 }
 
+/**
+ * Stream timeout settings interface
+ */
+export interface StreamTimeoutSettings {
+  enabled: boolean
+  action: 'temp_unsched' | 'error' | 'none'
+  temp_unsched_minutes: number
+  threshold_count: number
+  threshold_window_minutes: number
+}
+
+/**
+ * Get stream timeout settings
+ * @returns Stream timeout settings
+ */
+export async function getStreamTimeoutSettings(): Promise<StreamTimeoutSettings> {
+  const { data } = await apiClient.get<StreamTimeoutSettings>('/admin/settings/stream-timeout')
+  return data
+}
+
+/**
+ * Update stream timeout settings
+ * @param settings - Stream timeout settings to update
+ * @returns Updated settings
+ */
+export async function updateStreamTimeoutSettings(
+  settings: StreamTimeoutSettings
+): Promise<StreamTimeoutSettings> {
+  const { data } = await apiClient.put<StreamTimeoutSettings>(
+    '/admin/settings/stream-timeout',
+    settings
+  )
+  return data
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -190,7 +249,9 @@ export const settingsAPI = {
   sendTestEmail,
   getAdminApiKey,
   regenerateAdminApiKey,
-  deleteAdminApiKey
+  deleteAdminApiKey,
+  getStreamTimeoutSettings,
+  updateStreamTimeoutSettings
 }
 
 export default settingsAPI

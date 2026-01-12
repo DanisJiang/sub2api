@@ -49,6 +49,12 @@ type SystemSettings struct {
 
 	// 禁用上游用量查询
 	DisableUsageFetch bool `json:"disable_usage_fetch"`
+
+	// Ops monitoring (vNext)
+	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"`
+	OpsRealtimeMonitoringEnabled bool   `json:"ops_realtime_monitoring_enabled"`
+	OpsQueryModeDefault          string `json:"ops_query_mode_default"`
+	OpsMetricsIntervalSeconds    int    `json:"ops_metrics_interval_seconds"`
 }
 
 type PublicSettings struct {
@@ -65,4 +71,13 @@ type PublicSettings struct {
 	HomeContent         string `json:"home_content"`
 	LinuxDoOAuthEnabled bool   `json:"linuxdo_oauth_enabled"`
 	Version             string `json:"version"`
+}
+
+// StreamTimeoutSettings 流超时处理配置 DTO
+type StreamTimeoutSettings struct {
+	Enabled                bool   `json:"enabled"`
+	Action                 string `json:"action"`
+	TempUnschedMinutes     int    `json:"temp_unsched_minutes"`
+	ThresholdCount         int    `json:"threshold_count"`
+	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
 }

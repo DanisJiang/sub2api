@@ -15,13 +15,15 @@ import (
 
 // RateLimitService 处理限流和过载状态管理
 type RateLimitService struct {
-	accountRepo        AccountRepository
-	usageRepo          UsageLogRepository
-	cfg                *config.Config
-	geminiQuotaService *GeminiQuotaService
-	tempUnschedCache   TempUnschedCache
-	usageCacheMu       sync.RWMutex
-	usageCache         map[int64]*geminiUsageCacheEntry
+	accountRepo         AccountRepository
+	usageRepo           UsageLogRepository
+	cfg                 *config.Config
+	geminiQuotaService  *GeminiQuotaService
+	tempUnschedCache    TempUnschedCache
+	timeoutCounterCache TimeoutCounterCache
+	settingService      *SettingService
+	usageCacheMu        sync.RWMutex
+	usageCache          map[int64]*geminiUsageCacheEntry
 }
 
 type geminiUsageCacheEntry struct {
@@ -44,17 +46,33 @@ func NewRateLimitService(accountRepo AccountRepository, usageRepo UsageLogReposi
 	}
 }
 
+// SetTimeoutCounterCache 设置超时计数器缓存（可选依赖）
+func (s *RateLimitService) SetTimeoutCounterCache(cache TimeoutCounterCache) {
+	s.timeoutCounterCache = cache
+}
+
+// SetSettingService 设置系统设置服务（可选依赖）
+func (s *RateLimitService) SetSettingService(settingService *SettingService) {
+	s.settingService = settingService
+}
+
 // HandleUpstreamError 处理上游错误响应，标记账号状态
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte) (shouldDisable bool) {
 	// apikey 类型账号：检查自定义错误码配置
 	// 如果启用且错误码不在列表中，则不处理（不停止调度、不标记限流/过载）
+	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
 	if !account.ShouldHandleErrorCode(statusCode) {
 		log.Printf("Account %d: error %d skipped (not in custom error codes)", account.ID, statusCode)
 		return false
 	}
 
 	tempMatched := s.tryTempUnschedulable(ctx, account, statusCode, responseBody)
+	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(responseBody))
+	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+	if upstreamMsg != "" {
+		upstreamMsg = truncateForLog([]byte(upstreamMsg), 512)
+	}
 
 	switch statusCode {
 	case 400:
@@ -65,15 +83,27 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		}
 	case 401:
 		// 认证失败：停止调度，记录错误
-		s.handleAuthError(ctx, account, "Authentication failed (401): invalid or expired credentials")
+		msg := "Authentication failed (401): invalid or expired credentials"
+		if upstreamMsg != "" {
+			msg = "Authentication failed (401): " + upstreamMsg
+		}
+		s.handleAuthError(ctx, account, msg)
 		shouldDisable = true
 	case 402:
 		// 支付要求：余额不足或计费问题，停止调度
-		s.handleAuthError(ctx, account, "Payment required (402): insufficient balance or billing issue")
+		msg := "Payment required (402): insufficient balance or billing issue"
+		if upstreamMsg != "" {
+			msg = "Payment required (402): " + upstreamMsg
+		}
+		s.handleAuthError(ctx, account, msg)
 		shouldDisable = true
 	case 403:
 		// 禁止访问：停止调度，记录错误
-		s.handleAuthError(ctx, account, "Access forbidden (403): account may be suspended or lack permissions")
+		msg := "Access forbidden (403): account may be suspended or lack permissions"
+		if upstreamMsg != "" {
+			msg = "Access forbidden (403): " + upstreamMsg
+		}
+		s.handleAuthError(ctx, account, msg)
 		shouldDisable = true
 	case 429:
 		s.handle429(ctx, account, headers)
@@ -82,11 +112,19 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		s.handle529(ctx, account)
 		shouldDisable = false
 	default:
-		// 其他5xx错误：记录但不停止调度
-		if statusCode >= 500 {
+		// 自定义错误码启用时：在列表中的错误码都应该停止调度
+		if customErrorCodesEnabled {
+			msg := "Custom error code triggered"
+			if upstreamMsg != "" {
+				msg = upstreamMsg
+			}
+			s.handleCustomErrorCode(ctx, account, statusCode, msg)
+			shouldDisable = true
+		} else if statusCode >= 500 {
+			// 未启用自定义错误码时：仅记录5xx错误
 			log.Printf("Account %d received upstream error %d", account.ID, statusCode)
+			shouldDisable = false
 		}
-		shouldDisable = false
 	}
 
 	if tempMatched {
@@ -260,6 +298,16 @@ func (s *RateLimitService) handleAuthError(ctx context.Context, account *Account
 		return
 	}
 	log.Printf("Account %d disabled due to auth error: %s", account.ID, errorMsg)
+}
+
+// handleCustomErrorCode 处理自定义错误码，停止账号调度
+func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *Account, statusCode int, errorMsg string) {
+	msg := "Custom error code " + strconv.Itoa(statusCode) + ": " + errorMsg
+	if err := s.accountRepo.SetError(ctx, account.ID, msg); err != nil {
+		log.Printf("SetError failed for account %d: %v", account.ID, err)
+		return
+	}
+	log.Printf("Account %d disabled due to custom error code %d: %s", account.ID, statusCode, errorMsg)
 }
 
 // handle429 处理429限流错误
@@ -556,4 +604,126 @@ func isAccountDisabledError(responseBody []byte) bool {
 		return true
 	}
 	return false
+}
+
+// HandleStreamTimeout 处理流数据超时
+// 根据系统设置决定是否标记账户为临时不可调度或错误状态
+// 返回是否应该停止该账号的调度
+func (s *RateLimitService) HandleStreamTimeout(ctx context.Context, account *Account, model string) bool {
+	if account == nil {
+		return false
+	}
+
+	// 获取系统设置
+	if s.settingService == nil {
+		log.Printf("[StreamTimeout] settingService not configured, skipping timeout handling for account %d", account.ID)
+		return false
+	}
+
+	settings, err := s.settingService.GetStreamTimeoutSettings(ctx)
+	if err != nil {
+		log.Printf("[StreamTimeout] Failed to get settings: %v", err)
+		return false
+	}
+
+	if !settings.Enabled {
+		return false
+	}
+
+	if settings.Action == StreamTimeoutActionNone {
+		return false
+	}
+
+	// 增加超时计数
+	var count int64 = 1
+	if s.timeoutCounterCache != nil {
+		count, err = s.timeoutCounterCache.IncrementTimeoutCount(ctx, account.ID, settings.ThresholdWindowMinutes)
+		if err != nil {
+			log.Printf("[StreamTimeout] Failed to increment timeout count for account %d: %v", account.ID, err)
+			// 继续处理，使用 count=1
+			count = 1
+		}
+	}
+
+	log.Printf("[StreamTimeout] Account %d timeout count: %d/%d (window: %d min, model: %s)",
+		account.ID, count, settings.ThresholdCount, settings.ThresholdWindowMinutes, model)
+
+	// 检查是否达到阈值
+	if count < int64(settings.ThresholdCount) {
+		return false
+	}
+
+	// 达到阈值，执行相应操作
+	switch settings.Action {
+	case StreamTimeoutActionTempUnsched:
+		return s.triggerStreamTimeoutTempUnsched(ctx, account, settings, model)
+	case StreamTimeoutActionError:
+		return s.triggerStreamTimeoutError(ctx, account, model)
+	default:
+		return false
+	}
+}
+
+// triggerStreamTimeoutTempUnsched 触发流超时临时不可调度
+func (s *RateLimitService) triggerStreamTimeoutTempUnsched(ctx context.Context, account *Account, settings *StreamTimeoutSettings, model string) bool {
+	now := time.Now()
+	until := now.Add(time.Duration(settings.TempUnschedMinutes) * time.Minute)
+
+	state := &TempUnschedState{
+		UntilUnix:       until.Unix(),
+		TriggeredAtUnix: now.Unix(),
+		StatusCode:      0, // 超时没有状态码
+		MatchedKeyword:  "stream_timeout",
+		RuleIndex:       -1, // 表示系统级规则
+		ErrorMessage:    "Stream data interval timeout for model: " + model,
+	}
+
+	reason := ""
+	if raw, err := json.Marshal(state); err == nil {
+		reason = string(raw)
+	}
+	if reason == "" {
+		reason = state.ErrorMessage
+	}
+
+	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+		log.Printf("[StreamTimeout] SetTempUnschedulable failed for account %d: %v", account.ID, err)
+		return false
+	}
+
+	if s.tempUnschedCache != nil {
+		if err := s.tempUnschedCache.SetTempUnsched(ctx, account.ID, state); err != nil {
+			log.Printf("[StreamTimeout] SetTempUnsched cache failed for account %d: %v", account.ID, err)
+		}
+	}
+
+	// 重置超时计数
+	if s.timeoutCounterCache != nil {
+		if err := s.timeoutCounterCache.ResetTimeoutCount(ctx, account.ID); err != nil {
+			log.Printf("[StreamTimeout] ResetTimeoutCount failed for account %d: %v", account.ID, err)
+		}
+	}
+
+	log.Printf("[StreamTimeout] Account %d marked as temp unschedulable until %v (model: %s)", account.ID, until, model)
+	return true
+}
+
+// triggerStreamTimeoutError 触发流超时错误状态
+func (s *RateLimitService) triggerStreamTimeoutError(ctx context.Context, account *Account, model string) bool {
+	errorMsg := "Stream data interval timeout (repeated failures) for model: " + model
+
+	if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
+		log.Printf("[StreamTimeout] SetError failed for account %d: %v", account.ID, err)
+		return false
+	}
+
+	// 重置超时计数
+	if s.timeoutCounterCache != nil {
+		if err := s.timeoutCounterCache.ResetTimeoutCount(ctx, account.ID); err != nil {
+			log.Printf("[StreamTimeout] ResetTimeoutCount failed for account %d: %v", account.ID, err)
+		}
+	}
+
+	log.Printf("[StreamTimeout] Account %d marked as error (model: %s)", account.ID, model)
+	return true
 }

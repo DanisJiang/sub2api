@@ -163,7 +163,7 @@ var (
 		return redis.call('ZCARD', key)
 	`)
 
-	// incrementWaitScript - only sets TTL on first creation to avoid refreshing
+	// incrementWaitScript - refreshes TTL on each increment to keep queue depth accurate
 	// KEYS[1] = wait queue key
 	// ARGV[1] = maxWait
 	// ARGV[2] = TTL in seconds
@@ -181,15 +181,13 @@ var (
 
 		local newVal = redis.call('INCR', KEYS[1])
 
-		-- Only set TTL on first creation to avoid refreshing zombie data
-		if newVal == 1 then
-			redis.call('EXPIRE', KEYS[1], ARGV[2])
-		end
+		-- Refresh TTL so long-running traffic doesn't expire active queue counters.
+		redis.call('EXPIRE', KEYS[1], ARGV[2])
 
 			return 1
 		`)
 
-	// incrementAccountWaitScript - account-level wait queue count
+	// incrementAccountWaitScript - account-level wait queue count (refresh TTL on each increment)
 	incrementAccountWaitScript = redis.NewScript(`
 			local current = redis.call('GET', KEYS[1])
 			if current == false then
@@ -204,10 +202,8 @@ var (
 
 			local newVal = redis.call('INCR', KEYS[1])
 
-			-- Only set TTL on first creation to avoid refreshing zombie data
-			if newVal == 1 then
-				redis.call('EXPIRE', KEYS[1], ARGV[2])
-			end
+			-- Refresh TTL so long-running traffic doesn't expire active queue counters.
+			redis.call('EXPIRE', KEYS[1], ARGV[2])
 
 			return 1
 		`)

@@ -49,6 +49,7 @@ var ProviderSet = wire.NewSet(
 	NewUsageLogRepository,
 	NewDashboardAggregationRepository,
 	NewSettingRepository,
+	NewOpsRepository,
 	NewUserSubscriptionRepository,
 	NewUserAttributeDefinitionRepository,
 	NewUserAttributeValueRepository,
@@ -58,6 +59,7 @@ var ProviderSet = wire.NewSet(
 	NewBillingCache,
 	NewAPIKeyCache,
 	NewTempUnschedCache,
+	NewTimeoutCounterCache,
 	ProvideConcurrencyCache,
 	NewDashboardCache,
 	NewEmailCache,
@@ -65,6 +67,8 @@ var ProviderSet = wire.NewSet(
 	NewRedeemCache,
 	NewUpdateCache,
 	NewGeminiTokenCache,
+	NewSchedulerCache,
+	NewSchedulerOutboxRepository,
 
 	// HTTP service ports (DI Strategy A: return interface directly)
 	NewTurnstileVerifier,
