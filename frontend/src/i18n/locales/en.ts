@@ -192,7 +192,8 @@ export default {
     expand: 'Expand',
     logout: 'Logout',
     github: 'GitHub',
-    mySubscriptions: 'My Subscriptions'
+    mySubscriptions: 'My Subscriptions',
+    announcements: 'Announcements'
   },
 
   // Auth
@@ -909,6 +910,13 @@ export default {
         fallbackGroup: 'Fallback Group',
         fallbackHint: 'Non-Claude Code requests will use this group. Leave empty to reject directly.',
         noFallback: 'No Fallback (Reject)'
+      },
+      modelWhitelist: {
+        title: 'Model Whitelist',
+        tooltip: 'Restrict models available for this group. When not set, all models are allowed.',
+        description: 'Select allowed models, leave empty for no restrictions',
+        inputPlaceholder: 'Search or select models...',
+        empty: 'All models allowed'
       }
     },
 
@@ -1223,6 +1231,8 @@ export default {
       proxy: 'Proxy',
       noProxy: 'No Proxy',
       concurrency: 'Concurrency',
+      rpmLimitSettings: 'RPM/30m Limit Settings',
+      rpmLimitSettingsDesc: 'Set account RPM (requests per minute) and 30-minute request limit',
       priority: 'Priority',
       priorityHint: 'Lower value accounts are used first',
       expiresAt: 'Expires At',

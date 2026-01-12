@@ -190,7 +190,8 @@ export default {
     expand: '展开',
     logout: '退出登录',
     github: 'GitHub',
-    mySubscriptions: '我的订阅'
+    mySubscriptions: '我的订阅',
+    announcements: '公告'
   },
 
   // Auth
@@ -986,6 +987,13 @@ export default {
         fallbackGroup: '降级分组',
         fallbackHint: '非 Claude Code 请求将使用此分组，留空则直接拒绝',
         noFallback: '不降级（直接拒绝）'
+      },
+      modelWhitelist: {
+        title: '模型白名单',
+        tooltip: '限制此分组可使用的模型。未设置时允许所有模型。',
+        description: '选择允许使用的模型，留空表示不限制',
+        inputPlaceholder: '搜索或选择模型...',
+        empty: '允许所有模型'
       }
     },
 
@@ -1357,6 +1365,8 @@ export default {
       proxy: '代理',
       noProxy: '无代理',
       concurrency: '并发数',
+      rpmLimitSettings: 'RPM/30m 限制设置',
+      rpmLimitSettingsDesc: '设置账号的每分钟请求数(RPM)和30分钟请求总量限制',
       priority: '优先级',
       priorityHint: '优先级越小的账号优先使用',
       expiresAt: '过期时间',
