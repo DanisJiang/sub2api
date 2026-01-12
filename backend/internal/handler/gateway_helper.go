@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,25 @@ func SetClaudeCodeClientContext(c *gin.Context, body []byte) {
 	// 更新 request context
 	ctx := service.SetClaudeCodeClient(c.Request.Context(), isClaudeCode)
 	c.Request = c.Request.WithContext(ctx)
+}
+
+// ValidateClaudeCodeHeaders 验证请求 headers 是否符合 Claude Code 客户端特征
+// 用于全局 Claude Code 限制的增强验证
+// 返回 true 表示 headers 有效
+func ValidateClaudeCodeHeaders(c *gin.Context) bool {
+	// 1. X-App 必须是 "cli"
+	xApp := c.GetHeader("X-App")
+	if xApp != "cli" {
+		return false
+	}
+
+	// 2. anthropic-beta 必须包含 "claude-code-" 或 "oauth-"（Haiku 模型用 oauth）
+	anthropicBeta := c.GetHeader("anthropic-beta")
+	if !strings.Contains(anthropicBeta, "claude-code-") && !strings.Contains(anthropicBeta, "oauth-") {
+		return false
+	}
+
+	return true
 }
 
 // 并发槽位等待相关常量
