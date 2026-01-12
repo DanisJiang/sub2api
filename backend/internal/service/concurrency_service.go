@@ -24,14 +24,17 @@ type ConcurrencyCache interface {
 	ReleaseAccountSlotByIndex(ctx context.Context, accountID int64, slotIndex int) error
 
 	// 优先获取目标槽位，失败则获取其他可用槽位（降级机制）
-	// 返回实际获取到的槽位编号，-1 表示全部满了
-	AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error)
+	// maxConcurrency: 最大并发数（同时占用的槽位数上限）
+	// totalSlots: 总槽位数（>= maxConcurrency，用于 session 分布）
+	// 返回实际获取到的槽位编号，-1 表示并发已满
+	AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int, totalSlots int) (int, error)
 
 	// 在指定范围内获取槽位（硬隔离，不跨范围 fallback）
 	// 用于模型槽位池隔离：Opus 池和 Sonnet 池各自独立
+	// maxConcurrency: 最大并发数（同时占用的槽位数上限）
 	// rangeStart: 范围起始（包含），rangeEnd: 范围结束（不包含）
-	// 返回实际获取到的槽位编号，-1 表示范围内全部满了
-	AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, rangeStart int, rangeEnd int) (int, error)
+	// 返回实际获取到的槽位编号，-1 表示并发已满或范围内全部满了
+	AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int, rangeStart int, rangeEnd int) (int, error)
 
 	// Session 互斥锁：防止同一 session 并发请求
 	AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) (bool, error)
@@ -196,20 +199,23 @@ func (s *ConcurrencyService) AcquireAccountSlotByIndex(ctx context.Context, acco
 		}, nil
 	}
 
+	// Calculate total slots (more slots than concurrency for realistic session distribution)
+	totalSlots := CalculateTotalSlots(maxConcurrency)
+
 	// Calculate target slot index from session hash
 	// This ensures the same session always maps to the same slot
-	targetSlot := hashToSlotIndex(sessionHash, maxConcurrency)
+	targetSlot := hashToSlotIndex(sessionHash, totalSlots)
 
 	// 使用降级机制：优先目标槽位，失败则尝试其他槽位
-	acquiredSlot, err := s.cache.AcquireSlotWithFallback(ctx, accountID, targetSlot, maxConcurrency)
+	acquiredSlot, err := s.cache.AcquireSlotWithFallback(ctx, accountID, targetSlot, maxConcurrency, totalSlots)
 	if err != nil {
 		return nil, err
 	}
 
 	if acquiredSlot >= 0 {
 		// 记录 session-slot 绑定：target vs acquired 不同说明发生了 fallback
-		log.Printf("[session-slot] account=%d session=%.16s target=%d acquired=%d",
-			accountID, sessionHash, targetSlot, acquiredSlot)
+		log.Printf("[session-slot] account=%d session=%.16s target=%d acquired=%d (totalSlots=%d)",
+			accountID, sessionHash, targetSlot, acquiredSlot, totalSlots)
 		return &AcquireResult{
 			Acquired:  true,
 			SlotIndex: acquiredSlot,
@@ -533,8 +539,11 @@ func (s *ConcurrencyService) AcquireSlotForHaiku(ctx context.Context, accountID 
 		}, nil
 	}
 
+	// Calculate total slots for better session distribution
+	totalSlots := CalculateTotalSlots(maxConcurrency)
+
 	// Calculate target slot from session hash
-	targetSlot := hashToSlotIndex(sessionHash, maxConcurrency)
+	targetSlot := hashToSlotIndex(sessionHash, totalSlots)
 	requestID := generateRequestID()
 
 	// Try to acquire the target slot with session awareness
@@ -621,6 +630,25 @@ func (s *ConcurrencyService) AcquireSlotForHaikuByIndex(ctx context.Context, acc
 }
 
 // ============================================
+// Slot Calculation (槽位数量计算)
+// ============================================
+
+// CalculateTotalSlots calculates the total number of slots based on concurrency.
+// Formula: totalSlots = concurrency * 5 / 3 (rounded up)
+// This creates more slot positions than concurrent connections for more realistic session distribution.
+// Examples:
+//   - concurrency 3 → slots 5
+//   - concurrency 6 → slots 10
+//   - concurrency 9 → slots 15
+func CalculateTotalSlots(concurrency int) int {
+	if concurrency <= 0 {
+		return 0
+	}
+	// 使用向上取整：(concurrency * 5 + 2) / 3
+	return (concurrency*5 + 2) / 3
+}
+
+// ============================================
 // Model Slot Pool (模型槽位池隔离)
 // ============================================
 
@@ -672,8 +700,11 @@ func (s *ConcurrencyService) AcquireAccountSlotByModel(ctx context.Context, acco
 		}, nil
 	}
 
-	// Calculate model slot ranges
-	opusRange, sonnetRange := CalculateModelSlotRange(maxConcurrency)
+	// Calculate total slots (more slots than concurrency for realistic session distribution)
+	totalSlots := CalculateTotalSlots(maxConcurrency)
+
+	// Calculate model slot ranges based on total slots
+	opusRange, sonnetRange := CalculateModelSlotRange(totalSlots)
 
 	// Determine which range to use based on model category
 	var slotRange ModelSlotRange
@@ -700,7 +731,7 @@ func (s *ConcurrencyService) AcquireAccountSlotByModel(ctx context.Context, acco
 	targetSlot := slotRange.Start + targetSlotInRange
 
 	// Try to acquire slot within the model's range (hard isolation)
-	acquiredSlot, err := s.cache.AcquireSlotInRange(ctx, accountID, targetSlot, slotRange.Start, slotRange.End)
+	acquiredSlot, err := s.cache.AcquireSlotInRange(ctx, accountID, targetSlot, maxConcurrency, slotRange.Start, slotRange.End)
 	if err != nil {
 		return nil, err
 	}

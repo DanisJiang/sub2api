@@ -1026,11 +1026,11 @@ func (m *mockConcurrencyCache) ReleaseAccountSlotByIndex(ctx context.Context, ac
 	return nil
 }
 
-func (m *mockConcurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error) {
+func (m *mockConcurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int, totalSlots int) (int, error) {
 	return targetSlot, nil
 }
 
-func (m *mockConcurrencyCache) AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, rangeStart int, rangeEnd int) (int, error) {
+func (m *mockConcurrencyCache) AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int, rangeStart int, rangeEnd int) (int, error) {
 	return targetSlot, nil
 }
 

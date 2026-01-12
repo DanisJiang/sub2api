@@ -281,12 +281,14 @@ var (
 	// ARGV[1] = TTL（秒）
 	// ARGV[2] = targetSlotIndex (目标槽位编号)
 	// ARGV[3] = maxConcurrency (最大并发数)
-	// 返回: 获取到的槽位编号（0-based），-1 表示全部满了
+	// ARGV[4] = totalSlots (总槽位数，>= maxConcurrency)
+	// 返回: 获取到的槽位编号（0-based），-1 表示并发已满
 	acquireSlotWithFallbackScript = redis.NewScript(`
 		local key = KEYS[1]
 		local ttl = tonumber(ARGV[1])
 		local targetSlot = tonumber(ARGV[2])
 		local maxConcurrency = tonumber(ARGV[3])
+		local totalSlots = tonumber(ARGV[4])
 
 		-- 使用 Redis 服务器时间
 		local timeResult = redis.call('TIME')
@@ -295,6 +297,12 @@ var (
 
 		-- 清理过期槽位
 		redis.call('ZREMRANGEBYSCORE', key, '-inf', expireBefore)
+
+		-- 检查并发是否已满
+		local currentCount = redis.call('ZCARD', key)
+		if currentCount >= maxConcurrency then
+			return -1
+		end
 
 		-- 1. 先尝试获取目标槽位
 		local targetSlotID = 'slot_' .. targetSlot
@@ -305,8 +313,8 @@ var (
 			return targetSlot
 		end
 
-		-- 2. 目标槽位被占，尝试其他槽位
-		for i = 0, maxConcurrency - 1 do
+		-- 2. 目标槽位被占，尝试其他槽位（遍历 totalSlots 个槽位）
+		for i = 0, totalSlots - 1 do
 			if i ~= targetSlot then
 				local slotID = 'slot_' .. i
 				local slotExists = redis.call('ZSCORE', key, slotID)
@@ -318,7 +326,7 @@ var (
 			end
 		end
 
-		-- 3. 全部满了
+		-- 3. 所有槽位都被占用（不应发生，因为并发检查应已通过）
 		return -1
 	`)
 
@@ -327,15 +335,17 @@ var (
 	// KEYS[1] = 有序集合键 (concurrency:account:{id})
 	// ARGV[1] = TTL（秒）
 	// ARGV[2] = targetSlotIndex (目标槽位编号)
-	// ARGV[3] = rangeStart (范围起始，包含)
-	// ARGV[4] = rangeEnd (范围结束，不包含)
-	// 返回: 获取到的槽位编号，-1 表示范围内全部满了
+	// ARGV[3] = maxConcurrency (最大并发数)
+	// ARGV[4] = rangeStart (范围起始，包含)
+	// ARGV[5] = rangeEnd (范围结束，不包含)
+	// 返回: 获取到的槽位编号，-1 表示并发已满或范围内全部满了
 	acquireSlotInRangeScript = redis.NewScript(`
 		local key = KEYS[1]
 		local ttl = tonumber(ARGV[1])
 		local targetSlot = tonumber(ARGV[2])
-		local rangeStart = tonumber(ARGV[3])
-		local rangeEnd = tonumber(ARGV[4])
+		local maxConcurrency = tonumber(ARGV[3])
+		local rangeStart = tonumber(ARGV[4])
+		local rangeEnd = tonumber(ARGV[5])
 
 		-- 使用 Redis 服务器时间
 		local timeResult = redis.call('TIME')
@@ -344,6 +354,12 @@ var (
 
 		-- 清理过期槽位
 		redis.call('ZREMRANGEBYSCORE', key, '-inf', expireBefore)
+
+		-- 检查并发是否已满
+		local currentCount = redis.call('ZCARD', key)
+		if currentCount >= maxConcurrency then
+			return -1
+		end
 
 		-- 1. 先尝试获取目标槽位（如果在范围内）
 		if targetSlot >= rangeStart and targetSlot < rangeEnd then
@@ -621,9 +637,9 @@ func (c *concurrencyCache) ReleaseAccountSlotByIndex(ctx context.Context, accoun
 
 // AcquireSlotWithFallback 优先获取目标槽位，失败则获取其他可用槽位
 // 返回实际获取到的槽位编号，-1 表示全部满了
-func (c *concurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int) (int, error) {
+func (c *concurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int, totalSlots int) (int, error) {
 	key := accountSlotKey(accountID)
-	result, err := acquireSlotWithFallbackScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, maxConcurrency).Int()
+	result, err := acquireSlotWithFallbackScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, maxConcurrency, totalSlots).Int()
 	if err != nil {
 		return -1, err
 	}
@@ -632,12 +648,13 @@ func (c *concurrencyCache) AcquireSlotWithFallback(ctx context.Context, accountI
 
 // AcquireSlotInRange 在指定范围内获取槽位（硬隔离，不跨范围 fallback）
 // 用于模型槽位池隔离：Opus 池和 Sonnet 池各自独立
+// maxConcurrency: 最大并发数（同时占用的槽位数上限）
 // rangeStart: 范围起始（包含）
 // rangeEnd: 范围结束（不包含）
-// 返回实际获取到的槽位编号，-1 表示范围内全部满了
-func (c *concurrencyCache) AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, rangeStart int, rangeEnd int) (int, error) {
+// 返回实际获取到的槽位编号，-1 表示并发已满或范围内全部满了
+func (c *concurrencyCache) AcquireSlotInRange(ctx context.Context, accountID int64, targetSlot int, maxConcurrency int, rangeStart int, rangeEnd int) (int, error) {
 	key := accountSlotKey(accountID)
-	result, err := acquireSlotInRangeScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, rangeStart, rangeEnd).Int()
+	result, err := acquireSlotInRangeScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds, targetSlot, maxConcurrency, rangeStart, rangeEnd).Int()
 	if err != nil {
 		return -1, err
 	}
