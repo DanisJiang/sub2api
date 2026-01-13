@@ -71,7 +71,7 @@ func (s *accountRepoStub) List(ctx context.Context, params pagination.Pagination
 	panic("unexpected List call")
 }
 
-func (s *accountRepoStub) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string) ([]Account, *pagination.PaginationResult, error) {
+func (s *accountRepoStub) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, archived *bool) ([]Account, *pagination.PaginationResult, error) {
 	panic("unexpected ListWithFilters call")
 }
 
@@ -101,6 +101,10 @@ func (s *accountRepoStub) SetError(ctx context.Context, id int64, errorMsg strin
 
 func (s *accountRepoStub) SetSchedulable(ctx context.Context, id int64, schedulable bool) error {
 	panic("unexpected SetSchedulable call")
+}
+
+func (s *accountRepoStub) SetArchived(ctx context.Context, id int64, archived bool) error {
+	panic("unexpected SetArchived call")
 }
 
 func (s *accountRepoStub) AutoPauseExpiredAccounts(ctx context.Context, now time.Time) (int64, error) {

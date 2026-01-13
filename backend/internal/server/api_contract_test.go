@@ -709,7 +709,7 @@ func (s *stubAccountRepo) List(ctx context.Context, params pagination.Pagination
 	return nil, nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string) ([]service.Account, *pagination.PaginationResult, error) {
+func (s *stubAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, archived *bool) ([]service.Account, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
 
@@ -738,6 +738,10 @@ func (s *stubAccountRepo) SetError(ctx context.Context, id int64, errorMsg strin
 }
 
 func (s *stubAccountRepo) SetSchedulable(ctx context.Context, id int64, schedulable bool) error {
+	return errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) SetArchived(ctx context.Context, id int64, archived bool) error {
 	return errors.New("not implemented")
 }
 
