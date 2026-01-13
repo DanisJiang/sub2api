@@ -39,9 +39,9 @@ func SetClaudeCodeClientContext(c *gin.Context, body []byte) {
 // 用于全局 Claude Code 限制的增强验证
 // 返回 true 表示 headers 有效
 func ValidateClaudeCodeHeaders(c *gin.Context) bool {
-	// 1. X-App 必须是 "cli" 或 "claude-code"
+	// 1. X-App 必须是 "cli"
 	xApp := c.GetHeader("X-App")
-	if xApp != "cli" && xApp != "claude-code" {
+	if xApp != "cli" {
 		return false
 	}
 
