@@ -102,7 +102,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		isClaudeCode := service.IsClaudeCodeClient(c.Request.Context())
 		headersValid := ValidateClaudeCodeHeaders(c)
 		if !isClaudeCode || !headersValid {
-			reason := "unknown"
+			var reason string
 			if !isClaudeCode && !headersValid {
 				reason = "validator+headers"
 			} else if !isClaudeCode {
