@@ -391,7 +391,7 @@ export default {
       opencode: {
         title: 'OpenCode Example',
         subtitle: 'opencode.json',
-        hint: 'Config path: ~/.config/opencode/opencode.json (create if not exists). This is an example, adjust model and options as needed.',
+        hint: 'Config path: ~/.config/opencode/opencode.json (or opencode.jsonc), create if not exists. Use default providers (openai/anthropic/google) or custom provider_id. API Key can be configured directly or via /connect command. This is an example, adjust models and options as needed.',
       },
     },
     customKeyLabel: 'Custom Key',
@@ -2001,6 +2001,9 @@ export default {
         '1h': 'Last 1 hour',
         '6h': 'Last 6 hours',
         '24h': 'Last 24 hours'
+      },
+      fullscreen: {
+        enter: 'Enter Fullscreen'
       },
       diagnosis: {
         title: 'Smart Diagnosis',

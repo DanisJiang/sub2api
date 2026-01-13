@@ -42,6 +42,7 @@ var openaiSSEDataRe = regexp.MustCompile(`^data:\s*`)
 var openaiAllowedHeaders = map[string]bool{
 	"accept-language": true,
 	"content-type":    true,
+	"conversation_id": true,
 	"user-agent":      true,
 	"originator":      true,
 	"session_id":      true,
@@ -545,13 +546,32 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	isCodexCLI := openai.IsCodexCLIRequest(c.GetHeader("User-Agent"))
 
-	// Apply model mapping (skip for Codex CLI for transparent forwarding)
-	mappedModel := reqModel
-	if !isCodexCLI {
-		mappedModel = account.GetMappedModel(reqModel)
-		if mappedModel != reqModel {
-			reqBody["model"] = mappedModel
+	// 对所有请求执行模型映射（包含 Codex CLI）。
+	mappedModel := account.GetMappedModel(reqModel)
+	if mappedModel != reqModel {
+		log.Printf("[OpenAI] Model mapping applied: %s -> %s (account: %s, isCodexCLI: %v)", reqModel, mappedModel, account.Name, isCodexCLI)
+		reqBody["model"] = mappedModel
+		bodyModified = true
+	}
+
+	// 针对所有 OpenAI 账号执行 Codex 模型名规范化，确保上游识别一致。
+	if model, ok := reqBody["model"].(string); ok {
+		normalizedModel := normalizeCodexModel(model)
+		if normalizedModel != "" && normalizedModel != model {
+			log.Printf("[OpenAI] Codex model normalization: %s -> %s (account: %s, type: %s, isCodexCLI: %v)",
+				model, normalizedModel, account.Name, account.Type, isCodexCLI)
+			reqBody["model"] = normalizedModel
+			mappedModel = normalizedModel
 			bodyModified = true
+		}
+	}
+
+	// 规范化 reasoning.effort 参数（minimal -> none），与上游允许值对齐。
+	if reasoning, ok := reqBody["reasoning"].(map[string]any); ok {
+		if effort, ok := reasoning["effort"].(string); ok && effort == "minimal" {
+			reasoning["effort"] = "none"
+			bodyModified = true
+			log.Printf("[OpenAI] Normalized reasoning.effort: minimal -> none (account: %s)", account.Name)
 		}
 	}
 
@@ -565,6 +585,44 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 		if codexResult.PromptCacheKey != "" {
 			promptCacheKey = codexResult.PromptCacheKey
+		}
+	}
+
+	// Handle max_output_tokens based on platform and account type
+	if !isCodexCLI {
+		if maxOutputTokens, hasMaxOutputTokens := reqBody["max_output_tokens"]; hasMaxOutputTokens {
+			switch account.Platform {
+			case PlatformOpenAI:
+				// For OpenAI API Key, remove max_output_tokens (not supported)
+				// For OpenAI OAuth (Responses API), keep it (supported)
+				if account.Type == AccountTypeAPIKey {
+					delete(reqBody, "max_output_tokens")
+					bodyModified = true
+				}
+			case PlatformAnthropic:
+				// For Anthropic (Claude), convert to max_tokens
+				delete(reqBody, "max_output_tokens")
+				if _, hasMaxTokens := reqBody["max_tokens"]; !hasMaxTokens {
+					reqBody["max_tokens"] = maxOutputTokens
+				}
+				bodyModified = true
+			case PlatformGemini:
+				// For Gemini, remove (will be handled by Gemini-specific transform)
+				delete(reqBody, "max_output_tokens")
+				bodyModified = true
+			default:
+				// For unknown platforms, remove to be safe
+				delete(reqBody, "max_output_tokens")
+				bodyModified = true
+			}
+		}
+
+		// Also handle max_completion_tokens (similar logic)
+		if _, hasMaxCompletionTokens := reqBody["max_completion_tokens"]; hasMaxCompletionTokens {
+			if account.Type == AccountTypeAPIKey || account.Platform != PlatformOpenAI {
+				delete(reqBody, "max_completion_tokens")
+				bodyModified = true
+			}
 		}
 	}
 
@@ -747,9 +805,6 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 		if promptCacheKey != "" {
 			req.Header.Set("conversation_id", promptCacheKey)
 			req.Header.Set("session_id", promptCacheKey)
-		} else {
-			req.Header.Del("conversation_id")
-			req.Header.Del("session_id")
 		}
 	}
 

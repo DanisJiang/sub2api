@@ -1,6 +1,7 @@
 package service
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,9 @@ const (
 	opencodeCodexHeaderURL = "https://raw.githubusercontent.com/anomalyco/opencode/dev/packages/opencode/src/session/prompt/codex_header.txt"
 	codexCacheTTL          = 15 * time.Minute
 )
+
+//go:embed prompts/codex_cli_instructions.md
+var codexCLIInstructions string
 
 var codexModelMap = map[string]string{
 	"gpt-5.1-codex":             "gpt-5.1-codex",
@@ -70,6 +74,8 @@ type opencodeCacheMetadata struct {
 
 func applyCodexOAuthTransform(reqBody map[string]any) codexTransformResult {
 	result := codexTransformResult{}
+	// 工具续链需求会影响存储策略与 input 过滤逻辑。
+	needsToolContinuation := NeedsToolContinuation(reqBody)
 
 	model := ""
 	if v, ok := reqBody["model"].(string); ok {
@@ -84,9 +90,17 @@ func applyCodexOAuthTransform(reqBody map[string]any) codexTransformResult {
 		result.NormalizedModel = normalizedModel
 	}
 
-	if v, ok := reqBody["store"].(bool); !ok || v {
-		reqBody["store"] = false
-		result.Modified = true
+	// 续链场景强制启用 store；非续链仍按原策略强制关闭存储。
+	if needsToolContinuation {
+		if v, ok := reqBody["store"].(bool); !ok || !v {
+			reqBody["store"] = true
+			result.Modified = true
+		}
+	} else {
+		if v, ok := reqBody["store"].(bool); !ok || v {
+			reqBody["store"] = false
+			result.Modified = true
+		}
 	}
 	if v, ok := reqBody["stream"].(bool); !ok || !v {
 		reqBody["stream"] = true
@@ -119,10 +133,18 @@ func applyCodexOAuthTransform(reqBody map[string]any) codexTransformResult {
 			reqBody["instructions"] = instructions
 			result.Modified = true
 		}
+	} else if existingInstructions == "" {
+		// 未获取到 opencode 指令时，回退使用 Codex CLI 指令。
+		codexInstructions := strings.TrimSpace(getCodexCLIInstructions())
+		if codexInstructions != "" {
+			reqBody["instructions"] = codexInstructions
+			result.Modified = true
+		}
 	}
 
+	// 续链场景保留 item_reference 与 id，避免 call_id 上下文丢失。
 	if input, ok := reqBody["input"].([]any); ok {
-		input = filterCodexInput(input)
+		input = filterCodexInput(input, needsToolContinuation)
 		reqBody["input"] = input
 		result.Modified = true
 	}
@@ -235,14 +257,75 @@ func getOpenCodeCachedPrompt(url, cacheFileName, metaFileName string) string {
 }
 
 func getOpenCodeCodexHeader() string {
-	return getOpenCodeCachedPrompt(opencodeCodexHeaderURL, "opencode-codex-header.txt", "opencode-codex-header-meta.json")
+	// 优先从 opencode 仓库缓存获取指令。
+	opencodeInstructions := getOpenCodeCachedPrompt(opencodeCodexHeaderURL, "opencode-codex-header.txt", "opencode-codex-header-meta.json")
+
+	// 若 opencode 指令可用，直接返回。
+	if opencodeInstructions != "" {
+		return opencodeInstructions
+	}
+
+	// 否则回退使用本地 Codex CLI 指令。
+	return getCodexCLIInstructions()
+}
+
+func getCodexCLIInstructions() string {
+	return codexCLIInstructions
 }
 
 func GetOpenCodeInstructions() string {
 	return getOpenCodeCodexHeader()
 }
 
-func filterCodexInput(input []any) []any {
+// GetCodexCLIInstructions 返回内置的 Codex CLI 指令内容。
+func GetCodexCLIInstructions() string {
+	return getCodexCLIInstructions()
+}
+
+// ReplaceWithCodexInstructions 将请求 instructions 替换为内置 Codex 指令（必要时）。
+func ReplaceWithCodexInstructions(reqBody map[string]any) bool {
+	codexInstructions := strings.TrimSpace(getCodexCLIInstructions())
+	if codexInstructions == "" {
+		return false
+	}
+
+	existingInstructions, _ := reqBody["instructions"].(string)
+	if strings.TrimSpace(existingInstructions) != codexInstructions {
+		reqBody["instructions"] = codexInstructions
+		return true
+	}
+
+	return false
+}
+
+// IsInstructionError 判断错误信息是否与指令格式/系统提示相关。
+func IsInstructionError(errorMessage string) bool {
+	if errorMessage == "" {
+		return false
+	}
+
+	lowerMsg := strings.ToLower(errorMessage)
+	instructionKeywords := []string{
+		"instruction",
+		"instructions",
+		"system prompt",
+		"system message",
+		"invalid prompt",
+		"prompt format",
+	}
+
+	for _, keyword := range instructionKeywords {
+		if strings.Contains(lowerMsg, keyword) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// filterCodexInput 按需过滤 item_reference 与 id。
+// preserveReferences 为 true 时保持引用与 id，以满足续链请求对上下文的依赖。
+func filterCodexInput(input []any, preserveReferences bool) []any {
 	filtered := make([]any, 0, len(input))
 	for _, item := range input {
 		m, ok := item.(map[string]any)
@@ -250,13 +333,60 @@ func filterCodexInput(input []any) []any {
 			filtered = append(filtered, item)
 			continue
 		}
-		if typ, ok := m["type"].(string); ok && typ == "item_reference" {
+		typ, _ := m["type"].(string)
+		if typ == "item_reference" {
+			if !preserveReferences {
+				continue
+			}
+			newItem := make(map[string]any, len(m))
+			for key, value := range m {
+				newItem[key] = value
+			}
+			filtered = append(filtered, newItem)
 			continue
 		}
-		delete(m, "id")
-		filtered = append(filtered, m)
+
+		newItem := m
+		copied := false
+		// 仅在需要修改字段时创建副本，避免直接改写原始输入。
+		ensureCopy := func() {
+			if copied {
+				return
+			}
+			newItem = make(map[string]any, len(m))
+			for key, value := range m {
+				newItem[key] = value
+			}
+			copied = true
+		}
+
+		if isCodexToolCallItemType(typ) {
+			if callID, ok := m["call_id"].(string); !ok || strings.TrimSpace(callID) == "" {
+				if id, ok := m["id"].(string); ok && strings.TrimSpace(id) != "" {
+					ensureCopy()
+					newItem["call_id"] = id
+				}
+			}
+		}
+
+		if !preserveReferences {
+			ensureCopy()
+			delete(newItem, "id")
+			if !isCodexToolCallItemType(typ) {
+				delete(newItem, "call_id")
+			}
+		}
+
+		filtered = append(filtered, newItem)
 	}
 	return filtered
+}
+
+func isCodexToolCallItemType(typ string) bool {
+	if typ == "" {
+		return false
+	}
+	return strings.HasSuffix(typ, "_call") || strings.HasSuffix(typ, "_call_output")
 }
 
 func normalizeCodexTools(reqBody map[string]any) bool {
