@@ -37,15 +37,22 @@ func SetClaudeCodeClientContext(c *gin.Context, body []byte) {
 
 // ValidateClaudeCodeHeaders 验证请求 headers 是否符合 Claude Code 客户端特征
 // 用于全局 Claude Code 限制的增强验证
+// 基于 Claude Code npm 包逆向分析得出的验证规则
 // 返回 true 表示 headers 有效
 func ValidateClaudeCodeHeaders(c *gin.Context) bool {
-	// 1. X-App 必须是 "cli"
+	// 1. X-App 必须是 "cli"（Claude Code 硬编码值）
 	xApp := c.GetHeader("X-App")
 	if xApp != "cli" {
 		return false
 	}
 
-	// 2. anthropic-beta 必须包含 "claude-code-" 或 "oauth-" 或 "interleaved-thinking"
+	// 2. anthropic-version 必须是 "2023-06-01"（Claude Code 硬编码值）
+	anthropicVersion := c.GetHeader("anthropic-version")
+	if anthropicVersion != "2023-06-01" {
+		return false
+	}
+
+	// 3. anthropic-beta 必须包含 "claude-code-" 或 "oauth-" 或 "interleaved-thinking"
 	anthropicBeta := c.GetHeader("anthropic-beta")
 	if !strings.Contains(anthropicBeta, "claude-code-") && !strings.Contains(anthropicBeta, "oauth-") && !strings.Contains(anthropicBeta, "interleaved-thinking") {
 		return false

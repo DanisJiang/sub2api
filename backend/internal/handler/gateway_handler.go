@@ -110,8 +110,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			} else {
 				reason = "headers"
 			}
-			log.Printf("Rejected non-Claude-Code request (global setting): user_id=%d, ua=%s, x-app=%s, beta=%s, reason=%s",
-				apiKey.UserID, c.GetHeader("User-Agent"), c.GetHeader("X-App"), c.GetHeader("anthropic-beta"), reason)
+			log.Printf("Rejected non-Claude-Code request (global setting): user_id=%d, ua=%s, x-app=%s, version=%s, beta=%s, reason=%s",
+				apiKey.UserID, c.GetHeader("User-Agent"), c.GetHeader("X-App"), c.GetHeader("anthropic-version"), c.GetHeader("anthropic-beta"), reason)
 			h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
 			return
 		}
