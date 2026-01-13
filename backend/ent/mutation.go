@@ -1207,6 +1207,7 @@ type AccountMutation struct {
 	addmax_30m_requests            *int
 	rate_limit_cooldown_minutes    *int
 	addrate_limit_cooldown_minutes *int
+	archived                       *bool
 	clearedFields                  map[string]struct{}
 	groups                         map[int64]struct{}
 	removedgroups                  map[int64]struct{}
@@ -2547,6 +2548,42 @@ func (m *AccountMutation) ResetRateLimitCooldownMinutes() {
 	m.addrate_limit_cooldown_minutes = nil
 }
 
+// SetArchived sets the "archived" field.
+func (m *AccountMutation) SetArchived(b bool) {
+	m.archived = &b
+}
+
+// Archived returns the value of the "archived" field in the mutation.
+func (m *AccountMutation) Archived() (r bool, exists bool) {
+	v := m.archived
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldArchived returns the old "archived" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldArchived(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldArchived is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldArchived requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldArchived: %w", err)
+	}
+	return oldValue.Archived, nil
+}
+
+// ResetArchived resets all changes to the "archived" field.
+func (m *AccountMutation) ResetArchived() {
+	m.archived = nil
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by ids.
 func (m *AccountMutation) AddGroupIDs(ids ...int64) {
 	if m.groups == nil {
@@ -2716,7 +2753,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 27)
+	fields := make([]string, 0, 28)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -2798,6 +2835,9 @@ func (m *AccountMutation) Fields() []string {
 	if m.rate_limit_cooldown_minutes != nil {
 		fields = append(fields, account.FieldRateLimitCooldownMinutes)
 	}
+	if m.archived != nil {
+		fields = append(fields, account.FieldArchived)
+	}
 	return fields
 }
 
@@ -2860,6 +2900,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Max30mRequests()
 	case account.FieldRateLimitCooldownMinutes:
 		return m.RateLimitCooldownMinutes()
+	case account.FieldArchived:
+		return m.Archived()
 	}
 	return nil, false
 }
@@ -2923,6 +2965,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldMax30mRequests(ctx)
 	case account.FieldRateLimitCooldownMinutes:
 		return m.OldRateLimitCooldownMinutes(ctx)
+	case account.FieldArchived:
+		return m.OldArchived(ctx)
 	}
 	return nil, fmt.Errorf("unknown Account field %s", name)
 }
@@ -3120,6 +3164,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateLimitCooldownMinutes(v)
+		return nil
+	case account.FieldArchived:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetArchived(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)
@@ -3388,6 +3439,9 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldRateLimitCooldownMinutes:
 		m.ResetRateLimitCooldownMinutes()
+		return nil
+	case account.FieldArchived:
+		m.ResetArchived()
 		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)

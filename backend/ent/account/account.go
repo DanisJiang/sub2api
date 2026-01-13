@@ -69,6 +69,8 @@ const (
 	FieldMax30mRequests = "max_30m_requests"
 	// FieldRateLimitCooldownMinutes holds the string denoting the rate_limit_cooldown_minutes field in the database.
 	FieldRateLimitCooldownMinutes = "rate_limit_cooldown_minutes"
+	// FieldArchived holds the string denoting the archived field in the database.
+	FieldArchived = "archived"
 	// EdgeGroups holds the string denoting the groups edge name in mutations.
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
@@ -137,6 +139,7 @@ var Columns = []string{
 	FieldMaxRpm,
 	FieldMax30mRequests,
 	FieldRateLimitCooldownMinutes,
+	FieldArchived,
 }
 
 var (
@@ -199,6 +202,8 @@ var (
 	DefaultMax30mRequests int
 	// DefaultRateLimitCooldownMinutes holds the default value on creation for the "rate_limit_cooldown_minutes" field.
 	DefaultRateLimitCooldownMinutes int
+	// DefaultArchived holds the default value on creation for the "archived" field.
+	DefaultArchived bool
 )
 
 // OrderOption defines the ordering options for the Account queries.
@@ -332,6 +337,11 @@ func ByMax30mRequests(opts ...sql.OrderTermOption) OrderOption {
 // ByRateLimitCooldownMinutes orders the results by the rate_limit_cooldown_minutes field.
 func ByRateLimitCooldownMinutes(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateLimitCooldownMinutes, opts...).ToFunc()
+}
+
+// ByArchived orders the results by the archived field.
+func ByArchived(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldArchived, opts...).ToFunc()
 }
 
 // ByGroupsCount orders the results by groups count.

@@ -180,6 +180,11 @@ func RateLimitCooldownMinutes(v int) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldRateLimitCooldownMinutes, v))
 }
 
+// Archived applies equality check predicate on the "archived" field. It's identical to ArchivedEQ.
+func Archived(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldArchived, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldCreatedAt, v))
@@ -1393,6 +1398,16 @@ func RateLimitCooldownMinutesLT(v int) predicate.Account {
 // RateLimitCooldownMinutesLTE applies the LTE predicate on the "rate_limit_cooldown_minutes" field.
 func RateLimitCooldownMinutesLTE(v int) predicate.Account {
 	return predicate.Account(sql.FieldLTE(FieldRateLimitCooldownMinutes, v))
+}
+
+// ArchivedEQ applies the EQ predicate on the "archived" field.
+func ArchivedEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldArchived, v))
+}
+
+// ArchivedNEQ applies the NEQ predicate on the "archived" field.
+func ArchivedNEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldArchived, v))
 }
 
 // HasGroups applies the HasEdge predicate on the "groups" edge.

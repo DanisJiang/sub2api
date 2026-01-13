@@ -208,6 +208,10 @@ func init() {
 	accountDescRateLimitCooldownMinutes := accountFields[23].Descriptor()
 	// account.DefaultRateLimitCooldownMinutes holds the default value on creation for the rate_limit_cooldown_minutes field.
 	account.DefaultRateLimitCooldownMinutes = accountDescRateLimitCooldownMinutes.Default.(int)
+	// accountDescArchived is the schema descriptor for archived field.
+	accountDescArchived := accountFields[24].Descriptor()
+	// account.DefaultArchived holds the default value on creation for the archived field.
+	account.DefaultArchived = accountDescArchived.Default.(bool)
 	accountgroupFields := schema.AccountGroup{}.Fields()
 	_ = accountgroupFields
 	// accountgroupDescPriority is the schema descriptor for priority field.

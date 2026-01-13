@@ -21,6 +21,11 @@
               {{ t('admin.accounts.refreshToken') }}
             </button>
           </template>
+          <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
+          <button @click="$emit('toggle-archived', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700" :class="account.archived ? 'text-green-600' : 'text-gray-600'">
+            <Icon :name="account.archived ? 'unarchive' : 'archive'" size="sm" />
+            {{ account.archived ? t('admin.accounts.unarchive') : t('admin.accounts.archive') }}
+          </button>
           <div v-if="account.status === 'error' || isRateLimited || isOverloaded" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
           <button v-if="account.status === 'error'" @click="$emit('reset-status', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-yellow-600 hover:bg-gray-100 dark:hover:bg-dark-700">
             <Icon name="sync" size="sm" />
@@ -43,7 +48,7 @@ import { Icon } from '@/components/icons'
 import type { Account } from '@/types'
 
 const props = defineProps<{ show: boolean; account: Account | null; position: { top: number; left: number } | null }>()
-defineEmits(['close', 'test', 'stats', 'reauth', 'refresh-token', 'reset-status', 'clear-rate-limit'])
+defineEmits(['close', 'test', 'stats', 'reauth', 'refresh-token', 'reset-status', 'clear-rate-limit', 'toggle-archived'])
 const { t } = useI18n()
 const isRateLimited = computed(() => props.account?.rate_limit_reset_at && new Date(props.account.rate_limit_reset_at) > new Date())
 const isOverloaded = computed(() => props.account?.overload_until && new Date(props.account.overload_until) > new Date())

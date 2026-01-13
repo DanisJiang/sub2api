@@ -73,6 +73,8 @@ type Account struct {
 	Max30mRequests int `json:"max_30m_requests,omitempty"`
 	// Cooldown duration in minutes after hitting 30m limit (0 = no cooldown)
 	RateLimitCooldownMinutes int `json:"rate_limit_cooldown_minutes,omitempty"`
+	// 归档状态，归档后不参与调度和统计
+	Archived bool `json:"archived,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AccountQuery when eager-loading is set.
 	Edges        AccountEdges `json:"edges"`
@@ -139,7 +141,7 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case account.FieldCredentials, account.FieldExtra:
 			values[i] = new([]byte)
-		case account.FieldAutoPauseOnExpired, account.FieldSchedulable:
+		case account.FieldAutoPauseOnExpired, account.FieldSchedulable, account.FieldArchived:
 			values[i] = new(sql.NullBool)
 		case account.FieldID, account.FieldProxyID, account.FieldConcurrency, account.FieldPriority, account.FieldMaxRpm, account.FieldMax30mRequests, account.FieldRateLimitCooldownMinutes:
 			values[i] = new(sql.NullInt64)
@@ -346,6 +348,12 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RateLimitCooldownMinutes = int(value.Int64)
 			}
+		case account.FieldArchived:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field archived", values[i])
+			} else if value.Valid {
+				_m.Archived = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -506,6 +514,9 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rate_limit_cooldown_minutes=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RateLimitCooldownMinutes))
+	builder.WriteString(", ")
+	builder.WriteString("archived=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Archived))
 	builder.WriteByte(')')
 	return builder.String()
 }

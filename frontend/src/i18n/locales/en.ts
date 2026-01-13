@@ -1030,6 +1030,12 @@ export default {
       schedulableEnabled: 'Scheduling enabled',
       schedulableDisabled: 'Scheduling disabled',
       failedToToggleSchedulable: 'Failed to toggle scheduling status',
+      // Archive
+      archive: 'Archive',
+      unarchive: 'Unarchive',
+      notArchived: 'Not Archived',
+      archivedOnly: 'Archived Only',
+      allArchived: 'All',
       allGroups: '{count} groups total',
       platforms: {
         anthropic: 'Anthropic',

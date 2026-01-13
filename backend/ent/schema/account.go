@@ -189,6 +189,14 @@ func (Account) Fields() []ent.Field {
 		field.Int("rate_limit_cooldown_minutes").
 			Default(0).
 			Comment("Cooldown duration in minutes after hitting 30m limit (0 = no cooldown)"),
+
+		// ========== 归档相关字段 ==========
+
+		// archived: 是否已归档
+		// 归档后的账号不参与调度，不计入统计，但数据保留
+		field.Bool("archived").
+			Default(false).
+			Comment("归档状态，归档后不参与调度和统计"),
 	}
 }
 
@@ -225,5 +233,6 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("rate_limit_reset_at"), // 筛选速率限制解除时间
 		index.Fields("overload_until"),      // 筛选过载账户
 		index.Fields("deleted_at"),          // 软删除查询优化
+		index.Fields("archived"),            // 筛选归档账户
 	}
 }

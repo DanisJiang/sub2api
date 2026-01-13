@@ -478,6 +478,20 @@ func (_u *AccountUpdate) AddRateLimitCooldownMinutes(v int) *AccountUpdate {
 	return _u
 }
 
+// SetArchived sets the "archived" field.
+func (_u *AccountUpdate) SetArchived(v bool) *AccountUpdate {
+	_u.mutation.SetArchived(v)
+	return _u
+}
+
+// SetNillableArchived sets the "archived" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableArchived(v *bool) *AccountUpdate {
+	if v != nil {
+		_u.SetArchived(*v)
+	}
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdate) AddGroupIDs(ids ...int64) *AccountUpdate {
 	_u.mutation.AddGroupIDs(ids...)
@@ -772,6 +786,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateLimitCooldownMinutes(); ok {
 		_spec.AddField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.Archived(); ok {
+		_spec.SetField(account.FieldArchived, field.TypeBool, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1371,6 +1388,20 @@ func (_u *AccountUpdateOne) AddRateLimitCooldownMinutes(v int) *AccountUpdateOne
 	return _u
 }
 
+// SetArchived sets the "archived" field.
+func (_u *AccountUpdateOne) SetArchived(v bool) *AccountUpdateOne {
+	_u.mutation.SetArchived(v)
+	return _u
+}
+
+// SetNillableArchived sets the "archived" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableArchived(v *bool) *AccountUpdateOne {
+	if v != nil {
+		_u.SetArchived(*v)
+	}
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdateOne) AddGroupIDs(ids ...int64) *AccountUpdateOne {
 	_u.mutation.AddGroupIDs(ids...)
@@ -1695,6 +1726,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.AddedRateLimitCooldownMinutes(); ok {
 		_spec.AddField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.Archived(); ok {
+		_spec.SetField(account.FieldArchived, field.TypeBool, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{

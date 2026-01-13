@@ -94,6 +94,7 @@ var (
 		{Name: "max_rpm", Type: field.TypeInt, Default: 0},
 		{Name: "max_30m_requests", Type: field.TypeInt, Default: 0},
 		{Name: "rate_limit_cooldown_minutes", Type: field.TypeInt, Default: 0},
+		{Name: "archived", Type: field.TypeBool, Default: false},
 		{Name: "proxy_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// AccountsTable holds the schema information for the "accounts" table.
@@ -104,7 +105,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[27]},
+				Columns:    []*schema.Column{AccountsColumns[28]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -128,7 +129,7 @@ var (
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[27]},
+				Columns: []*schema.Column{AccountsColumns[28]},
 			},
 			{
 				Name:    "account_priority",
@@ -164,6 +165,11 @@ var (
 				Name:    "account_deleted_at",
 				Unique:  false,
 				Columns: []*schema.Column{AccountsColumns[3]},
+			},
+			{
+				Name:    "account_archived",
+				Unique:  false,
+				Columns: []*schema.Column{AccountsColumns[27]},
 			},
 		},
 	}

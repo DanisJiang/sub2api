@@ -28,6 +28,7 @@ type Account struct {
 	UpdatedAt          time.Time
 
 	Schedulable bool
+	Archived    bool
 
 	RateLimitedAt    *time.Time
 	RateLimitResetAt *time.Time
@@ -63,6 +64,9 @@ func (a *Account) IsActive() bool {
 }
 
 func (a *Account) IsSchedulable() bool {
+	if a.Archived {
+		return false
+	}
 	if !a.IsActive() || !a.Schedulable {
 		return false
 	}
@@ -80,6 +84,10 @@ func (a *Account) IsSchedulable() bool {
 		return false
 	}
 	return true
+}
+
+func (a *Account) IsArchived() bool {
+	return a.Archived
 }
 
 func (a *Account) IsRateLimited() bool {

@@ -1107,6 +1107,12 @@ export default {
       schedulableEnabled: '调度已开启',
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
+      // Archive
+      archive: '归档',
+      unarchive: '取消归档',
+      notArchived: '未归档',
+      archivedOnly: '已归档',
+      allArchived: '全部',
       allGroups: '共 {count} 个分组',
       columns: {
         name: '名称',

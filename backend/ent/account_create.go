@@ -363,6 +363,20 @@ func (_c *AccountCreate) SetNillableRateLimitCooldownMinutes(v *int) *AccountCre
 	return _c
 }
 
+// SetArchived sets the "archived" field.
+func (_c *AccountCreate) SetArchived(v bool) *AccountCreate {
+	_c.mutation.SetArchived(v)
+	return _c
+}
+
+// SetNillableArchived sets the "archived" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableArchived(v *bool) *AccountCreate {
+	if v != nil {
+		_c.SetArchived(*v)
+	}
+	return _c
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_c *AccountCreate) AddGroupIDs(ids ...int64) *AccountCreate {
 	_c.mutation.AddGroupIDs(ids...)
@@ -495,6 +509,10 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultRateLimitCooldownMinutes
 		_c.mutation.SetRateLimitCooldownMinutes(v)
 	}
+	if _, ok := _c.mutation.Archived(); !ok {
+		v := account.DefaultArchived
+		_c.mutation.SetArchived(v)
+	}
 	return nil
 }
 
@@ -569,6 +587,9 @@ func (_c *AccountCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateLimitCooldownMinutes(); !ok {
 		return &ValidationError{Name: "rate_limit_cooldown_minutes", err: errors.New(`ent: missing required field "Account.rate_limit_cooldown_minutes"`)}
+	}
+	if _, ok := _c.mutation.Archived(); !ok {
+		return &ValidationError{Name: "archived", err: errors.New(`ent: missing required field "Account.archived"`)}
 	}
 	return nil
 }
@@ -700,6 +721,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateLimitCooldownMinutes(); ok {
 		_spec.SetField(account.FieldRateLimitCooldownMinutes, field.TypeInt, value)
 		_node.RateLimitCooldownMinutes = value
+	}
+	if value, ok := _c.mutation.Archived(); ok {
+		_spec.SetField(account.FieldArchived, field.TypeBool, value)
+		_node.Archived = value
 	}
 	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1217,6 +1242,18 @@ func (u *AccountUpsert) UpdateRateLimitCooldownMinutes() *AccountUpsert {
 // AddRateLimitCooldownMinutes adds v to the "rate_limit_cooldown_minutes" field.
 func (u *AccountUpsert) AddRateLimitCooldownMinutes(v int) *AccountUpsert {
 	u.Add(account.FieldRateLimitCooldownMinutes, v)
+	return u
+}
+
+// SetArchived sets the "archived" field.
+func (u *AccountUpsert) SetArchived(v bool) *AccountUpsert {
+	u.Set(account.FieldArchived, v)
+	return u
+}
+
+// UpdateArchived sets the "archived" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateArchived() *AccountUpsert {
+	u.SetExcluded(account.FieldArchived)
 	return u
 }
 
@@ -1745,6 +1782,20 @@ func (u *AccountUpsertOne) AddRateLimitCooldownMinutes(v int) *AccountUpsertOne 
 func (u *AccountUpsertOne) UpdateRateLimitCooldownMinutes() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateRateLimitCooldownMinutes()
+	})
+}
+
+// SetArchived sets the "archived" field.
+func (u *AccountUpsertOne) SetArchived(v bool) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetArchived(v)
+	})
+}
+
+// UpdateArchived sets the "archived" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateArchived() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateArchived()
 	})
 }
 
@@ -2439,6 +2490,20 @@ func (u *AccountUpsertBulk) AddRateLimitCooldownMinutes(v int) *AccountUpsertBul
 func (u *AccountUpsertBulk) UpdateRateLimitCooldownMinutes() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateRateLimitCooldownMinutes()
+	})
+}
+
+// SetArchived sets the "archived" field.
+func (u *AccountUpsertBulk) SetArchived(v bool) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetArchived(v)
+	})
+}
+
+// UpdateArchived sets the "archived" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateArchived() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateArchived()
 	})
 }
 

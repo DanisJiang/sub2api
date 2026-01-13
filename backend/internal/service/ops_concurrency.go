@@ -18,13 +18,15 @@ func (s *OpsService) listAllAccountsForOps(ctx context.Context, platformFilter s
 		return []Account{}, nil
 	}
 
+	// 排除归档账号
+	notArchived := false
 	out := make([]Account, 0, 128)
 	page := 1
 	for {
 		accounts, pageInfo, err := s.accountRepo.ListWithFilters(ctx, pagination.PaginationParams{
 			Page:     page,
 			PageSize: opsAccountsPageSize,
-		}, platformFilter, "", "", "")
+		}, platformFilter, "", "", "", &notArchived)
 		if err != nil {
 			return nil, err
 		}

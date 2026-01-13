@@ -148,8 +148,19 @@ func (h *AccountHandler) List(c *gin.Context) {
 	if len(search) > 100 {
 		search = search[:100]
 	}
+	// 解析 archived 参数：空/未传=全部, "true"=仅归档, "false"=仅未归档
+	var archived *bool
+	if archivedStr := c.Query("archived"); archivedStr != "" {
+		if archivedStr == "true" {
+			b := true
+			archived = &b
+		} else if archivedStr == "false" {
+			b := false
+			archived = &b
+		}
+	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search)
+	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, archived)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -974,6 +985,35 @@ func (h *AccountHandler) SetSchedulable(c *gin.Context) {
 	response.Success(c, dto.AccountFromService(account))
 }
 
+// SetArchivedRequest represents the request body for setting archived status
+type SetArchivedRequest struct {
+	Archived bool `json:"archived"`
+}
+
+// SetArchived handles toggling account archived status
+// POST /api/v1/admin/accounts/:id/archived
+func (h *AccountHandler) SetArchived(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	var req SetArchivedRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	account, err := h.adminService.SetAccountArchived(c.Request.Context(), accountID, req.Archived)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.AccountFromService(account))
+}
+
 // GetAvailableModels handles getting available models for an account
 // GET /api/v1/admin/accounts/:id/models
 func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
@@ -1206,7 +1246,8 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 	accounts := make([]*service.Account, 0)
 
 	if len(req.AccountIDs) == 0 {
-		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "")
+		notArchived := false
+		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", &notArchived)
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return

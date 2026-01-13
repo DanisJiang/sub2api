@@ -316,6 +316,19 @@ export async function setSchedulable(id: number, schedulable: boolean): Promise<
 }
 
 /**
+ * Set account archived status
+ * @param id - Account ID
+ * @param archived - Whether the account should be archived
+ * @returns Updated account
+ */
+export async function setArchived(id: number, archived: boolean): Promise<Account> {
+  const { data } = await apiClient.post<Account>(`/admin/accounts/${id}/archived`, {
+    archived
+  })
+  return data
+}
+
+/**
  * Get available models for an account
  * @param id - Account ID
  * @returns List of available models for this account
@@ -364,6 +377,7 @@ export const accountsAPI = {
   getTempUnschedulableStatus,
   resetTempUnschedulable,
   setSchedulable,
+  setArchived,
   getAvailableModels,
   generateAuthUrl,
   exchangeCode,
