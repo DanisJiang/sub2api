@@ -99,9 +99,19 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 跳过强制平台（如 /antigravity/v1/*）的检查
 	// 增强验证：除了基础的 Claude Code 客户端检测，还验证 headers
 	if !middleware2.HasForcePlatform(c) && h.gatewayService.IsGlobalClaudeCodeRequired(c.Request.Context()) {
-		if !service.IsClaudeCodeClient(c.Request.Context()) || !ValidateClaudeCodeHeaders(c) {
-			log.Printf("Rejected non-Claude-Code request (global setting): user_id=%d, ua=%s, x-app=%s, beta=%s",
-				apiKey.UserID, c.GetHeader("User-Agent"), c.GetHeader("X-App"), c.GetHeader("anthropic-beta"))
+		isClaudeCode := service.IsClaudeCodeClient(c.Request.Context())
+		headersValid := ValidateClaudeCodeHeaders(c)
+		if !isClaudeCode || !headersValid {
+			reason := "unknown"
+			if !isClaudeCode && !headersValid {
+				reason = "validator+headers"
+			} else if !isClaudeCode {
+				reason = "validator"
+			} else {
+				reason = "headers"
+			}
+			log.Printf("Rejected non-Claude-Code request (global setting): user_id=%d, ua=%s, x-app=%s, beta=%s, reason=%s",
+				apiKey.UserID, c.GetHeader("User-Agent"), c.GetHeader("X-App"), c.GetHeader("anthropic-beta"), reason)
 			h.errorResponse(c, http.StatusForbidden, "access_denied", "Only Claude Code clients are allowed. Please use the official Claude Code CLI.")
 			return
 		}
