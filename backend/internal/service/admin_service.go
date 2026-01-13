@@ -182,6 +182,7 @@ type BulkUpdateAccountsInput struct {
 	Priority    *int
 	Status      string
 	Schedulable *bool
+	Archived    *bool
 	GroupIDs    *[]int64
 	Credentials map[string]any
 	Extra       map[string]any
@@ -1002,6 +1003,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.Schedulable != nil {
 		repoUpdates.Schedulable = input.Schedulable
+	}
+	if input.Archived != nil {
+		repoUpdates.Archived = input.Archived
 	}
 
 	// Run bulk update for column/jsonb fields first.

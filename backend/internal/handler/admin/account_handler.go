@@ -123,6 +123,7 @@ type BulkUpdateAccountsRequest struct {
 	Priority                *int           `json:"priority"`
 	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
 	Schedulable             *bool          `json:"schedulable"`
+	Archived                *bool          `json:"archived"`
 	GroupIDs                *[]int64       `json:"group_ids"`
 	Credentials             map[string]any `json:"credentials"`
 	Extra                   map[string]any `json:"extra"`
@@ -684,6 +685,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.Priority != nil ||
 		req.Status != "" ||
 		req.Schedulable != nil ||
+		req.Archived != nil ||
 		req.GroupIDs != nil ||
 		len(req.Credentials) > 0 ||
 		len(req.Extra) > 0
@@ -701,6 +703,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		Priority:              req.Priority,
 		Status:                req.Status,
 		Schedulable:           req.Schedulable,
+		Archived:              req.Archived,
 		GroupIDs:              req.GroupIDs,
 		Credentials:           req.Credentials,
 		Extra:                 req.Extra,
