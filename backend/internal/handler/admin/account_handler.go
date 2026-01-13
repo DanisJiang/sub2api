@@ -150,14 +150,13 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 	// 解析 archived 参数：空/未传=全部, "true"=仅归档, "false"=仅未归档
 	var archived *bool
-	if archivedStr := c.Query("archived"); archivedStr != "" {
-		if archivedStr == "true" {
-			b := true
-			archived = &b
-		} else if archivedStr == "false" {
-			b := false
-			archived = &b
-		}
+	switch archivedStr := c.Query("archived"); archivedStr {
+	case "true":
+		b := true
+		archived = &b
+	case "false":
+		b := false
+		archived = &b
 	}
 
 	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, archived)
