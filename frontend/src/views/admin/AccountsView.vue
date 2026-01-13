@@ -19,7 +19,7 @@
         </div>
       </template>
       <template #table>
-        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" />
+        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" @toggle-archived="handleBulkToggleArchived" />
         <DataTable :columns="cols" :data="accounts" :loading="loading" row-key="id">
           <template #cell-select="{ row }">
             <input type="checkbox" :checked="selIds.includes(row.id)" @change="toggleSel(row.id)" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
@@ -307,6 +307,27 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     })
   } catch (error) {
     console.error('Failed to bulk toggle schedulable:', error)
+    appStore.showError(t('common.error'))
+  }
+}
+const handleBulkToggleArchived = async (archived: boolean) => {
+  const accountIds = [...selIds.value]
+  try {
+    const result = await adminAPI.accounts.bulkUpdate(accountIds, { archived })
+    const successCount = result.success || 0
+    const failedCount = result.failed || 0
+    if (successCount > 0 && failedCount === 0) {
+      const message = archived
+        ? t('admin.accounts.bulkArchived', { count: successCount })
+        : t('admin.accounts.bulkUnarchived', { count: successCount })
+      appStore.showSuccess(message)
+      selIds.value = []
+    } else if (failedCount > 0) {
+      appStore.showError(t('admin.accounts.bulkArchivedPartial', { success: successCount, failed: failedCount }))
+    }
+    load()
+  } catch (error) {
+    console.error('Failed to bulk toggle archived:', error)
     appStore.showError(t('common.error'))
   }
 }

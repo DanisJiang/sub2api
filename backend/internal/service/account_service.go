@@ -70,6 +70,7 @@ type AccountBulkUpdate struct {
 	Priority    *int
 	Status      *string
 	Schedulable *bool
+	Archived    *bool
 	Credentials map[string]any
 	Extra       map[string]any
 }

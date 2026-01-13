@@ -1281,8 +1281,13 @@ export default {
         edit: '批量编辑账号',
         delete: '批量删除',
         enableScheduling: '批量启用调度',
-        disableScheduling: '批量停止调度'
+        disableScheduling: '批量停止调度',
+        archive: '批量归档',
+        unarchive: '批量取消归档'
       },
+      bulkArchived: '成功归档 {count} 个账号',
+      bulkUnarchived: '成功取消归档 {count} 个账号',
+      bulkArchivedPartial: '部分归档更新成功：成功 {success} 个，失败 {failed} 个',
       bulkEdit: {
         title: '批量编辑账号',
         selectionInfo: '已选择 {count} 个账号。只更新您勾选或填写的字段，未勾选的字段保持不变。',

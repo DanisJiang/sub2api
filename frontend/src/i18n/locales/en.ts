@@ -1145,8 +1145,13 @@ export default {
         edit: 'Bulk Edit',
         delete: 'Bulk Delete',
         enableScheduling: 'Enable Scheduling',
-        disableScheduling: 'Disable Scheduling'
+        disableScheduling: 'Disable Scheduling',
+        archive: 'Archive',
+        unarchive: 'Unarchive'
       },
+      bulkArchived: 'Archived {count} account(s)',
+      bulkUnarchived: 'Unarchived {count} account(s)',
+      bulkArchivedPartial: 'Archiving partially succeeded: {success} succeeded, {failed} failed',
       bulkEdit: {
         title: 'Bulk Edit Accounts',
         selectionInfo:
