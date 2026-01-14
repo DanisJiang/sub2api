@@ -849,20 +849,25 @@ func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, account *Acc
 		return &AcquireResult{Acquired: true, SlotIndex: -1, ReleaseFunc: func() {}}, nil
 	}
 
-	// OAuth 账号使用基于槽位编号的并发控制
-	if account.IsOAuth() && sessionHash != "" && account.Concurrency > 0 {
-		// 判断模型类别（仅 Claude 平台）
+	// Anthropic 账号使用统一的 session→slot 绑定逻辑
+	// 所有 Anthropic 账号（无论 OAuth 还是 API Key）都使用相同的槽位管理：
+	// - 支持 session→slot 绑定（同一 session 的请求使用同一 slot）
+	// - 支持模型池隔离（Opus/Sonnet 各自的槽位池）
+	// - 支持同 session 并行（Haiku 无限制）
+	if account.IsAnthropic() && sessionHash != "" && account.Concurrency > 0 {
 		modelCategory := getModelCategory(requestedModel)
-
-		// Opus 和 Sonnet 使用各自的槽位池（硬隔离）
-		// Haiku 使用原有逻辑（跟随 session 绑定的槽位，支持同 session 并行）
-		if modelCategory == "opus" || modelCategory == "sonnet" {
-			return s.concurrencyService.AcquireAccountSlotByModel(ctx, account.ID, account.Concurrency, sessionHash, modelCategory)
+		result, err := s.concurrencyService.AcquireSessionSlot(ctx, account.ID, account.Concurrency, sessionHash, modelCategory)
+		if err != nil {
+			return nil, err
 		}
-
-		// Haiku 或未识别的模型：使用原有逻辑
-		return s.concurrencyService.AcquireAccountSlotByIndex(ctx, account.ID, account.Concurrency, sessionHash)
+		return &AcquireResult{
+			Acquired:    result.Acquired,
+			SlotIndex:   result.SlotIndex,
+			ReleaseFunc: result.ReleaseFunc,
+		}, nil
 	}
+
+	// 非 Anthropic 账号或无 session：使用普通槽位逻辑
 	return s.concurrencyService.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
 }
 

@@ -40,9 +40,10 @@ type ConcurrencyCache interface {
 	AcquireSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) (bool, error)
 	ReleaseSessionMutex(ctx context.Context, accountID int64, sessionHash string, requestID string) error
 
-	// Session-aware 槽位管理（用于 Haiku 模型并行）
-	// 同一 session 可以共享槽位（最多 3 个并行），不同 session 不能共享
-	AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, requestID string) (bool, error)
+	// Session-aware 槽位管理
+	// 同一 session 可以共享槽位，不同 session 不能共享
+	// maxParallel: 同一 session 最大并行数（Haiku 无限制传大数，Opus/Sonnet 传 1）
+	AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string) (bool, error)
 	ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string) error
 
 	// 账号等待队列（账号级）
@@ -92,6 +93,12 @@ type ConcurrencyCache interface {
 	// 键格式: account_paused:{accountID}
 	SetAccountPaused(ctx context.Context, accountID int64, duration time.Duration) error
 	IsAccountPaused(ctx context.Context, accountID int64) (bool, error)
+
+	// Session Slot 绑定：记录 session 绑定的槽位，确保同一 session 的所有请求使用同一槽位
+	// 键格式: session_slot:{accountID}:{sessionHash}
+	GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error)
+	SetSessionSlot(ctx context.Context, accountID int64, sessionHash string, slotIndex int) error
+	RefreshSessionSlotTTL(ctx context.Context, accountID int64, sessionHash string) error
 }
 
 // generateRequestID generates a unique request ID for concurrency slot tracking
@@ -511,124 +518,6 @@ func (s *ConcurrencyService) AcquireSessionMutex(ctx context.Context, accountID 
 	}, nil
 }
 
-// HaikuSlotResult represents the result of acquiring a Haiku slot
-type HaikuSlotResult struct {
-	Acquired    bool
-	SlotIndex   int
-	ReleaseFunc func()
-}
-
-// AcquireSlotForHaiku attempts to acquire a slot for Haiku model requests.
-// Unlike regular slot acquisition, this allows the same session to have multiple
-// concurrent requests sharing the same slot (up to 3 parallel requests).
-// Different sessions cannot share the same slot.
-func (s *ConcurrencyService) AcquireSlotForHaiku(ctx context.Context, accountID int64, maxConcurrency int, sessionHash string) (*HaikuSlotResult, error) {
-	if s.cache == nil {
-		return &HaikuSlotResult{
-			Acquired:    true,
-			SlotIndex:   -1,
-			ReleaseFunc: func() {},
-		}, nil
-	}
-
-	if maxConcurrency <= 0 {
-		return &HaikuSlotResult{
-			Acquired:    true,
-			SlotIndex:   -1,
-			ReleaseFunc: func() {},
-		}, nil
-	}
-
-	// Calculate total slots for better session distribution
-	totalSlots := CalculateTotalSlots(maxConcurrency)
-
-	// Calculate target slot from session hash
-	targetSlot := hashToSlotIndex(sessionHash, totalSlots)
-	requestID := generateRequestID()
-
-	// Try to acquire the target slot with session awareness
-	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, targetSlot, sessionHash, requestID)
-	if err != nil {
-		return nil, fmt.Errorf("acquire haiku slot failed: %w", err)
-	}
-
-	if acquired {
-		log.Printf("[haiku-slot] account=%d session=%.16s slot=%d req=%.8s acquired",
-			accountID, sessionHash, targetSlot, requestID)
-		return &HaikuSlotResult{
-			Acquired:  true,
-			SlotIndex: targetSlot,
-			ReleaseFunc: func() {
-				log.Printf("[haiku-slot-release] account=%d session=%.16s slot=%d releasing",
-					accountID, sessionHash, targetSlot)
-				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, targetSlot, sessionHash); err != nil {
-					log.Printf("[haiku-slot-release] account=%d slot=%d FAILED: %v", accountID, targetSlot, err)
-				} else {
-					log.Printf("[haiku-slot-release] account=%d slot=%d success", accountID, targetSlot)
-				}
-			},
-		}, nil
-	}
-
-	// Slot is occupied by another session, return not acquired
-	// The caller should handle this like a normal slot acquisition failure (fallback or wait)
-	log.Printf("[haiku-slot] account=%d session=%.16s slot=%d BLOCKED (other session)", accountID, sessionHash, targetSlot)
-	return &HaikuSlotResult{
-		Acquired:  false,
-		SlotIndex: targetSlot,
-	}, nil
-}
-
-// AcquireSlotForHaikuByIndex attempts to acquire a specific slot for Haiku model requests.
-// Unlike AcquireSlotForHaiku which calculates slot from hash, this method uses the given slot index.
-// This is used when we want to "upgrade" a regular slot to a Haiku slot.
-func (s *ConcurrencyService) AcquireSlotForHaikuByIndex(ctx context.Context, accountID int64, slotIndex int, sessionHash string) (*HaikuSlotResult, error) {
-	if s.cache == nil {
-		return &HaikuSlotResult{
-			Acquired:    true,
-			SlotIndex:   slotIndex,
-			ReleaseFunc: func() {},
-		}, nil
-	}
-
-	requestID := generateRequestID()
-
-	// Try to acquire the specified slot with session awareness
-	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, slotIndex, sessionHash, requestID)
-	if err != nil {
-		return nil, fmt.Errorf("acquire haiku slot by index failed: %w", err)
-	}
-
-	if acquired {
-		log.Printf("[haiku-slot] account=%d session=%.16s slot=%d req=%.8s acquired (by index)",
-			accountID, sessionHash, slotIndex, requestID)
-		return &HaikuSlotResult{
-			Acquired:  true,
-			SlotIndex: slotIndex,
-			ReleaseFunc: func() {
-				log.Printf("[haiku-slot-release] account=%d session=%.16s slot=%d releasing",
-					accountID, sessionHash, slotIndex)
-				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, slotIndex, sessionHash); err != nil {
-					log.Printf("[haiku-slot-release] account=%d slot=%d FAILED: %v", accountID, slotIndex, err)
-				} else {
-					log.Printf("[haiku-slot-release] account=%d slot=%d success", accountID, slotIndex)
-				}
-			},
-		}, nil
-	}
-
-	// Slot is occupied by another session
-	log.Printf("[haiku-slot] account=%d session=%.16s slot=%d BLOCKED (other session, by index)", accountID, sessionHash, slotIndex)
-	return &HaikuSlotResult{
-		Acquired:  false,
-		SlotIndex: slotIndex,
-	}, nil
-}
-
 // ============================================
 // Slot Calculation (槽位数量计算)
 // ============================================
@@ -686,83 +575,6 @@ func CalculateModelSlotRange(totalSlots int) (opus, sonnet ModelSlotRange) {
 	opus = ModelSlotRange{Start: 0, End: opusSlots}
 	sonnet = ModelSlotRange{Start: opusSlots, End: totalSlots}
 	return opus, sonnet
-}
-
-// AcquireAccountSlotByModel attempts to acquire a slot for a specific model category.
-// Opus and Sonnet have separate slot pools (hard isolation).
-// Returns the acquired slot index, or -1 if the model's pool is full.
-func (s *ConcurrencyService) AcquireAccountSlotByModel(ctx context.Context, accountID int64, maxConcurrency int, sessionHash string, modelCategory string) (*AcquireResult, error) {
-	if maxConcurrency <= 0 {
-		return &AcquireResult{
-			Acquired:    true,
-			SlotIndex:   -1,
-			ReleaseFunc: func() {},
-		}, nil
-	}
-
-	// Calculate total slots (more slots than concurrency for realistic session distribution)
-	totalSlots := CalculateTotalSlots(maxConcurrency)
-
-	// Calculate model slot ranges based on total slots
-	opusRange, sonnetRange := CalculateModelSlotRange(totalSlots)
-
-	// Determine which range to use based on model category
-	var slotRange ModelSlotRange
-	switch modelCategory {
-	case "opus":
-		slotRange = opusRange
-	case "sonnet":
-		slotRange = sonnetRange
-	default:
-		// Should not happen for Claude Code (only opus/sonnet/haiku)
-		return nil, fmt.Errorf("unsupported model category for slot pool: %s", modelCategory)
-	}
-
-	// Calculate target slot within the range
-	rangeSize := slotRange.End - slotRange.Start
-	if rangeSize <= 0 {
-		return &AcquireResult{
-			Acquired:    false,
-			SlotIndex:   -1,
-			ReleaseFunc: nil,
-		}, nil
-	}
-	targetSlotInRange := hashToSlotIndex(sessionHash, rangeSize)
-	targetSlot := slotRange.Start + targetSlotInRange
-
-	// Try to acquire slot within the model's range (hard isolation)
-	acquiredSlot, err := s.cache.AcquireSlotInRange(ctx, accountID, targetSlot, maxConcurrency, slotRange.Start, slotRange.End)
-	if err != nil {
-		return nil, err
-	}
-
-	if acquiredSlot >= 0 {
-		log.Printf("[model-slot] account=%d model=%s session=%.16s target=%d acquired=%d range=[%d,%d)",
-			accountID, modelCategory, sessionHash, targetSlot, acquiredSlot, slotRange.Start, slotRange.End)
-		return &AcquireResult{
-			Acquired:  true,
-			SlotIndex: acquiredSlot,
-			ReleaseFunc: func() {
-				log.Printf("[model-slot-release] account=%d slot=%d releasing", accountID, acquiredSlot)
-				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := s.cache.ReleaseAccountSlotByIndex(bgCtx, accountID, acquiredSlot); err != nil {
-					log.Printf("[model-slot-release] account=%d slot=%d FAILED: %v", accountID, acquiredSlot, err)
-				} else {
-					log.Printf("[model-slot-release] account=%d slot=%d success", accountID, acquiredSlot)
-				}
-			},
-		}, nil
-	}
-
-	// Model's pool is full (hard isolation - no cross-pool fallback)
-	log.Printf("[model-slot] account=%d model=%s session=%.16s FULL range=[%d,%d)",
-		accountID, modelCategory, sessionHash, slotRange.Start, slotRange.End)
-	return &AcquireResult{
-		Acquired:    false,
-		SlotIndex:   targetSlot, // Return target slot for waiting
-		ReleaseFunc: nil,
-	}, nil
 }
 
 // SetSlotResponseEndTime 记录 slot 的响应结束时间
@@ -837,4 +649,224 @@ func (s *ConcurrencyService) IsAccountPaused(ctx context.Context, accountID int6
 		return false, nil
 	}
 	return s.cache.IsAccountPaused(ctx, accountID)
+}
+
+// ============================================
+// Session Slot 绑定 - 确保同一 session 的所有请求使用同一槽位
+// ============================================
+
+// GetSessionSlot 获取 session 绑定的槽位
+// 返回 -1 表示没有绑定
+func (s *ConcurrencyService) GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error) {
+	if s.cache == nil {
+		return -1, nil
+	}
+	return s.cache.GetSessionSlot(ctx, accountID, sessionHash)
+}
+
+// SetSessionSlot 设置 session 绑定的槽位
+func (s *ConcurrencyService) SetSessionSlot(ctx context.Context, accountID int64, sessionHash string, slotIndex int) error {
+	if s.cache == nil {
+		return nil
+	}
+	return s.cache.SetSessionSlot(ctx, accountID, sessionHash, slotIndex)
+}
+
+// RefreshSessionSlotTTL 刷新 session slot 绑定的 TTL
+func (s *ConcurrencyService) RefreshSessionSlotTTL(ctx context.Context, accountID int64, sessionHash string) error {
+	if s.cache == nil {
+		return nil
+	}
+	return s.cache.RefreshSessionSlotTTL(ctx, accountID, sessionHash)
+}
+
+// ============================================
+// 统一的槽位获取逻辑
+// ============================================
+
+// SessionSlotResult 统一槽位获取结果
+type SessionSlotResult struct {
+	Acquired    bool   // 是否成功获取
+	SlotIndex   int    // 获取到的槽位编号
+	ReleaseFunc func() // 释放函数，必须在请求结束时调用
+}
+
+// AcquireSessionSlot 统一的槽位获取方法
+// 逻辑：
+// 1. 检查 session 是否已有绑定的 slot
+// 2. 如果有绑定，尝试获取那个 slot
+// 3. 如果没有绑定，计算 targetSlot，尝试获取
+// 4. 如果 targetSlot 被其他 session 占用，fallback 到其他空闲 slot
+// 5. 获取成功后，绑定/刷新 session → slot
+//
+// 参数:
+// - accountID: 账号 ID
+// - maxConcurrency: 最大并发数
+// - sessionHash: session 标识
+// - modelCategory: 模型类别 (opus/sonnet/haiku/"")，用于槽位池隔离
+//
+// 模型池隔离：
+// - Opus 和 Sonnet 各有独立的槽位池（硬隔离，互不影响）
+// - Haiku 和未识别模型使用全部槽位池
+// - 不同模型类别的 session 绑定是独立的（同一 session 在 opus/sonnet 下有不同绑定）
+func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID int64, maxConcurrency int, sessionHash string, modelCategory string) (*SessionSlotResult, error) {
+	if s.cache == nil {
+		return &SessionSlotResult{
+			Acquired:    true,
+			SlotIndex:   -1,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	if maxConcurrency <= 0 {
+		return &SessionSlotResult{
+			Acquired:    true,
+			SlotIndex:   -1,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	totalSlots := CalculateTotalSlots(maxConcurrency)
+	requestID := generateRequestID()
+
+	// 计算槽位范围（模型池隔离）
+	// Opus 和 Sonnet 各有独立的槽位池，Haiku 使用全部槽位
+	var rangeStart, rangeEnd int
+	switch modelCategory {
+	case "opus":
+		opusRange, _ := CalculateModelSlotRange(totalSlots)
+		rangeStart, rangeEnd = opusRange.Start, opusRange.End
+	case "sonnet":
+		_, sonnetRange := CalculateModelSlotRange(totalSlots)
+		rangeStart, rangeEnd = sonnetRange.Start, sonnetRange.End
+	default:
+		// Haiku 和未识别模型使用全部槽位
+		rangeStart, rangeEnd = 0, totalSlots
+	}
+
+	rangeSize := rangeEnd - rangeStart
+	if rangeSize <= 0 {
+		return &SessionSlotResult{
+			Acquired:    false,
+			SlotIndex:   -1,
+			ReleaseFunc: nil,
+		}, nil
+	}
+
+	// 计算 maxParallel：同一 session 最大并行请求数
+	// Haiku: 无限制（传大数）
+	// Opus/Sonnet: 严格 1 个
+	var maxParallel int
+	if modelCategory == "haiku" || modelCategory == "" {
+		maxParallel = 9999 // 无限制
+	} else {
+		maxParallel = 1 // Opus/Sonnet 严格串行
+	}
+
+	// 查询 session 是否已有绑定（统一使用 sessionHash，无前缀）
+	var boundSlot int = -1
+	slot, err := s.cache.GetSessionSlot(ctx, accountID, sessionHash)
+	if err != nil {
+		log.Printf("[session-slot] GetSessionSlot failed: account=%d session=%.16s err=%v", accountID, sessionHash, err)
+	} else {
+		boundSlot = slot
+	}
+
+	// 2. 如果有绑定，检查绑定的 slot 是否在当前模型池范围内
+	if boundSlot >= 0 {
+		if boundSlot >= rangeStart && boundSlot < rangeEnd {
+			// 绑定的 slot 在当前模型池范围内，尝试获取
+			acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, boundSlot, sessionHash, maxParallel, requestID)
+			if err != nil {
+				return nil, fmt.Errorf("acquire bound slot failed: %w", err)
+			}
+			if acquired {
+				// 刷新 TTL（slot 没变，只刷新 TTL）
+				_ = s.cache.RefreshSessionSlotTTL(ctx, accountID, sessionHash)
+				log.Printf("[session-slot] account=%d session=%.16s model=%s bound_slot=%d acquired", accountID, sessionHash, modelCategory, boundSlot)
+				return &SessionSlotResult{
+					Acquired:  true,
+					SlotIndex: boundSlot,
+					ReleaseFunc: func() {
+						bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+						if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, boundSlot, sessionHash); err != nil {
+							log.Printf("[session-slot-release] account=%d slot=%d FAILED: %v", accountID, boundSlot, err)
+						}
+					},
+				}, nil
+			}
+			// 绑定的槽位被其他 session 占用，继续往下 fallback 到其他 slot
+			log.Printf("[session-slot] account=%d session=%.16s model=%s bound_slot=%d BLOCKED by other session, will fallback", accountID, sessionHash, modelCategory, boundSlot)
+		} else {
+			// 绑定的 slot 不在当前模型池范围内（模型切换导致），需要在新范围内选择
+			log.Printf("[session-slot] account=%d session=%.16s model=%s bound_slot=%d OUT OF RANGE [%d,%d), will select new slot", accountID, sessionHash, modelCategory, boundSlot, rangeStart, rangeEnd)
+		}
+	}
+
+	// 3. 没有有效绑定或绑定不在范围内，在当前模型池范围内选择新 slot
+	targetSlotInRange := hashToSlotIndex(sessionHash, rangeSize)
+	targetSlot := rangeStart + targetSlotInRange
+
+	// 4. 尝试获取 targetSlot
+	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, targetSlot, sessionHash, maxParallel, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("acquire target slot failed: %w", err)
+	}
+	if acquired {
+		// 绑定/更新 session → slot
+		if err := s.cache.SetSessionSlot(ctx, accountID, sessionHash, targetSlot); err != nil {
+			log.Printf("[session-slot] SetSessionSlot failed: account=%d session=%.16s slot=%d err=%v", accountID, sessionHash, targetSlot, err)
+		}
+		log.Printf("[session-slot] account=%d session=%.16s model=%s target_slot=%d acquired (new binding)", accountID, sessionHash, modelCategory, targetSlot)
+		return &SessionSlotResult{
+			Acquired:  true,
+			SlotIndex: targetSlot,
+			ReleaseFunc: func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, targetSlot, sessionHash); err != nil {
+					log.Printf("[session-slot-release] account=%d slot=%d FAILED: %v", accountID, targetSlot, err)
+				}
+			},
+		}, nil
+	}
+
+	// 5. targetSlot 被占用，在范围内 fallback 到其他空闲 slot
+	log.Printf("[session-slot] account=%d session=%.16s model=%s target_slot=%d occupied, trying fallback in range [%d,%d)", accountID, sessionHash, modelCategory, targetSlot, rangeStart, rangeEnd)
+	for offset := 1; offset < rangeSize; offset++ {
+		fallbackSlotInRange := (targetSlotInRange + offset) % rangeSize
+		fallbackSlot := rangeStart + fallbackSlotInRange
+		acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, fallbackSlot, sessionHash, maxParallel, requestID)
+		if err != nil {
+			log.Printf("[session-slot] fallback acquire error: account=%d slot=%d err=%v", accountID, fallbackSlot, err)
+			continue
+		}
+		if acquired {
+			// 绑定/更新 session → slot
+			if err := s.cache.SetSessionSlot(ctx, accountID, sessionHash, fallbackSlot); err != nil {
+				log.Printf("[session-slot] SetSessionSlot failed: account=%d session=%.16s slot=%d err=%v", accountID, sessionHash, fallbackSlot, err)
+			}
+			log.Printf("[session-slot] account=%d session=%.16s model=%s fallback_slot=%d acquired (new binding)", accountID, sessionHash, modelCategory, fallbackSlot)
+			return &SessionSlotResult{
+				Acquired:  true,
+				SlotIndex: fallbackSlot,
+				ReleaseFunc: func() {
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, fallbackSlot, sessionHash); err != nil {
+						log.Printf("[session-slot-release] account=%d slot=%d FAILED: %v", accountID, fallbackSlot, err)
+					}
+				},
+			}, nil
+		}
+	}
+
+	// 6. 范围内所有槽位都满了
+	log.Printf("[session-slot] account=%d session=%.16s model=%s ALL SLOTS FULL in range [%d,%d)", accountID, sessionHash, modelCategory, rangeStart, rangeEnd)
+	return &SessionSlotResult{
+		Acquired:    false,
+		SlotIndex:   targetSlot,
+		ReleaseFunc: nil,
+	}, nil
 }

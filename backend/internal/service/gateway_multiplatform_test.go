@@ -1045,7 +1045,7 @@ func (m *mockConcurrencyCache) ReleaseSessionMutex(ctx context.Context, accountI
 	return nil
 }
 
-func (m *mockConcurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, requestID string) (bool, error) {
+func (m *mockConcurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string) (bool, error) {
 	return true, nil
 }
 
@@ -1094,6 +1094,18 @@ func (m *mockConcurrencyCache) RecordAccountRequest(ctx context.Context, account
 }
 
 func (m *mockConcurrencyCache) RecordAccountRequest30m(ctx context.Context, accountID int64) error {
+	return nil
+}
+
+func (m *mockConcurrencyCache) GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error) {
+	return -1, nil
+}
+
+func (m *mockConcurrencyCache) SetSessionSlot(ctx context.Context, accountID int64, sessionHash string, slotIndex int) error {
+	return nil
+}
+
+func (m *mockConcurrencyCache) RefreshSessionSlotTTL(ctx context.Context, accountID int64, sessionHash string) error {
 	return nil
 }
 

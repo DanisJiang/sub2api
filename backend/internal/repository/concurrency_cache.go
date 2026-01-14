@@ -46,15 +46,20 @@ const (
 	// 格式: slot_owner:{accountID}:{slotIndex}
 	slotOwnerKeyPrefix = "slot_owner:"
 
+	// Session Slot 绑定键前缀：记录每个 session 绑定的槽位
+	// 格式: session_slot:{accountID}:{sessionHash}
+	// 值: slotIndex（槽位编号）
+	// 用途: session 首次获取槽位后绑定，后续请求直接使用绑定的槽位
+	sessionSlotKeyPrefix = "session_slot:"
+	// Session Slot 绑定 TTL（秒），与槽位 TTL 保持一致
+	sessionSlotTTLSeconds = 900 // 15 分钟
+
 	// Slot 响应结束时间键前缀：记录每个槽位的响应结束时间戳
 	// 格式: slot_response_end:{accountID}:{slotIndex}
 	slotResponseEndKeyPrefix = "slot_response_end:"
 
 	// Slot 响应结束时间 TTL（秒），设置为 1 小时足够覆盖正常使用场景
 	slotResponseEndTTLSeconds = 3600
-
-	// Haiku 模型同一 session 最大并行数
-	haikuMaxParallel = 3
 
 	// 账号 RPM 限制相关常量
 	// 键格式: rpm_limit:{accountID}
@@ -679,14 +684,14 @@ func (c *concurrencyCache) ReleaseSessionMutex(ctx context.Context, accountID in
 	return err
 }
 
-// AcquireSlotWithSession 获取槽位（支持同一 session 并行，用于 Haiku 模型）
-// 同一 session 最多可以有 haikuMaxParallel 个并行请求共享同一个槽位
-// 不同 session 不能共享槽位（返回失败，调用者可以 fallback 或等待）
-func (c *concurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, requestID string) (bool, error) {
+// AcquireSlotWithSession 获取槽位（支持同一 session 并行）
+// 同一 session 可以共享槽位，不同 session 不能共享
+// maxParallel: 同一 session 最大并行数（Haiku 传大数表示无限制，Opus/Sonnet 传 1）
+func (c *concurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string) (bool, error) {
 	ownerKey := slotOwnerKey(accountID, slotIndex)
 	slotKey := accountSlotKey(accountID)
 	result, err := acquireSlotWithSessionScript.Run(ctx, c.rdb, []string{ownerKey, slotKey},
-		c.slotTTLSeconds, slotIndex, sessionHash, haikuMaxParallel, requestID).Int()
+		c.slotTTLSeconds, slotIndex, sessionHash, maxParallel, requestID).Int()
 	if err != nil {
 		return false, err
 	}
@@ -1081,4 +1086,45 @@ func (c *concurrencyCache) IsAccountPaused(ctx context.Context, accountID int64)
 		return false, err
 	}
 	return result > 0, nil
+}
+
+// ============================================
+// Session Slot 绑定
+// 用于记录 session 绑定的槽位，确保同一 session 的所有请求使用同一槽位
+// ============================================
+
+func sessionSlotKey(accountID int64, sessionHash string) string {
+	return fmt.Sprintf("%s%d:%s", sessionSlotKeyPrefix, accountID, sessionHash)
+}
+
+// GetSessionSlot 获取 session 绑定的槽位
+// 返回绑定的 slotIndex，如果没有绑定返回 -1
+func (c *concurrencyCache) GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error) {
+	key := sessionSlotKey(accountID, sessionHash)
+	result, err := c.rdb.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return -1, nil // 没有绑定
+		}
+		return -1, err
+	}
+	slotIndex, err := strconv.Atoi(result)
+	if err != nil {
+		return -1, err
+	}
+	return slotIndex, nil
+}
+
+// SetSessionSlot 设置 session 绑定的槽位
+// 同时刷新 TTL
+func (c *concurrencyCache) SetSessionSlot(ctx context.Context, accountID int64, sessionHash string, slotIndex int) error {
+	key := sessionSlotKey(accountID, sessionHash)
+	return c.rdb.Set(ctx, key, strconv.Itoa(slotIndex), time.Duration(sessionSlotTTLSeconds)*time.Second).Err()
+}
+
+// RefreshSessionSlotTTL 刷新 session slot 绑定的 TTL
+// 在请求成功使用绑定的槽位后调用，保持绑定关系有效
+func (c *concurrencyCache) RefreshSessionSlotTTL(ctx context.Context, accountID int64, sessionHash string) error {
+	key := sessionSlotKey(accountID, sessionHash)
+	return c.rdb.Expire(ctx, key, time.Duration(sessionSlotTTLSeconds)*time.Second).Err()
 }

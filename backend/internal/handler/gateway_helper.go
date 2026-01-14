@@ -349,21 +349,17 @@ func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeout(c *gin.Context, ac
 	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, "", timeout, isStream, streamStarted)
 }
 
-// AcquireAccountSlotWithWaitTimeoutBySession acquires an account slot by session hash with a custom timeout.
-// This ensures the same session always waits for and acquires the same slot.
-func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeoutBySession(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
-	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, sessionHash, timeout, isStream, streamStarted)
-}
-
-// AcquireModelPoolSlotWithWait acquires a slot from the model-specific pool (Opus or Sonnet).
-// This respects hard isolation - Opus requests only get Opus slots, Sonnet only gets Sonnet slots.
-// Used for Claude Code OAuth accounts to prevent rapid model switching on the same session.
-func (h *ConcurrencyHelper) AcquireModelPoolSlotWithWait(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, modelCategory string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
+// AcquireSessionSlotWithWait 统一的槽位获取方法（带等待）
+// 使用 session→slot 绑定逻辑：
+// - 同一 session 的请求使用同一 slot
+// - 支持模型池隔离（Opus/Sonnet 各自的槽位池）
+// - 支持同 session 并行（Haiku 最多 3 个）
+func (h *ConcurrencyHelper) AcquireSessionSlotWithWait(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, modelCategory string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
 	defer cancel()
 
 	// Try to acquire immediately
-	result, err := h.concurrencyService.AcquireAccountSlotByModel(ctx, accountID, maxConcurrency, sessionHash, modelCategory)
+	result, err := h.concurrencyService.AcquireSessionSlot(ctx, accountID, maxConcurrency, sessionHash, modelCategory)
 	if err != nil {
 		return nil, err
 	}
@@ -395,11 +391,16 @@ func (h *ConcurrencyHelper) AcquireModelPoolSlotWithWait(c *gin.Context, account
 	defer timer.Stop()
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	slotType := modelCategory
+	if slotType == "" {
+		slotType = "account"
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, &ConcurrencyError{
-				SlotType:  modelCategory,
+				SlotType:  slotType,
 				IsTimeout: true,
 			}
 
@@ -417,84 +418,7 @@ func (h *ConcurrencyHelper) AcquireModelPoolSlotWithWait(c *gin.Context, account
 			flusher.Flush()
 
 		case <-timer.C:
-			result, err := h.concurrencyService.AcquireAccountSlotByModel(ctx, accountID, maxConcurrency, sessionHash, modelCategory)
-			if err != nil {
-				return nil, err
-			}
-			if result.Acquired {
-				return result.ReleaseFunc, nil
-			}
-			backoff = nextBackoff(backoff, rng)
-			timer.Reset(backoff)
-		}
-	}
-}
-
-// AcquireHaikuSlotWithWait acquires a slot for Haiku model requests.
-// Unlike regular slot acquisition, this allows the same session to have multiple
-// concurrent requests sharing the same slot (up to 3 parallel requests).
-// Different sessions cannot share the same slot.
-// This is used because Claude Code sends parallel requests when using Haiku model.
-func (h *ConcurrencyHelper) AcquireHaikuSlotWithWait(c *gin.Context, accountID int64, maxConcurrency int, sessionHash string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
-	defer cancel()
-
-	// Try to acquire immediately
-	result, err := h.concurrencyService.AcquireSlotForHaiku(ctx, accountID, maxConcurrency, sessionHash)
-	if err != nil {
-		return nil, err
-	}
-	if result.Acquired {
-		return result.ReleaseFunc, nil
-	}
-
-	// Need to wait - set up ping if streaming
-	needPing := isStream && h.pingFormat != ""
-
-	var flusher http.Flusher
-	if needPing {
-		var ok bool
-		flusher, ok = c.Writer.(http.Flusher)
-		if !ok {
-			return nil, fmt.Errorf("streaming not supported")
-		}
-	}
-
-	var pingCh <-chan time.Time
-	if needPing {
-		pingTicker := time.NewTicker(h.pingInterval)
-		defer pingTicker.Stop()
-		pingCh = pingTicker.C
-	}
-
-	backoff := initialBackoff
-	timer := time.NewTimer(backoff)
-	defer timer.Stop()
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, &ConcurrencyError{
-				SlotType:  "haiku",
-				IsTimeout: true,
-			}
-
-		case <-pingCh:
-			if !*streamStarted {
-				c.Header("Content-Type", "text/event-stream")
-				c.Header("Cache-Control", "no-cache")
-				c.Header("Connection", "keep-alive")
-				c.Header("X-Accel-Buffering", "no")
-				*streamStarted = true
-			}
-			if _, err := fmt.Fprint(c.Writer, string(h.pingFormat)); err != nil {
-				return nil, err
-			}
-			flusher.Flush()
-
-		case <-timer.C:
-			result, err := h.concurrencyService.AcquireSlotForHaiku(ctx, accountID, maxConcurrency, sessionHash)
+			result, err := h.concurrencyService.AcquireSessionSlot(ctx, accountID, maxConcurrency, sessionHash, modelCategory)
 			if err != nil {
 				return nil, err
 			}
