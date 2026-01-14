@@ -1045,11 +1045,11 @@ func (m *mockConcurrencyCache) ReleaseSessionMutex(ctx context.Context, accountI
 	return nil
 }
 
-func (m *mockConcurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string) (bool, error) {
+func (m *mockConcurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string, modelCategory string) (bool, error) {
 	return true, nil
 }
 
-func (m *mockConcurrencyCache) ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string) error {
+func (m *mockConcurrencyCache) ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, modelCategory string) error {
 	return nil
 }
 

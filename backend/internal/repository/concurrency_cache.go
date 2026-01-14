@@ -429,15 +429,20 @@ var (
 		return 0
 	`)
 
-	// acquireSlotWithSessionScript - 获取槽位（支持同一 session 并行，用于 Haiku）
-	// 使用 Hash 存储每个槽位的 owner 和并发计数
+	// acquireSlotWithSessionScript - 获取槽位（支持同一 session 并行，且支持不同模型类别共存）
+	// 使用 Hash 存储每个槽位的 owner 和按模型类别的并发计数
+	// 设计说明：
+	// - Opus 和 Sonnet 不能共存（各自有独立的槽位池）
+	// - Haiku 可以和 Opus 或 Sonnet 共存于同一槽位
+	// - 每个模型类别有独立的计数: count_opus, count_sonnet, count_haiku
 	// KEYS[1] = slot_owner:{accountID}:{slotIndex}
 	// KEYS[2] = concurrency:account:{accountID} (有序集合，用于槽位占用标记)
 	// ARGV[1] = TTL（秒）
 	// ARGV[2] = slotIndex
 	// ARGV[3] = sessionHash（当前请求的 session）
-	// ARGV[4] = maxParallel（同一 session 最大并行数）
+	// ARGV[4] = maxParallel（同一 session 同一模型类别的最大并行数）
 	// ARGV[5] = requestID（用于标识本次请求）
+	// ARGV[6] = modelCategory（模型类别: opus/sonnet/haiku）
 	// 返回: 1=成功获取, 0=槽位被其他 session 占用或已达并行上限
 	acquireSlotWithSessionScript = redis.NewScript(`
 		local ownerKey = KEYS[1]
@@ -447,7 +452,9 @@ var (
 		local sessionHash = ARGV[3]
 		local maxParallel = tonumber(ARGV[4])
 		local requestID = ARGV[5]
+		local modelCategory = ARGV[6]
 		local slotID = 'slot_' .. slotIndex
+		local countField = 'count_' .. modelCategory
 
 		-- 使用 Redis 服务器时间
 		local timeResult = redis.call('TIME')
@@ -456,18 +463,26 @@ var (
 		-- 获取当前 slot owner 信息
 		local ownerData = redis.call('HGETALL', ownerKey)
 		local currentOwner = nil
-		local currentCount = 0
+		local countOpus = 0
+		local countSonnet = 0
+		local countHaiku = 0
 		local expireAt = 0
 
 		for i = 1, #ownerData, 2 do
 			if ownerData[i] == 'owner' then
 				currentOwner = ownerData[i + 1]
-			elseif ownerData[i] == 'count' then
-				currentCount = tonumber(ownerData[i + 1])
+			elseif ownerData[i] == 'count_opus' then
+				countOpus = tonumber(ownerData[i + 1])
+			elseif ownerData[i] == 'count_sonnet' then
+				countSonnet = tonumber(ownerData[i + 1])
+			elseif ownerData[i] == 'count_haiku' then
+				countHaiku = tonumber(ownerData[i + 1])
 			elseif ownerData[i] == 'expire' then
 				expireAt = tonumber(ownerData[i + 1])
 			end
 		end
+
+		local totalCount = countOpus + countSonnet + countHaiku
 
 		-- 检查是否过期
 		if expireAt > 0 and expireAt < now then
@@ -475,20 +490,22 @@ var (
 			redis.call('DEL', ownerKey)
 			redis.call('ZREM', slotKey, slotID)
 			currentOwner = nil
-			currentCount = 0
+			totalCount = 0
+			countOpus = 0
+			countSonnet = 0
+			countHaiku = 0
 		end
 
-		-- 情况1：槽位空闲（Hash 没有 owner）
-		if currentOwner == nil or currentCount == 0 then
+		-- 情况1：槽位空闲（Hash 没有 owner 或所有计数为0）
+		if currentOwner == nil or totalCount == 0 then
 			-- 检查 ZSET 中是否已被其他请求占用（防止升级过程中的竞态条件）
-			-- 在槽位升级流程中，先释放普通槽位再获取 Haiku 槽位，这个窗口期可能被其他请求抢占
 			local zsetScore = redis.call('ZSCORE', slotKey, slotID)
 			if zsetScore ~= false then
 				-- ZSET 中已有占用，说明被其他请求抢占，返回失败
 				return 0
 			end
 
-			redis.call('HSET', ownerKey, 'owner', sessionHash, 'count', 1, 'expire', now + ttl)
+			redis.call('HSET', ownerKey, 'owner', sessionHash, countField, 1, 'expire', now + ttl)
 			redis.call('EXPIRE', ownerKey, ttl)
 			-- 同时在有序集合中标记槽位被占用
 			redis.call('ZADD', slotKey, now, slotID)
@@ -498,8 +515,27 @@ var (
 
 		-- 情况2：同一 session 占用
 		if currentOwner == sessionHash then
-			if currentCount < maxParallel then
-				redis.call('HINCRBY', ownerKey, 'count', 1)
+			-- 【互斥约束】Opus 和 Sonnet 不能共存于同一槽位
+			if modelCategory == 'opus' and countSonnet > 0 then
+				return 0
+			end
+			if modelCategory == 'sonnet' and countOpus > 0 then
+				return 0
+			end
+
+			-- 获取当前模型类别的计数
+			local currentModelCount = 0
+			if modelCategory == 'opus' then
+				currentModelCount = countOpus
+			elseif modelCategory == 'sonnet' then
+				currentModelCount = countSonnet
+			elseif modelCategory == 'haiku' then
+				currentModelCount = countHaiku
+			end
+
+			-- 检查当前模型类别是否达到并行上限
+			if currentModelCount < maxParallel then
+				redis.call('HINCRBY', ownerKey, countField, 1)
 				redis.call('HSET', ownerKey, 'expire', now + ttl)
 				redis.call('EXPIRE', ownerKey, ttl)
 				-- 刷新有序集合中的时间戳
@@ -507,7 +543,7 @@ var (
 				redis.call('EXPIRE', slotKey, ttl)
 				return 1
 			else
-				-- 已达并行上限
+				-- 当前模型类别已达并行上限
 				return 0
 			end
 		end
@@ -516,18 +552,21 @@ var (
 		return 0
 	`)
 
-	// releaseSlotWithSessionScript - 释放槽位（支持同一 session 并行）
+	// releaseSlotWithSessionScript - 释放槽位（支持同一 session 并行，且支持不同模型类别共存）
 	// KEYS[1] = slot_owner:{accountID}:{slotIndex}
 	// KEYS[2] = concurrency:account:{accountID}
 	// ARGV[1] = slotIndex
 	// ARGV[2] = sessionHash
+	// ARGV[3] = modelCategory（模型类别: opus/sonnet/haiku）
 	// 返回: 1=成功释放, 0=不是自己持有的
 	releaseSlotWithSessionScript = redis.NewScript(`
 		local ownerKey = KEYS[1]
 		local slotKey = KEYS[2]
 		local slotIndex = ARGV[1]
 		local sessionHash = ARGV[2]
+		local modelCategory = ARGV[3]
 		local slotID = 'slot_' .. slotIndex
+		local countField = 'count_' .. modelCategory
 
 		-- 获取当前 owner
 		local currentOwner = redis.call('HGET', ownerKey, 'owner')
@@ -535,10 +574,22 @@ var (
 			return 0
 		end
 
-		-- 减少计数
-		local newCount = redis.call('HINCRBY', ownerKey, 'count', -1)
-		if newCount <= 0 then
-			-- 计数归零，删除 owner 记录和槽位标记
+		-- 减少当前模型类别的计数
+		local newModelCount = redis.call('HINCRBY', ownerKey, countField, -1)
+		if newModelCount < 0 then
+			-- 防止负数
+			redis.call('HSET', ownerKey, countField, 0)
+			newModelCount = 0
+		end
+
+		-- 检查所有模型类别的总计数
+		local countOpus = tonumber(redis.call('HGET', ownerKey, 'count_opus') or 0)
+		local countSonnet = tonumber(redis.call('HGET', ownerKey, 'count_sonnet') or 0)
+		local countHaiku = tonumber(redis.call('HGET', ownerKey, 'count_haiku') or 0)
+		local totalCount = countOpus + countSonnet + countHaiku
+
+		if totalCount <= 0 then
+			-- 所有计数归零，删除 owner 记录和槽位标记
 			redis.call('DEL', ownerKey)
 			redis.call('ZREM', slotKey, slotID)
 		end
@@ -686,12 +737,13 @@ func (c *concurrencyCache) ReleaseSessionMutex(ctx context.Context, accountID in
 
 // AcquireSlotWithSession 获取槽位（支持同一 session 并行）
 // 同一 session 可以共享槽位，不同 session 不能共享
-// maxParallel: 同一 session 最大并行数（Haiku 传大数表示无限制，Opus/Sonnet 传 1）
-func (c *concurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string) (bool, error) {
+// maxParallel: 同一 session 同一模型类别的最大并行数（Haiku 传大数表示无限制，Opus/Sonnet 传 1）
+// modelCategory: 模型类别（opus/sonnet/haiku），用于独立计数
+func (c *concurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string, modelCategory string) (bool, error) {
 	ownerKey := slotOwnerKey(accountID, slotIndex)
 	slotKey := accountSlotKey(accountID)
 	result, err := acquireSlotWithSessionScript.Run(ctx, c.rdb, []string{ownerKey, slotKey},
-		c.slotTTLSeconds, slotIndex, sessionHash, maxParallel, requestID).Int()
+		c.slotTTLSeconds, slotIndex, sessionHash, maxParallel, requestID, modelCategory).Int()
 	if err != nil {
 		return false, err
 	}
@@ -700,10 +752,11 @@ func (c *concurrencyCache) AcquireSlotWithSession(ctx context.Context, accountID
 
 // ReleaseSlotWithSession 释放槽位（支持同一 session 并行）
 // 减少并发计数，当计数归零时删除 owner 记录
-func (c *concurrencyCache) ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string) error {
+// modelCategory: 模型类别（opus/sonnet/haiku），用于减少正确的计数
+func (c *concurrencyCache) ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, modelCategory string) error {
 	ownerKey := slotOwnerKey(accountID, slotIndex)
 	slotKey := accountSlotKey(accountID)
-	_, err := releaseSlotWithSessionScript.Run(ctx, c.rdb, []string{ownerKey, slotKey}, slotIndex, sessionHash).Int()
+	_, err := releaseSlotWithSessionScript.Run(ctx, c.rdb, []string{ownerKey, slotKey}, slotIndex, sessionHash, modelCategory).Int()
 	return err
 }
 

@@ -42,9 +42,10 @@ type ConcurrencyCache interface {
 
 	// Session-aware 槽位管理
 	// 同一 session 可以共享槽位，不同 session 不能共享
-	// maxParallel: 同一 session 最大并行数（Haiku 无限制传大数，Opus/Sonnet 传 1）
-	AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string) (bool, error)
-	ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string) error
+	// maxParallel: 同一 session 同一模型类别的最大并行数（Haiku 无限制传大数，Opus/Sonnet 传 1）
+	// modelCategory: 模型类别（opus/sonnet/haiku），用于独立计数
+	AcquireSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, maxParallel int, requestID string, modelCategory string) (bool, error)
+	ReleaseSlotWithSession(ctx context.Context, accountID int64, slotIndex int, sessionHash string, modelCategory string) error
 
 	// 账号等待队列（账号级）
 	IncrementAccountWaitCount(ctx context.Context, accountID int64, maxWait int) (bool, error)
@@ -776,7 +777,7 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 	if boundSlot >= 0 {
 		if boundSlot >= rangeStart && boundSlot < rangeEnd {
 			// 绑定的 slot 在当前模型池范围内，尝试获取
-			acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, boundSlot, sessionHash, maxParallel, requestID)
+			acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, boundSlot, sessionHash, maxParallel, requestID, modelCategory)
 			if err != nil {
 				return nil, fmt.Errorf("acquire bound slot failed: %w", err)
 			}
@@ -784,13 +785,15 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 				// 刷新 TTL（slot 没变，只刷新 TTL）
 				_ = s.cache.RefreshSessionSlotTTL(ctx, accountID, sessionHash)
 				log.Printf("[session-slot] account=%d session=%.16s model=%s bound_slot=%d acquired", accountID, sessionHash, modelCategory, boundSlot)
+				// 捕获 modelCategory 到闭包中
+				releaseMC := modelCategory
 				return &SessionSlotResult{
 					Acquired:  true,
 					SlotIndex: boundSlot,
 					ReleaseFunc: func() {
 						bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 						defer cancel()
-						if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, boundSlot, sessionHash); err != nil {
+						if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, boundSlot, sessionHash, releaseMC); err != nil {
 							log.Printf("[session-slot-release] account=%d slot=%d FAILED: %v", accountID, boundSlot, err)
 						}
 					},
@@ -809,7 +812,7 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 	targetSlot := rangeStart + targetSlotInRange
 
 	// 4. 尝试获取 targetSlot
-	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, targetSlot, sessionHash, maxParallel, requestID)
+	acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, targetSlot, sessionHash, maxParallel, requestID, modelCategory)
 	if err != nil {
 		return nil, fmt.Errorf("acquire target slot failed: %w", err)
 	}
@@ -819,13 +822,15 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 			log.Printf("[session-slot] SetSessionSlot failed: account=%d session=%.16s slot=%d err=%v", accountID, sessionHash, targetSlot, err)
 		}
 		log.Printf("[session-slot] account=%d session=%.16s model=%s target_slot=%d acquired (new binding)", accountID, sessionHash, modelCategory, targetSlot)
+		// 捕获 modelCategory 到闭包中
+		releaseMC := modelCategory
 		return &SessionSlotResult{
 			Acquired:  true,
 			SlotIndex: targetSlot,
 			ReleaseFunc: func() {
 				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, targetSlot, sessionHash); err != nil {
+				if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, targetSlot, sessionHash, releaseMC); err != nil {
 					log.Printf("[session-slot-release] account=%d slot=%d FAILED: %v", accountID, targetSlot, err)
 				}
 			},
@@ -837,7 +842,7 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 	for offset := 1; offset < rangeSize; offset++ {
 		fallbackSlotInRange := (targetSlotInRange + offset) % rangeSize
 		fallbackSlot := rangeStart + fallbackSlotInRange
-		acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, fallbackSlot, sessionHash, maxParallel, requestID)
+		acquired, err := s.cache.AcquireSlotWithSession(ctx, accountID, fallbackSlot, sessionHash, maxParallel, requestID, modelCategory)
 		if err != nil {
 			log.Printf("[session-slot] fallback acquire error: account=%d slot=%d err=%v", accountID, fallbackSlot, err)
 			continue
@@ -848,13 +853,15 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 				log.Printf("[session-slot] SetSessionSlot failed: account=%d session=%.16s slot=%d err=%v", accountID, sessionHash, fallbackSlot, err)
 			}
 			log.Printf("[session-slot] account=%d session=%.16s model=%s fallback_slot=%d acquired (new binding)", accountID, sessionHash, modelCategory, fallbackSlot)
+			// 捕获 modelCategory 到闭包中
+			releaseMC := modelCategory
 			return &SessionSlotResult{
 				Acquired:  true,
 				SlotIndex: fallbackSlot,
 				ReleaseFunc: func() {
 					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
-					if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, fallbackSlot, sessionHash); err != nil {
+					if err := s.cache.ReleaseSlotWithSession(bgCtx, accountID, fallbackSlot, sessionHash, releaseMC); err != nil {
 						log.Printf("[session-slot-release] account=%d slot=%d FAILED: %v", accountID, fallbackSlot, err)
 					}
 				},
