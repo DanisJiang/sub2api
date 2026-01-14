@@ -764,7 +764,7 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 	}
 
 	// 查询 session 是否已有绑定（统一使用 sessionHash，无前缀）
-	var boundSlot int = -1
+	boundSlot := -1
 	slot, err := s.cache.GetSessionSlot(ctx, accountID, sessionHash)
 	if err != nil {
 		log.Printf("[session-slot] GetSessionSlot failed: account=%d session=%.16s err=%v", accountID, sessionHash, err)
