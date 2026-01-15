@@ -367,26 +367,18 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		c.Set("slot_index", selection.SlotIndex)
 		// 判断是否为 Haiku 模型（Haiku 模型支持同一 session 并行请求）
 		isHaikuRequest := IsHaikuModel(reqModel)
-		// Anthropic 账号：检查 session 互斥锁，防止同一 session 并发请求
+		// Anthropic 账号：获取 session 互斥锁，防止同一 session 并发请求
 		// 注意：Haiku 模型跳过 session mutex，因为 Claude Code 发送并行请求
+		// 使用带等待的版本，而不是直接返回 429
 		var sessionMutexRelease func()
 		if account.IsAnthropic() && sessionKey != "" && !isHaikuRequest {
-			releaseFunc, acquired, err := h.concurrencyHelper.AcquireSessionMutex(c.Request.Context(), account.ID, sessionKey)
+			releaseFunc, err := h.concurrencyHelper.AcquireSessionMutexWithWait(c, account.ID, sessionKey, 2*time.Minute, reqStream, &streamStarted)
 			if err != nil {
 				if selection.Acquired && selection.ReleaseFunc != nil {
 					selection.ReleaseFunc()
 				}
 				log.Printf("Session mutex acquire error: %v", err)
-				h.handleStreamingAwareError(c, http.StatusInternalServerError, "api_error", "Internal error acquiring session lock", streamStarted)
-				return
-			}
-			if !acquired {
-				// 同一 session 有并发请求，拒绝
-				if selection.Acquired && selection.ReleaseFunc != nil {
-					selection.ReleaseFunc()
-				}
-				log.Printf("Session mutex blocked: account=%d, session=%s (concurrent request detected)", account.ID, sessionKey)
-				h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Concurrent request detected for this session, please wait and retry", streamStarted)
+				h.handleConcurrencyError(c, err, "session_mutex", streamStarted)
 				return
 			}
 			sessionMutexRelease = releaseFunc

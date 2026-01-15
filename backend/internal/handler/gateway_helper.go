@@ -200,6 +200,85 @@ func (h *ConcurrencyHelper) AcquireSessionMutex(ctx context.Context, accountID i
 	return result.ReleaseFunc, true, nil
 }
 
+// AcquireSessionMutexWithWait acquires a session mutex, waiting if it's currently held.
+// For streaming requests, sends ping events during the wait.
+// This is used to serialize Opus/Sonnet requests from the same session.
+func (h *ConcurrencyHelper) AcquireSessionMutexWithWait(c *gin.Context, accountID int64, sessionHash string, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
+	if h.concurrencyService == nil {
+		return func() {}, nil
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	defer cancel()
+
+	// Try to acquire immediately
+	result, err := h.concurrencyService.AcquireSessionMutex(ctx, accountID, sessionHash)
+	if err != nil {
+		return nil, err
+	}
+	if result.Acquired {
+		return result.ReleaseFunc, nil
+	}
+
+	// Need to wait - set up ping if streaming
+	needPing := isStream && h.pingFormat != ""
+
+	var flusher http.Flusher
+	if needPing {
+		var ok bool
+		flusher, ok = c.Writer.(http.Flusher)
+		if !ok {
+			needPing = false
+		}
+	}
+
+	var pingCh <-chan time.Time
+	if needPing {
+		pingTicker := time.NewTicker(h.pingInterval)
+		defer pingTicker.Stop()
+		pingCh = pingTicker.C
+	}
+
+	backoff := initialBackoff
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, &ConcurrencyError{
+				SlotType:  "session_mutex",
+				IsTimeout: true,
+			}
+
+		case <-pingCh:
+			if !*streamStarted {
+				c.Header("Content-Type", "text/event-stream")
+				c.Header("Cache-Control", "no-cache")
+				c.Header("Connection", "keep-alive")
+				c.Header("X-Accel-Buffering", "no")
+				*streamStarted = true
+			}
+			if _, err := fmt.Fprint(c.Writer, string(h.pingFormat)); err != nil {
+				return nil, err
+			}
+			flusher.Flush()
+
+		case <-timer.C:
+			result, err := h.concurrencyService.AcquireSessionMutex(ctx, accountID, sessionHash)
+			if err != nil {
+				return nil, err
+			}
+			if result.Acquired {
+				return result.ReleaseFunc, nil
+			}
+			backoff = nextBackoff(backoff, rng)
+			timer.Reset(backoff)
+		}
+	}
+}
+
 // AcquireUserSlotWithWait acquires a user concurrency slot, waiting if necessary.
 // For streaming requests, sends ping events during the wait.
 // streamStarted is updated if streaming response has begun.
