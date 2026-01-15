@@ -112,7 +112,6 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 			duration_ms,
 			first_token_ms,
 			user_agent,
-			ip_address,
 			image_count,
 			image_size,
 			created_at
@@ -133,7 +132,6 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 	duration := nullInt(log.DurationMs)
 	firstToken := nullInt(log.FirstTokenMs)
 	userAgent := nullString(log.UserAgent)
-	ipAddress := nullString(log.IPAddress)
 	imageSize := nullString(log.ImageSize)
 
 	var requestIDArg any
@@ -169,7 +167,6 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 		duration,
 		firstToken,
 		userAgent,
-		ipAddress,
 		log.ImageCount,
 		imageSize,
 		createdAt,
