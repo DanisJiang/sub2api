@@ -137,6 +137,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ProxyID:                  a.ProxyID,
 		Concurrency:              a.Concurrency,
 		Priority:                 a.Priority,
+		RateMultiplier:           a.BillingRateMultiplier(),
 		Status:                   a.Status,
 		ErrorMessage:             a.ErrorMessage,
 		LastUsedAt:               a.LastUsedAt,
@@ -228,8 +229,29 @@ func ProxyWithAccountCountFromService(p *service.ProxyWithAccountCount) *ProxyWi
 		return nil
 	}
 	return &ProxyWithAccountCount{
-		Proxy:        *ProxyFromService(&p.Proxy),
-		AccountCount: p.AccountCount,
+		Proxy:          *ProxyFromService(&p.Proxy),
+		AccountCount:   p.AccountCount,
+		LatencyMs:      p.LatencyMs,
+		LatencyStatus:  p.LatencyStatus,
+		LatencyMessage: p.LatencyMessage,
+		IPAddress:      p.IPAddress,
+		Country:        p.Country,
+		CountryCode:    p.CountryCode,
+		Region:         p.Region,
+		City:           p.City,
+	}
+}
+
+func ProxyAccountSummaryFromService(a *service.ProxyAccountSummary) *ProxyAccountSummary {
+	if a == nil {
+		return nil
+	}
+	return &ProxyAccountSummary{
+		ID:       a.ID,
+		Name:     a.Name,
+		Platform: a.Platform,
+		Type:     a.Type,
+		Notes:    a.Notes,
 	}
 }
 
@@ -295,6 +317,7 @@ func usageLogFromServiceBase(l *service.UsageLog, account *AccountSummary, inclu
 		TotalCost:             l.TotalCost,
 		ActualCost:            l.ActualCost,
 		RateMultiplier:        l.RateMultiplier,
+		AccountRateMultiplier: l.AccountRateMultiplier,
 		BillingType:           l.BillingType,
 		ClientType:            l.ClientType,
 		Stream:                l.Stream,

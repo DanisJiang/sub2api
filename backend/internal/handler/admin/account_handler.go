@@ -84,6 +84,7 @@ type CreateAccountRequest struct {
 	ProxyID                  *int64         `json:"proxy_id"`
 	Concurrency              int            `json:"concurrency"`
 	Priority                 int            `json:"priority"`
+	RateMultiplier           *float64       `json:"rate_multiplier"`
 	GroupIDs                 []int64        `json:"group_ids"`
 	ExpiresAt                *int64         `json:"expires_at"`
 	AutoPauseOnExpired       *bool          `json:"auto_pause_on_expired"`
@@ -104,6 +105,7 @@ type UpdateAccountRequest struct {
 	ProxyID                  *int64         `json:"proxy_id"`
 	Concurrency              *int           `json:"concurrency"`
 	Priority                 *int           `json:"priority"`
+	RateMultiplier           *float64       `json:"rate_multiplier"`
 	Status                   string         `json:"status" binding:"omitempty,oneof=active inactive"`
 	GroupIDs                 *[]int64       `json:"group_ids"`
 	ExpiresAt                *int64         `json:"expires_at"`
@@ -121,6 +123,7 @@ type BulkUpdateAccountsRequest struct {
 	ProxyID                 *int64         `json:"proxy_id"`
 	Concurrency             *int           `json:"concurrency"`
 	Priority                *int           `json:"priority"`
+	RateMultiplier          *float64       `json:"rate_multiplier"`
 	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
 	Schedulable             *bool          `json:"schedulable"`
 	Archived                *bool          `json:"archived"`
@@ -216,6 +219,10 @@ func (h *AccountHandler) Create(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
+		response.BadRequest(c, "rate_multiplier must be >= 0")
+		return
+	}
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -230,6 +237,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 		ProxyID:                  req.ProxyID,
 		Concurrency:              req.Concurrency,
 		Priority:                 req.Priority,
+		RateMultiplier:           req.RateMultiplier,
 		GroupIDs:                 req.GroupIDs,
 		ExpiresAt:                req.ExpiresAt,
 		AutoPauseOnExpired:       req.AutoPauseOnExpired,
@@ -278,6 +286,10 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
+		response.BadRequest(c, "rate_multiplier must be >= 0")
+		return
+	}
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -291,6 +303,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		ProxyID:                  req.ProxyID,
 		Concurrency:              req.Concurrency, // 指针类型，nil 表示未提供
 		Priority:                 req.Priority,    // 指针类型，nil 表示未提供
+		RateMultiplier:           req.RateMultiplier,
 		Status:                   req.Status,
 		GroupIDs:                 req.GroupIDs,
 		ExpiresAt:                req.ExpiresAt,
@@ -675,6 +688,10 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
+		response.BadRequest(c, "rate_multiplier must be >= 0")
+		return
+	}
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
@@ -683,6 +700,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.ProxyID != nil ||
 		req.Concurrency != nil ||
 		req.Priority != nil ||
+		req.RateMultiplier != nil ||
 		req.Status != "" ||
 		req.Schedulable != nil ||
 		req.Archived != nil ||
@@ -701,6 +719,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		ProxyID:               req.ProxyID,
 		Concurrency:           req.Concurrency,
 		Priority:              req.Priority,
+		RateMultiplier:        req.RateMultiplier,
 		Status:                req.Status,
 		Schedulable:           req.Schedulable,
 		Archived:              req.Archived,

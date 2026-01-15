@@ -178,38 +178,42 @@ func init() {
 	accountDescPriority := accountFields[8].Descriptor()
 	// account.DefaultPriority holds the default value on creation for the priority field.
 	account.DefaultPriority = accountDescPriority.Default.(int)
+	// accountDescRateMultiplier is the schema descriptor for rate_multiplier field.
+	accountDescRateMultiplier := accountFields[9].Descriptor()
+	// account.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
+	account.DefaultRateMultiplier = accountDescRateMultiplier.Default.(float64)
 	// accountDescStatus is the schema descriptor for status field.
-	accountDescStatus := accountFields[9].Descriptor()
+	accountDescStatus := accountFields[10].Descriptor()
 	// account.DefaultStatus holds the default value on creation for the status field.
 	account.DefaultStatus = accountDescStatus.Default.(string)
 	// account.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	account.StatusValidator = accountDescStatus.Validators[0].(func(string) error)
 	// accountDescAutoPauseOnExpired is the schema descriptor for auto_pause_on_expired field.
-	accountDescAutoPauseOnExpired := accountFields[13].Descriptor()
+	accountDescAutoPauseOnExpired := accountFields[14].Descriptor()
 	// account.DefaultAutoPauseOnExpired holds the default value on creation for the auto_pause_on_expired field.
 	account.DefaultAutoPauseOnExpired = accountDescAutoPauseOnExpired.Default.(bool)
 	// accountDescSchedulable is the schema descriptor for schedulable field.
-	accountDescSchedulable := accountFields[14].Descriptor()
+	accountDescSchedulable := accountFields[15].Descriptor()
 	// account.DefaultSchedulable holds the default value on creation for the schedulable field.
 	account.DefaultSchedulable = accountDescSchedulable.Default.(bool)
 	// accountDescSessionWindowStatus is the schema descriptor for session_window_status field.
-	accountDescSessionWindowStatus := accountFields[20].Descriptor()
+	accountDescSessionWindowStatus := accountFields[21].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
 	// accountDescMaxRpm is the schema descriptor for max_rpm field.
-	accountDescMaxRpm := accountFields[21].Descriptor()
+	accountDescMaxRpm := accountFields[22].Descriptor()
 	// account.DefaultMaxRpm holds the default value on creation for the max_rpm field.
 	account.DefaultMaxRpm = accountDescMaxRpm.Default.(int)
 	// accountDescMax30mRequests is the schema descriptor for max_30m_requests field.
-	accountDescMax30mRequests := accountFields[22].Descriptor()
+	accountDescMax30mRequests := accountFields[23].Descriptor()
 	// account.DefaultMax30mRequests holds the default value on creation for the max_30m_requests field.
 	account.DefaultMax30mRequests = accountDescMax30mRequests.Default.(int)
 	// accountDescRateLimitCooldownMinutes is the schema descriptor for rate_limit_cooldown_minutes field.
-	accountDescRateLimitCooldownMinutes := accountFields[23].Descriptor()
+	accountDescRateLimitCooldownMinutes := accountFields[24].Descriptor()
 	// account.DefaultRateLimitCooldownMinutes holds the default value on creation for the rate_limit_cooldown_minutes field.
 	account.DefaultRateLimitCooldownMinutes = accountDescRateLimitCooldownMinutes.Default.(int)
 	// accountDescArchived is the schema descriptor for archived field.
-	accountDescArchived := accountFields[24].Descriptor()
+	accountDescArchived := accountFields[25].Descriptor()
 	// account.DefaultArchived holds the default value on creation for the archived field.
 	account.DefaultArchived = accountDescArchived.Default.(bool)
 	accountgroupFields := schema.AccountGroup{}.Fields()
@@ -670,31 +674,31 @@ func init() {
 	// usagelog.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	usagelog.DefaultRateMultiplier = usagelogDescRateMultiplier.Default.(float64)
 	// usagelogDescBillingType is the schema descriptor for billing_type field.
-	usagelogDescBillingType := usagelogFields[20].Descriptor()
+	usagelogDescBillingType := usagelogFields[21].Descriptor()
 	// usagelog.DefaultBillingType holds the default value on creation for the billing_type field.
 	usagelog.DefaultBillingType = usagelogDescBillingType.Default.(int8)
 	// usagelogDescClientType is the schema descriptor for client_type field.
-	usagelogDescClientType := usagelogFields[21].Descriptor()
+	usagelogDescClientType := usagelogFields[22].Descriptor()
 	// usagelog.DefaultClientType holds the default value on creation for the client_type field.
 	usagelog.DefaultClientType = usagelogDescClientType.Default.(int8)
 	// usagelogDescStream is the schema descriptor for stream field.
-	usagelogDescStream := usagelogFields[22].Descriptor()
+	usagelogDescStream := usagelogFields[23].Descriptor()
 	// usagelog.DefaultStream holds the default value on creation for the stream field.
 	usagelog.DefaultStream = usagelogDescStream.Default.(bool)
 	// usagelogDescUserAgent is the schema descriptor for user_agent field.
-	usagelogDescUserAgent := usagelogFields[25].Descriptor()
+	usagelogDescUserAgent := usagelogFields[26].Descriptor()
 	// usagelog.UserAgentValidator is a validator for the "user_agent" field. It is called by the builders before save.
 	usagelog.UserAgentValidator = usagelogDescUserAgent.Validators[0].(func(string) error)
 	// usagelogDescImageCount is the schema descriptor for image_count field.
-	usagelogDescImageCount := usagelogFields[26].Descriptor()
+	usagelogDescImageCount := usagelogFields[27].Descriptor()
 	// usagelog.DefaultImageCount holds the default value on creation for the image_count field.
 	usagelog.DefaultImageCount = usagelogDescImageCount.Default.(int)
 	// usagelogDescImageSize is the schema descriptor for image_size field.
-	usagelogDescImageSize := usagelogFields[27].Descriptor()
+	usagelogDescImageSize := usagelogFields[28].Descriptor()
 	// usagelog.ImageSizeValidator is a validator for the "image_size" field. It is called by the builders before save.
 	usagelog.ImageSizeValidator = usagelogDescImageSize.Validators[0].(func(string) error)
 	// usagelogDescCreatedAt is the schema descriptor for created_at field.
-	usagelogDescCreatedAt := usagelogFields[28].Descriptor()
+	usagelogDescCreatedAt := usagelogFields[29].Descriptor()
 	// usagelog.DefaultCreatedAt holds the default value on creation for the created_at field.
 	usagelog.DefaultCreatedAt = usagelogDescCreatedAt.Default.(func() time.Time)
 	userMixin := schema.User{}.Mixin()
