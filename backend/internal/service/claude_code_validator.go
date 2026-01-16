@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -66,6 +67,7 @@ func (v *ClaudeCodeValidator) Validate(r *http.Request, body map[string]any) boo
 	// Step 1: User-Agent 检查
 	ua := r.Header.Get("User-Agent")
 	if !claudeCodeUAPattern.MatchString(ua) {
+		log.Printf("[ClaudeCodeValidator] UA check failed: %s", ua)
 		return false
 	}
 
@@ -79,41 +81,49 @@ func (v *ClaudeCodeValidator) Validate(r *http.Request, body map[string]any) boo
 
 	// 3.1 检查 system prompt 相似度
 	if !v.hasClaudeCodeSystemPrompt(body) {
+		log.Printf("[ClaudeCodeValidator] System prompt check failed")
 		return false
 	}
 
 	// 3.2 检查必需的 headers（值不为空即可）
 	xApp := r.Header.Get("X-App")
 	if xApp == "" {
+		log.Printf("[ClaudeCodeValidator] X-App header empty")
 		return false
 	}
 
 	anthropicBeta := r.Header.Get("anthropic-beta")
 	if anthropicBeta == "" {
+		log.Printf("[ClaudeCodeValidator] anthropic-beta header empty")
 		return false
 	}
 
 	anthropicVersion := r.Header.Get("anthropic-version")
 	if anthropicVersion == "" {
+		log.Printf("[ClaudeCodeValidator] anthropic-version header empty")
 		return false
 	}
 
 	// 3.3 验证 metadata.user_id
 	if body == nil {
+		log.Printf("[ClaudeCodeValidator] body is nil")
 		return false
 	}
 
 	metadata, ok := body["metadata"].(map[string]any)
 	if !ok {
+		log.Printf("[ClaudeCodeValidator] metadata not found or not a map")
 		return false
 	}
 
 	userID, ok := metadata["user_id"].(string)
 	if !ok || userID == "" {
+		log.Printf("[ClaudeCodeValidator] user_id not found or empty")
 		return false
 	}
 
 	if !userIDPattern.MatchString(userID) {
+		log.Printf("[ClaudeCodeValidator] user_id format invalid: %s", userID)
 		return false
 	}
 
