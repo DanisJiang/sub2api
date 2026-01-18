@@ -13,7 +13,10 @@
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-primary-800 dark:text-primary-200">{{ announcement.title }}</p>
-          <p class="mt-1 text-sm text-primary-700 dark:text-primary-300 whitespace-pre-wrap">{{ announcement.content }}</p>
+          <p
+            class="mt-1 text-sm text-primary-700 dark:text-primary-300 whitespace-pre-wrap announcement-content"
+            v-html="linkifyContent(announcement.content)"
+          ></p>
         </div>
         <button
           @click="dismissAnnouncement(announcement.id)"
@@ -35,6 +38,22 @@ import { useI18n } from 'vue-i18n'
 import { announcementsAPI, type PublicAnnouncement } from '@/api/announcements'
 
 const { t } = useI18n()
+
+// 转义 HTML 特殊字符
+const escapeHtml = (text: string): string => {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+// 将文本中的 URL 转换为可点击链接
+const linkifyContent = (content: string): string => {
+  // 先转义 HTML
+  const escaped = escapeHtml(content)
+  // URL 正则匹配
+  const urlRegex = /(https?:\/\/[^\s<]+)/g
+  return escaped.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 underline hover:text-primary-800 dark:hover:text-primary-200">$1</a>')
+}
 
 const announcements = ref<PublicAnnouncement[]>([])
 const dismissedIds = ref<Set<number>>(new Set())
