@@ -1691,25 +1691,24 @@ func (s *AntigravityGatewayService) handleUpstreamError(ctx context.Context, pre
 			}
 			ra := time.Now().Add(defaultDur)
 			log.Printf("%s status=429 rate_limited scope=%s reset_in=%v (fallback)", prefix, quotaScope, defaultDur)
-			if quotaScope == "" {
-				return
+			if quotaScope != "" {
+				if err := s.accountRepo.SetAntigravityQuotaScopeLimit(ctx, account.ID, quotaScope, ra); err != nil {
+					log.Printf("%s status=429 rate_limit_set_failed scope=%s error=%v", prefix, quotaScope, err)
+				}
 			}
-			if err := s.accountRepo.SetAntigravityQuotaScopeLimit(ctx, account.ID, quotaScope, ra); err != nil {
-				log.Printf("%s status=429 rate_limit_set_failed scope=%s error=%v", prefix, quotaScope, err)
+		} else {
+			resetTime := time.Unix(*resetAt, 0)
+			log.Printf("%s status=429 rate_limited scope=%s reset_at=%v reset_in=%v", prefix, quotaScope, resetTime.Format("15:04:05"), time.Until(resetTime).Truncate(time.Second))
+			if quotaScope != "" {
+				if err := s.accountRepo.SetAntigravityQuotaScopeLimit(ctx, account.ID, quotaScope, resetTime); err != nil {
+					log.Printf("%s status=429 rate_limit_set_failed scope=%s error=%v", prefix, quotaScope, err)
+				}
 			}
-			return
 		}
-		resetTime := time.Unix(*resetAt, 0)
-		log.Printf("%s status=429 rate_limited scope=%s reset_at=%v reset_in=%v", prefix, quotaScope, resetTime.Format("15:04:05"), time.Until(resetTime).Truncate(time.Second))
-		if quotaScope == "" {
-			return
-		}
-		if err := s.accountRepo.SetAntigravityQuotaScopeLimit(ctx, account.ID, quotaScope, resetTime); err != nil {
-			log.Printf("%s status=429 rate_limit_set_failed scope=%s error=%v", prefix, quotaScope, err)
-		}
-		return
+		// 429 也需要检查账号级别的临时不可调度规则
+		// 继续往下执行 rateLimitService.HandleUpstreamError
 	}
-	// 其他错误码继续使用 rateLimitService
+	// 使用 rateLimitService 处理账号级别的错误（包括临时不可调度规则）
 	if s.rateLimitService == nil {
 		return
 	}
