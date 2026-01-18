@@ -2860,6 +2860,16 @@ export default {
         defaultConcurrency: '默认并发数',
         defaultConcurrencyHint: '新用户的最大并发请求数'
       },
+      gateway: {
+        title: '网关设置',
+        description: 'API 网关的访问控制设置',
+        requireClaudeCode: '仅允许 Claude Code 客户端',
+        requireClaudeCodeHint:
+          '开启后，Anthropic 平台仅允许真正的 Claude Code 客户端访问，第三方客户端将被拒绝',
+        disableUsageFetch: '禁用上游用量查询',
+        disableUsageFetchHint:
+          '开启后，系统将不再从上游（Claude/Antigravity）查询账号用量信息'
+      },
       site: {
         title: '站点设置',
         description: '自定义站点品牌',
