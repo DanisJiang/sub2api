@@ -60,6 +60,10 @@ type Group struct {
 	AllowedModels []string `json:"allowed_models,omitempty"`
 	// 模型名称映射，key 为请求模型，value 为实际发送模型
 	ModelMapping map[string]string `json:"model_mapping,omitempty"`
+	// 模型路由配置：模型模式 -> 优先账号ID列表
+	ModelRouting map[string][]int64 `json:"model_routing,omitempty"`
+	// 是否启用模型路由配置
+	ModelRoutingEnabled bool `json:"model_routing_enabled,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupQuery when eager-loading is set.
 	Edges        GroupEdges `json:"edges"`
@@ -166,9 +170,9 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case group.FieldAllowedModels, group.FieldModelMapping:
+		case group.FieldAllowedModels, group.FieldModelMapping, group.FieldModelRouting:
 			values[i] = new([]byte)
-		case group.FieldIsExclusive, group.FieldClaudeCodeOnly:
+		case group.FieldIsExclusive, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled:
 			values[i] = new(sql.NullBool)
 		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
 			values[i] = new(sql.NullFloat64)
@@ -338,6 +342,20 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field model_mapping: %w", err)
 				}
 			}
+		case group.FieldModelRouting:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field model_routing", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ModelRouting); err != nil {
+					return fmt.Errorf("unmarshal field model_routing: %w", err)
+				}
+			}
+		case group.FieldModelRoutingEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field model_routing_enabled", values[i])
+			} else if value.Valid {
+				_m.ModelRoutingEnabled = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -494,6 +512,12 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("model_mapping=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ModelMapping))
+	builder.WriteString(", ")
+	builder.WriteString("model_routing=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ModelRouting))
+	builder.WriteString(", ")
+	builder.WriteString("model_routing_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ModelRoutingEnabled))
 	builder.WriteByte(')')
 	return builder.String()
 }

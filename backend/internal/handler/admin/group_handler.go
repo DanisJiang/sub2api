@@ -42,6 +42,9 @@ type CreateGroupRequest struct {
 	FallbackGroupID *int64            `json:"fallback_group_id"`
 	AllowedModels   []string          `json:"allowed_models"`
 	ModelMapping    map[string]string `json:"model_mapping"`
+	// 模型路由配置（仅 anthropic 平台使用）
+	ModelRouting        map[string][]int64 `json:"model_routing"`
+	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
 }
 
 // UpdateGroupRequest represents update group request
@@ -64,6 +67,9 @@ type UpdateGroupRequest struct {
 	FallbackGroupID *int64             `json:"fallback_group_id"`
 	AllowedModels   *[]string          `json:"allowed_models"`
 	ModelMapping    *map[string]string `json:"model_mapping"`
+	// 模型路由配置（仅 anthropic 平台使用）
+	ModelRouting        map[string][]int64 `json:"model_routing"`
+	ModelRoutingEnabled *bool              `json:"model_routing_enabled"`
 }
 
 // List handles listing all groups with pagination
@@ -92,9 +98,9 @@ func (h *GroupHandler) List(c *gin.Context) {
 		return
 	}
 
-	outGroups := make([]dto.Group, 0, len(groups))
+	outGroups := make([]dto.AdminGroup, 0, len(groups))
 	for i := range groups {
-		outGroups = append(outGroups, *dto.GroupFromService(&groups[i]))
+		outGroups = append(outGroups, *dto.GroupFromServiceAdmin(&groups[i]))
 	}
 	response.Paginated(c, outGroups, total, page, pageSize)
 }
@@ -118,9 +124,9 @@ func (h *GroupHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	outGroups := make([]dto.Group, 0, len(groups))
+	outGroups := make([]dto.AdminGroup, 0, len(groups))
 	for i := range groups {
-		outGroups = append(outGroups, *dto.GroupFromService(&groups[i]))
+		outGroups = append(outGroups, *dto.GroupFromServiceAdmin(&groups[i]))
 	}
 	response.Success(c, outGroups)
 }
@@ -140,7 +146,7 @@ func (h *GroupHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.GroupFromService(group))
+	response.Success(c, dto.GroupFromServiceAdmin(group))
 }
 
 // Create handles creating a new group
@@ -153,29 +159,31 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	}
 
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
-		Name:             req.Name,
-		Description:      req.Description,
-		Platform:         req.Platform,
-		RateMultiplier:   req.RateMultiplier,
-		IsExclusive:      req.IsExclusive,
-		SubscriptionType: req.SubscriptionType,
-		DailyLimitUSD:    req.DailyLimitUSD,
-		WeeklyLimitUSD:   req.WeeklyLimitUSD,
-		MonthlyLimitUSD:  req.MonthlyLimitUSD,
-		ImagePrice1K:     req.ImagePrice1K,
-		ImagePrice2K:     req.ImagePrice2K,
-		ImagePrice4K:     req.ImagePrice4K,
-		ClaudeCodeOnly:   req.ClaudeCodeOnly,
-		FallbackGroupID:  req.FallbackGroupID,
-		AllowedModels:    req.AllowedModels,
-		ModelMapping:     req.ModelMapping,
+		Name:                req.Name,
+		Description:         req.Description,
+		Platform:            req.Platform,
+		RateMultiplier:      req.RateMultiplier,
+		IsExclusive:         req.IsExclusive,
+		SubscriptionType:    req.SubscriptionType,
+		DailyLimitUSD:       req.DailyLimitUSD,
+		WeeklyLimitUSD:      req.WeeklyLimitUSD,
+		MonthlyLimitUSD:     req.MonthlyLimitUSD,
+		ImagePrice1K:        req.ImagePrice1K,
+		ImagePrice2K:        req.ImagePrice2K,
+		ImagePrice4K:        req.ImagePrice4K,
+		ClaudeCodeOnly:      req.ClaudeCodeOnly,
+		FallbackGroupID:     req.FallbackGroupID,
+		AllowedModels:       req.AllowedModels,
+		ModelMapping:        req.ModelMapping,
+		ModelRouting:        req.ModelRouting,
+		ModelRoutingEnabled: req.ModelRoutingEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	response.Success(c, dto.GroupFromService(group))
+	response.Success(c, dto.GroupFromServiceAdmin(group))
 }
 
 // Update handles updating a group
@@ -194,30 +202,32 @@ func (h *GroupHandler) Update(c *gin.Context) {
 	}
 
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
-		Name:             req.Name,
-		Description:      req.Description,
-		Platform:         req.Platform,
-		RateMultiplier:   req.RateMultiplier,
-		IsExclusive:      req.IsExclusive,
-		Status:           req.Status,
-		SubscriptionType: req.SubscriptionType,
-		DailyLimitUSD:    req.DailyLimitUSD,
-		WeeklyLimitUSD:   req.WeeklyLimitUSD,
-		MonthlyLimitUSD:  req.MonthlyLimitUSD,
-		ImagePrice1K:     req.ImagePrice1K,
-		ImagePrice2K:     req.ImagePrice2K,
-		ImagePrice4K:     req.ImagePrice4K,
-		ClaudeCodeOnly:   req.ClaudeCodeOnly,
-		FallbackGroupID:  req.FallbackGroupID,
-		AllowedModels:    req.AllowedModels,
-		ModelMapping:     req.ModelMapping,
+		Name:                req.Name,
+		Description:         req.Description,
+		Platform:            req.Platform,
+		RateMultiplier:      req.RateMultiplier,
+		IsExclusive:         req.IsExclusive,
+		Status:              req.Status,
+		SubscriptionType:    req.SubscriptionType,
+		DailyLimitUSD:       req.DailyLimitUSD,
+		WeeklyLimitUSD:      req.WeeklyLimitUSD,
+		MonthlyLimitUSD:     req.MonthlyLimitUSD,
+		ImagePrice1K:        req.ImagePrice1K,
+		ImagePrice2K:        req.ImagePrice2K,
+		ImagePrice4K:        req.ImagePrice4K,
+		ClaudeCodeOnly:      req.ClaudeCodeOnly,
+		FallbackGroupID:     req.FallbackGroupID,
+		AllowedModels:       req.AllowedModels,
+		ModelMapping:        req.ModelMapping,
+		ModelRouting:        req.ModelRouting,
+		ModelRoutingEnabled: req.ModelRoutingEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	response.Success(c, dto.GroupFromService(group))
+	response.Success(c, dto.GroupFromServiceAdmin(group))
 }
 
 // Delete handles deleting a group

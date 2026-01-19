@@ -298,6 +298,26 @@ func (_c *GroupCreate) SetModelMapping(v map[string]string) *GroupCreate {
 	return _c
 }
 
+// SetModelRouting sets the "model_routing" field.
+func (_c *GroupCreate) SetModelRouting(v map[string][]int64) *GroupCreate {
+	_c.mutation.SetModelRouting(v)
+	return _c
+}
+
+// SetModelRoutingEnabled sets the "model_routing_enabled" field.
+func (_c *GroupCreate) SetModelRoutingEnabled(v bool) *GroupCreate {
+	_c.mutation.SetModelRoutingEnabled(v)
+	return _c
+}
+
+// SetNillableModelRoutingEnabled sets the "model_routing_enabled" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableModelRoutingEnabled(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetModelRoutingEnabled(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -467,6 +487,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultClaudeCodeOnly
 		_c.mutation.SetClaudeCodeOnly(v)
 	}
+	if _, ok := _c.mutation.ModelRoutingEnabled(); !ok {
+		v := group.DefaultModelRoutingEnabled
+		_c.mutation.SetModelRoutingEnabled(v)
+	}
 	return nil
 }
 
@@ -521,6 +545,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.ClaudeCodeOnly(); !ok {
 		return &ValidationError{Name: "claude_code_only", err: errors.New(`ent: missing required field "Group.claude_code_only"`)}
+	}
+	if _, ok := _c.mutation.ModelRoutingEnabled(); !ok {
+		return &ValidationError{Name: "model_routing_enabled", err: errors.New(`ent: missing required field "Group.model_routing_enabled"`)}
 	}
 	return nil
 }
@@ -632,6 +659,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ModelMapping(); ok {
 		_spec.SetField(group.FieldModelMapping, field.TypeJSON, value)
 		_node.ModelMapping = value
+	}
+	if value, ok := _c.mutation.ModelRouting(); ok {
+		_spec.SetField(group.FieldModelRouting, field.TypeJSON, value)
+		_node.ModelRouting = value
+	}
+	if value, ok := _c.mutation.ModelRoutingEnabled(); ok {
+		_spec.SetField(group.FieldModelRoutingEnabled, field.TypeBool, value)
+		_node.ModelRoutingEnabled = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1149,6 +1184,36 @@ func (u *GroupUpsert) ClearModelMapping() *GroupUpsert {
 	return u
 }
 
+// SetModelRouting sets the "model_routing" field.
+func (u *GroupUpsert) SetModelRouting(v map[string][]int64) *GroupUpsert {
+	u.Set(group.FieldModelRouting, v)
+	return u
+}
+
+// UpdateModelRouting sets the "model_routing" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateModelRouting() *GroupUpsert {
+	u.SetExcluded(group.FieldModelRouting)
+	return u
+}
+
+// ClearModelRouting clears the value of the "model_routing" field.
+func (u *GroupUpsert) ClearModelRouting() *GroupUpsert {
+	u.SetNull(group.FieldModelRouting)
+	return u
+}
+
+// SetModelRoutingEnabled sets the "model_routing_enabled" field.
+func (u *GroupUpsert) SetModelRoutingEnabled(v bool) *GroupUpsert {
+	u.Set(group.FieldModelRoutingEnabled, v)
+	return u
+}
+
+// UpdateModelRoutingEnabled sets the "model_routing_enabled" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateModelRoutingEnabled() *GroupUpsert {
+	u.SetExcluded(group.FieldModelRoutingEnabled)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1611,6 +1676,41 @@ func (u *GroupUpsertOne) UpdateModelMapping() *GroupUpsertOne {
 func (u *GroupUpsertOne) ClearModelMapping() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearModelMapping()
+	})
+}
+
+// SetModelRouting sets the "model_routing" field.
+func (u *GroupUpsertOne) SetModelRouting(v map[string][]int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelRouting(v)
+	})
+}
+
+// UpdateModelRouting sets the "model_routing" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateModelRouting() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelRouting()
+	})
+}
+
+// ClearModelRouting clears the value of the "model_routing" field.
+func (u *GroupUpsertOne) ClearModelRouting() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearModelRouting()
+	})
+}
+
+// SetModelRoutingEnabled sets the "model_routing_enabled" field.
+func (u *GroupUpsertOne) SetModelRoutingEnabled(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelRoutingEnabled(v)
+	})
+}
+
+// UpdateModelRoutingEnabled sets the "model_routing_enabled" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateModelRoutingEnabled() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelRoutingEnabled()
 	})
 }
 
@@ -2242,6 +2342,41 @@ func (u *GroupUpsertBulk) UpdateModelMapping() *GroupUpsertBulk {
 func (u *GroupUpsertBulk) ClearModelMapping() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearModelMapping()
+	})
+}
+
+// SetModelRouting sets the "model_routing" field.
+func (u *GroupUpsertBulk) SetModelRouting(v map[string][]int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelRouting(v)
+	})
+}
+
+// UpdateModelRouting sets the "model_routing" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateModelRouting() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelRouting()
+	})
+}
+
+// ClearModelRouting clears the value of the "model_routing" field.
+func (u *GroupUpsertBulk) ClearModelRouting() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearModelRouting()
+	})
+}
+
+// SetModelRoutingEnabled sets the "model_routing_enabled" field.
+func (u *GroupUpsertBulk) SetModelRoutingEnabled(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelRoutingEnabled(v)
+	})
+}
+
+// UpdateModelRoutingEnabled sets the "model_routing_enabled" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateModelRoutingEnabled() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelRoutingEnabled()
 	})
 }
 

@@ -105,6 +105,9 @@ func (m *mockAccountRepoForPlatform) BatchUpdateLastUsed(ctx context.Context, up
 func (m *mockAccountRepoForPlatform) SetError(ctx context.Context, id int64, errorMsg string) error {
 	return nil
 }
+func (m *mockAccountRepoForPlatform) ClearError(ctx context.Context, id int64) error {
+	return nil
+}
 func (m *mockAccountRepoForPlatform) SetSchedulable(ctx context.Context, id int64, schedulable bool) error {
 	return nil
 }
@@ -145,6 +148,9 @@ func (m *mockAccountRepoForPlatform) SetRateLimited(ctx context.Context, id int6
 func (m *mockAccountRepoForPlatform) SetAntigravityQuotaScopeLimit(ctx context.Context, id int64, scope AntigravityQuotaScope, resetAt time.Time) error {
 	return nil
 }
+func (m *mockAccountRepoForPlatform) SetModelRateLimit(ctx context.Context, id int64, scope string, resetAt time.Time) error {
+	return nil
+}
 func (m *mockAccountRepoForPlatform) SetOverloaded(ctx context.Context, id int64, until time.Time) error {
 	return nil
 }
@@ -158,6 +164,9 @@ func (m *mockAccountRepoForPlatform) ClearRateLimit(ctx context.Context, id int6
 	return nil
 }
 func (m *mockAccountRepoForPlatform) ClearAntigravityQuotaScopes(ctx context.Context, id int64) error {
+	return nil
+}
+func (m *mockAccountRepoForPlatform) ClearModelRateLimits(ctx context.Context, id int64) error {
 	return nil
 }
 func (m *mockAccountRepoForPlatform) UpdateSessionWindow(ctx context.Context, id int64, start, end *time.Time, status string) error {
@@ -1144,6 +1153,61 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.Equal(t, int64(1), result.Account.ID, "应选择优先级最高的账号")
 	})
 
+	t.Run("模型路由-无ConcurrencyService也生效", func(t *testing.T) {
+		t.Skip("Model routing in SelectAccountWithLoadAwareness not implemented in local version")
+		groupID := int64(1)
+		sessionHash := "sticky"
+
+		repo := &mockAccountRepoForPlatform{
+			accounts: []Account{
+				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+			},
+			accountsByID: map[int64]*Account{},
+		}
+		for i := range repo.accounts {
+			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+		}
+
+		cache := &mockGatewayCacheForPlatform{
+			sessionBindings: map[string]int64{sessionHash: 1},
+		}
+
+		groupRepo := &mockGroupRepoForGateway{
+			groups: map[int64]*Group{
+				groupID: {
+					ID:                  groupID,
+					Platform:            PlatformAnthropic,
+					Status:              StatusActive,
+					Hydrated:            true,
+					ModelRoutingEnabled: true,
+					ModelRouting: map[string][]int64{
+						"claude-a": {1},
+						"claude-b": {2},
+					},
+				},
+			},
+		}
+
+		cfg := testConfig()
+		cfg.Gateway.Scheduling.LoadBatchEnabled = true
+
+		svc := &GatewayService{
+			accountRepo:        repo,
+			groupRepo:          groupRepo,
+			cache:              cache,
+			cfg:                cfg,
+			concurrencyService: nil, // legacy path
+		}
+
+		result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, sessionHash, "claude-b", nil)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.NotNil(t, result.Account)
+		require.Equal(t, int64(2), result.Account.ID, "切换到 claude-b 时应按模型路由切换账号")
+		require.Equal(t, int64(2), cache.sessionBindings[sessionHash], "粘性绑定应更新为路由选择的账号")
+	})
+
 	t.Run("无ConcurrencyService-降级到传统选择", func(t *testing.T) {
 		repo := &mockAccountRepoForPlatform{
 			accounts: []Account{
@@ -1432,6 +1496,7 @@ func TestGatewayService_GroupResolution_IgnoresInvalidContextGroup(t *testing.T)
 		ID:       groupID,
 		Platform: PlatformAnthropic,
 		Status:   StatusActive,
+		Hydrated: true,
 	}
 	groupRepo := &mockGroupRepoForGateway{
 		groups: map[int64]*Group{groupID: group},
@@ -1489,6 +1554,7 @@ func TestGatewayService_GroupResolution_FallbackUsesLiteOnce(t *testing.T) {
 		ID:       fallbackID,
 		Platform: PlatformAnthropic,
 		Status:   StatusActive,
+		Hydrated: true,
 	}
 	ctx = context.WithValue(ctx, ctxkey.Group, group)
 

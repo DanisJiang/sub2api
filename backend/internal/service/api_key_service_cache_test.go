@@ -142,6 +142,14 @@ func (s *authCacheStub) DeleteAuthCache(ctx context.Context, key string) error {
 	return nil
 }
 
+func (s *authCacheStub) PublishAuthCacheInvalidation(ctx context.Context, cacheKey string) error {
+	return nil
+}
+
+func (s *authCacheStub) SubscribeAuthCacheInvalidation(ctx context.Context, handler func(cacheKey string)) error {
+	return nil
+}
+
 func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	cache := &authCacheStub{}
 	repo := &authRepoStub{
@@ -172,12 +180,16 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 				Concurrency: 3,
 			},
 			Group: &APIKeyAuthGroupSnapshot{
-				ID:               groupID,
-				Name:             "g",
-				Platform:         PlatformAnthropic,
-				Status:           StatusActive,
-				SubscriptionType: SubscriptionTypeStandard,
-				RateMultiplier:   1,
+				ID:                  groupID,
+				Name:                "g",
+				Platform:            PlatformAnthropic,
+				Status:              StatusActive,
+				SubscriptionType:    SubscriptionTypeStandard,
+				RateMultiplier:      1,
+				ModelRoutingEnabled: true,
+				ModelRouting: map[string][]int64{
+					"claude-opus-*": {1, 2},
+				},
 			},
 		},
 	}
@@ -190,6 +202,8 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	require.Equal(t, int64(1), apiKey.ID)
 	require.Equal(t, int64(2), apiKey.User.ID)
 	require.Equal(t, groupID, apiKey.Group.ID)
+	require.True(t, apiKey.Group.ModelRoutingEnabled)
+	require.Equal(t, map[string][]int64{"claude-opus-*": {1, 2}}, apiKey.Group.ModelRouting)
 }
 
 func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {

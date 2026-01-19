@@ -270,6 +270,8 @@ var (
 		{Name: "fallback_group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "allowed_models", Type: field.TypeJSON, Nullable: true},
 		{Name: "model_mapping", Type: field.TypeJSON, Nullable: true},
+		{Name: "model_routing", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "model_routing_enabled", Type: field.TypeBool, Default: false},
 	}
 	// GroupsTable holds the schema information for the "groups" table.
 	GroupsTable = &schema.Table{
@@ -475,6 +477,44 @@ var (
 		Name:       "settings",
 		Columns:    SettingsColumns,
 		PrimaryKey: []*schema.Column{SettingsColumns[0]},
+	}
+	// UsageCleanupTasksColumns holds the columns for the "usage_cleanup_tasks" table.
+	UsageCleanupTasksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "status", Type: field.TypeString, Size: 20},
+		{Name: "filters", Type: field.TypeJSON},
+		{Name: "created_by", Type: field.TypeInt64},
+		{Name: "deleted_rows", Type: field.TypeInt64, Default: 0},
+		{Name: "error_message", Type: field.TypeString, Nullable: true},
+		{Name: "canceled_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "canceled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "started_at", Type: field.TypeTime, Nullable: true},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
+	}
+	// UsageCleanupTasksTable holds the schema information for the "usage_cleanup_tasks" table.
+	UsageCleanupTasksTable = &schema.Table{
+		Name:       "usage_cleanup_tasks",
+		Columns:    UsageCleanupTasksColumns,
+		PrimaryKey: []*schema.Column{UsageCleanupTasksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "usagecleanuptask_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UsageCleanupTasksColumns[3], UsageCleanupTasksColumns[1]},
+			},
+			{
+				Name:    "usagecleanuptask_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UsageCleanupTasksColumns[1]},
+			},
+			{
+				Name:    "usagecleanuptask_canceled_at",
+				Unique:  false,
+				Columns: []*schema.Column{UsageCleanupTasksColumns[9]},
+			},
+		},
 	}
 	// UsageLogsColumns holds the columns for the "usage_logs" table.
 	UsageLogsColumns = []*schema.Column{
@@ -848,6 +888,7 @@ var (
 		ProxiesTable,
 		RedeemCodesTable,
 		SettingsTable,
+		UsageCleanupTasksTable,
 		UsageLogsTable,
 		UsersTable,
 		UserAllowedGroupsTable,
@@ -896,6 +937,9 @@ func init() {
 	}
 	SettingsTable.Annotation = &entsql.Annotation{
 		Table: "settings",
+	}
+	UsageCleanupTasksTable.Annotation = &entsql.Annotation{
+		Table: "usage_cleanup_tasks",
 	}
 	UsageLogsTable.ForeignKeys[0].RefTable = APIKeysTable
 	UsageLogsTable.ForeignKeys[1].RefTable = AccountsTable

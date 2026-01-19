@@ -42,6 +42,7 @@ type AdminService interface {
 	DeleteAccount(ctx context.Context, id int64) error
 	RefreshAccountCredentials(ctx context.Context, id int64) (*Account, error)
 	ClearAccountError(ctx context.Context, id int64) (*Account, error)
+	SetAccountError(ctx context.Context, id int64, errorMsg string) error
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
 	SetAccountArchived(ctx context.Context, id int64, archived bool) (*Account, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
@@ -109,6 +110,9 @@ type CreateGroupInput struct {
 	FallbackGroupID *int64            // 降级分组 ID
 	AllowedModels   []string          // 模型白名单
 	ModelMapping    map[string]string // 模型映射
+	// 模型路由配置（仅 anthropic 平台使用）
+	ModelRouting        map[string][]int64
+	ModelRoutingEnabled bool // 是否启用模型路由
 }
 
 type UpdateGroupInput struct {
@@ -130,6 +134,9 @@ type UpdateGroupInput struct {
 	FallbackGroupID *int64             // 降级分组 ID
 	AllowedModels   *[]string          // 模型白名单（使用指针区分"未提供"和"设置为空数组"）
 	ModelMapping    *map[string]string // 模型映射（使用指针区分"未提供"和"设置为空map"）
+	// 模型路由配置（仅 anthropic 平台使用）
+	ModelRouting        map[string][]int64
+	ModelRoutingEnabled *bool // 是否启用模型路由
 }
 
 type CreateAccountInput struct {
@@ -597,6 +604,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		FallbackGroupID:  input.FallbackGroupID,
 		AllowedModels:    input.AllowedModels,
 		ModelMapping:     input.ModelMapping,
+		ModelRouting:        input.ModelRouting,
+		ModelRoutingEnabled: input.ModelRoutingEnabled,
 	}
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
@@ -733,6 +742,14 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 模型映射
 	if input.ModelMapping != nil {
 		group.ModelMapping = *input.ModelMapping
+	}
+
+	// 模型路由配置
+	if input.ModelRouting != nil {
+		group.ModelRouting = input.ModelRouting
+	}
+	if input.ModelRoutingEnabled != nil {
+		group.ModelRoutingEnabled = *input.ModelRoutingEnabled
 	}
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {
@@ -1126,6 +1143,10 @@ func (s *adminServiceImpl) ClearAccountError(ctx context.Context, id int64) (*Ac
 		return nil, err
 	}
 	return account, nil
+}
+
+func (s *adminServiceImpl) SetAccountError(ctx context.Context, id int64, errorMsg string) error {
+	return s.accountRepo.SetError(ctx, id, errorMsg)
 }
 
 func (s *adminServiceImpl) SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error) {

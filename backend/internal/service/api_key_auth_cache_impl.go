@@ -94,6 +94,20 @@ func (s *APIKeyService) initAuthCache(cfg *config.Config) {
 	s.authCacheL1 = cache
 }
 
+// StartAuthCacheInvalidationSubscriber starts the Pub/Sub subscriber for L1 cache invalidation.
+// This should be called after the service is fully initialized.
+func (s *APIKeyService) StartAuthCacheInvalidationSubscriber(ctx context.Context) {
+	if s.cache == nil || s.authCacheL1 == nil {
+		return
+	}
+	if err := s.cache.SubscribeAuthCacheInvalidation(ctx, func(cacheKey string) {
+		s.authCacheL1.Del(cacheKey)
+	}); err != nil {
+		// Log but don't fail - L1 cache will still work, just without cross-instance invalidation
+		println("[Service] Warning: failed to start auth cache invalidation subscriber:", err.Error())
+	}
+}
+
 func (s *APIKeyService) authCacheKey(key string) string {
 	sum := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(sum[:])
@@ -149,6 +163,8 @@ func (s *APIKeyService) deleteAuthCache(ctx context.Context, cacheKey string) {
 		return
 	}
 	_ = s.cache.DeleteAuthCache(ctx, cacheKey)
+	// Publish invalidation message to other instances
+	_ = s.cache.PublishAuthCacheInvalidation(ctx, cacheKey)
 }
 
 func (s *APIKeyService) loadAuthCacheEntry(ctx context.Context, key, cacheKey string) (*APIKeyAuthCacheEntry, error) {
@@ -207,20 +223,22 @@ func (s *APIKeyService) snapshotFromAPIKey(apiKey *APIKey) *APIKeyAuthSnapshot {
 	}
 	if apiKey.Group != nil {
 		snapshot.Group = &APIKeyAuthGroupSnapshot{
-			ID:               apiKey.Group.ID,
-			Name:             apiKey.Group.Name,
-			Platform:         apiKey.Group.Platform,
-			Status:           apiKey.Group.Status,
-			SubscriptionType: apiKey.Group.SubscriptionType,
-			RateMultiplier:   apiKey.Group.RateMultiplier,
-			DailyLimitUSD:    apiKey.Group.DailyLimitUSD,
-			WeeklyLimitUSD:   apiKey.Group.WeeklyLimitUSD,
-			MonthlyLimitUSD:  apiKey.Group.MonthlyLimitUSD,
-			ImagePrice1K:     apiKey.Group.ImagePrice1K,
-			ImagePrice2K:     apiKey.Group.ImagePrice2K,
-			ImagePrice4K:     apiKey.Group.ImagePrice4K,
-			ClaudeCodeOnly:   apiKey.Group.ClaudeCodeOnly,
-			FallbackGroupID:  apiKey.Group.FallbackGroupID,
+			ID:                  apiKey.Group.ID,
+			Name:                apiKey.Group.Name,
+			Platform:            apiKey.Group.Platform,
+			Status:              apiKey.Group.Status,
+			SubscriptionType:    apiKey.Group.SubscriptionType,
+			RateMultiplier:      apiKey.Group.RateMultiplier,
+			DailyLimitUSD:       apiKey.Group.DailyLimitUSD,
+			WeeklyLimitUSD:      apiKey.Group.WeeklyLimitUSD,
+			MonthlyLimitUSD:     apiKey.Group.MonthlyLimitUSD,
+			ImagePrice1K:        apiKey.Group.ImagePrice1K,
+			ImagePrice2K:        apiKey.Group.ImagePrice2K,
+			ImagePrice4K:        apiKey.Group.ImagePrice4K,
+			ClaudeCodeOnly:      apiKey.Group.ClaudeCodeOnly,
+			FallbackGroupID:     apiKey.Group.FallbackGroupID,
+			ModelRouting:        apiKey.Group.ModelRouting,
+			ModelRoutingEnabled: apiKey.Group.ModelRoutingEnabled,
 		}
 	}
 	return snapshot
@@ -248,21 +266,23 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 	}
 	if snapshot.Group != nil {
 		apiKey.Group = &Group{
-			ID:               snapshot.Group.ID,
-			Name:             snapshot.Group.Name,
-			Platform:         snapshot.Group.Platform,
-			Status:           snapshot.Group.Status,
-			Hydrated:         true,
-			SubscriptionType: snapshot.Group.SubscriptionType,
-			RateMultiplier:   snapshot.Group.RateMultiplier,
-			DailyLimitUSD:    snapshot.Group.DailyLimitUSD,
-			WeeklyLimitUSD:   snapshot.Group.WeeklyLimitUSD,
-			MonthlyLimitUSD:  snapshot.Group.MonthlyLimitUSD,
-			ImagePrice1K:     snapshot.Group.ImagePrice1K,
-			ImagePrice2K:     snapshot.Group.ImagePrice2K,
-			ImagePrice4K:     snapshot.Group.ImagePrice4K,
-			ClaudeCodeOnly:   snapshot.Group.ClaudeCodeOnly,
-			FallbackGroupID:  snapshot.Group.FallbackGroupID,
+			ID:                  snapshot.Group.ID,
+			Name:                snapshot.Group.Name,
+			Platform:            snapshot.Group.Platform,
+			Status:              snapshot.Group.Status,
+			Hydrated:            true,
+			SubscriptionType:    snapshot.Group.SubscriptionType,
+			RateMultiplier:      snapshot.Group.RateMultiplier,
+			DailyLimitUSD:       snapshot.Group.DailyLimitUSD,
+			WeeklyLimitUSD:      snapshot.Group.WeeklyLimitUSD,
+			MonthlyLimitUSD:     snapshot.Group.MonthlyLimitUSD,
+			ImagePrice1K:        snapshot.Group.ImagePrice1K,
+			ImagePrice2K:        snapshot.Group.ImagePrice2K,
+			ImagePrice4K:        snapshot.Group.ImagePrice4K,
+			ClaudeCodeOnly:      snapshot.Group.ClaudeCodeOnly,
+			FallbackGroupID:     snapshot.Group.FallbackGroupID,
+			ModelRouting:        snapshot.Group.ModelRouting,
+			ModelRoutingEnabled: snapshot.Group.ModelRoutingEnabled,
 		}
 	}
 	return apiKey

@@ -94,6 +94,7 @@ type OpenAIGatewayService struct {
 	httpUpstream        HTTPUpstream
 	deferredService     *DeferredService
 	openAITokenProvider *OpenAITokenProvider
+	toolCorrector       *CodexToolCorrector
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
@@ -128,15 +129,34 @@ func NewOpenAIGatewayService(
 		httpUpstream:        httpUpstream,
 		deferredService:     deferredService,
 		openAITokenProvider: openAITokenProvider,
+		toolCorrector:       NewCodexToolCorrector(),
 	}
 }
 
-// GenerateSessionHash generates session hash from header (OpenAI uses session_id header)
-func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context) string {
-	sessionID := c.GetHeader("session_id")
+// GenerateSessionHash generates a sticky-session hash for OpenAI requests.
+//
+// Priority:
+//  1. Header: session_id
+//  2. Header: conversation_id
+//  3. Body:   prompt_cache_key (opencode)
+func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context, reqBody map[string]any) string {
+	if c == nil {
+		return ""
+	}
+
+	sessionID := strings.TrimSpace(c.GetHeader("session_id"))
+	if sessionID == "" {
+		sessionID = strings.TrimSpace(c.GetHeader("conversation_id"))
+	}
+	if sessionID == "" && reqBody != nil {
+		if v, ok := reqBody["prompt_cache_key"].(string); ok {
+			sessionID = strings.TrimSpace(v)
+		}
+	}
 	if sessionID == "" {
 		return ""
 	}
+
 	hash := sha256.Sum256([]byte(sessionID))
 	return hex.EncodeToString(hash[:])
 }
@@ -1106,6 +1126,11 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 					line = s.replaceModelInSSELine(line, mappedModel, originalModel)
 				}
 
+				// Correct Codex tool calls if needed (apply_patch -> edit, etc.)
+				if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEData(data); corrected {
+					line = "data: " + correctedData
+				}
+
 				// Forward line
 				if _, err := fmt.Fprintf(w, "%s\n", line); err != nil {
 					sendErrorEvent("write_failed")
@@ -1191,6 +1216,20 @@ func (s *OpenAIGatewayService) replaceModelInSSELine(line, fromModel, toModel st
 	}
 
 	return line
+}
+
+// correctToolCallsInResponseBody 修正响应体中的工具调用
+func (s *OpenAIGatewayService) correctToolCallsInResponseBody(body []byte) []byte {
+	if len(body) == 0 {
+		return body
+	}
+
+	bodyStr := string(body)
+	corrected, changed := s.toolCorrector.CorrectToolCallsInSSEData(bodyStr)
+	if changed {
+		return []byte(corrected)
+	}
+	return body
 }
 
 func (s *OpenAIGatewayService) parseSSEUsage(data string, usage *OpenAIUsage) {
@@ -1296,6 +1335,8 @@ func (s *OpenAIGatewayService) handleOAuthSSEToJSON(resp *http.Response, c *gin.
 		if originalModel != mappedModel {
 			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
 		}
+		// Correct tool calls in final response
+		body = s.correctToolCallsInResponseBody(body)
 	} else {
 		usage = s.parseSSEUsageFromBody(bodyText)
 		if originalModel != mappedModel {

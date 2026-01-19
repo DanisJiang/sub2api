@@ -73,10 +73,14 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		return false
 	}
 
-	tempMatched := false
+	// 先尝试临时不可调度规则（401除外）
+	// 如果匹配成功，直接返回，不执行后续禁用逻辑
 	if statusCode != 401 {
-		tempMatched = s.tryTempUnschedulable(ctx, account, statusCode, responseBody)
+		if s.tryTempUnschedulable(ctx, account, statusCode, responseBody) {
+			return true
+		}
 	}
+
 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(responseBody))
 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 	if upstreamMsg != "" {
@@ -90,6 +94,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			s.handleAuthError(ctx, account, "Account disabled (400): organization has been disabled")
 			shouldDisable = true
 		}
+		// 其他 400 错误（如参数问题）不处理，不禁用账号
 	case 401:
 		// 对所有 OAuth 账号在 401 错误时调用缓存失效并强制下次刷新
 		if account.Type == AccountTypeOAuth {
@@ -133,7 +138,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		s.handleAuthError(ctx, account, msg)
 		shouldDisable = true
 	case 429:
-		s.handle429(ctx, account, headers)
+		s.handle429(ctx, account, headers, responseBody)
 		shouldDisable = false
 	case 529:
 		s.handle529(ctx, account)
@@ -154,9 +159,6 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		}
 	}
 
-	if tempMatched {
-		return true
-	}
 	return shouldDisable
 }
 
@@ -196,7 +198,7 @@ func (s *RateLimitService) PreCheckUsage(ctx context.Context, account *Account, 
 			start := geminiDailyWindowStart(now)
 			totals, ok := s.getGeminiUsageTotals(account.ID, start, now)
 			if !ok {
-				stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil)
+				stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil, nil)
 				if err != nil {
 					return true, err
 				}
@@ -243,7 +245,7 @@ func (s *RateLimitService) PreCheckUsage(ctx context.Context, account *Account, 
 
 		if limit > 0 {
 			start := now.Truncate(time.Minute)
-			stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil)
+			stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil, nil)
 			if err != nil {
 				return true, err
 			}
@@ -339,12 +341,20 @@ func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *A
 
 // handle429 处理429限流错误
 // 解析响应头获取重置时间，标记账号为限流状态
-func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header) {
+func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
 	// 解析重置时间戳
 	resetTimestamp := headers.Get("anthropic-ratelimit-unified-reset")
 	if resetTimestamp == "" {
 		// 没有重置时间，使用默认5分钟
 		resetAt := time.Now().Add(5 * time.Minute)
+		if s.shouldScopeClaudeSonnetRateLimit(account, responseBody) {
+			if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelRateLimitScopeClaudeSonnet, resetAt); err != nil {
+				slog.Warn("model_rate_limit_set_failed", "account_id", account.ID, "scope", modelRateLimitScopeClaudeSonnet, "error", err)
+			} else {
+				slog.Info("account_model_rate_limited", "account_id", account.ID, "scope", modelRateLimitScopeClaudeSonnet, "reset_at", resetAt)
+			}
+			return
+		}
 		if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
 			slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 		}
@@ -356,6 +366,14 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	if err != nil {
 		slog.Warn("rate_limit_reset_parse_failed", "reset_timestamp", resetTimestamp, "error", err)
 		resetAt := time.Now().Add(5 * time.Minute)
+		if s.shouldScopeClaudeSonnetRateLimit(account, responseBody) {
+			if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelRateLimitScopeClaudeSonnet, resetAt); err != nil {
+				slog.Warn("model_rate_limit_set_failed", "account_id", account.ID, "scope", modelRateLimitScopeClaudeSonnet, "error", err)
+			} else {
+				slog.Info("account_model_rate_limited", "account_id", account.ID, "scope", modelRateLimitScopeClaudeSonnet, "reset_at", resetAt)
+			}
+			return
+		}
 		if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
 			slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 		}
@@ -363,6 +381,15 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	}
 
 	resetAt := time.Unix(ts, 0)
+
+	if s.shouldScopeClaudeSonnetRateLimit(account, responseBody) {
+		if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelRateLimitScopeClaudeSonnet, resetAt); err != nil {
+			slog.Warn("model_rate_limit_set_failed", "account_id", account.ID, "scope", modelRateLimitScopeClaudeSonnet, "error", err)
+			return
+		}
+		slog.Info("account_model_rate_limited", "account_id", account.ID, "scope", modelRateLimitScopeClaudeSonnet, "reset_at", resetAt)
+		return
+	}
 
 	// 标记限流状态
 	if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
@@ -378,6 +405,17 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	}
 
 	slog.Info("account_rate_limited", "account_id", account.ID, "reset_at", resetAt)
+}
+
+func (s *RateLimitService) shouldScopeClaudeSonnetRateLimit(account *Account, responseBody []byte) bool {
+	if account == nil || account.Platform != PlatformAnthropic {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(extractUpstreamErrorMessage(responseBody)))
+	if msg == "" {
+		return false
+	}
+	return strings.Contains(msg, "sonnet")
 }
 
 // handle529 处理529过载错误
@@ -437,7 +475,10 @@ func (s *RateLimitService) ClearRateLimit(ctx context.Context, accountID int64) 
 	if err := s.accountRepo.ClearRateLimit(ctx, accountID); err != nil {
 		return err
 	}
-	return s.accountRepo.ClearAntigravityQuotaScopes(ctx, accountID)
+	if err := s.accountRepo.ClearAntigravityQuotaScopes(ctx, accountID); err != nil {
+		return err
+	}
+	return s.accountRepo.ClearModelRateLimits(ctx, accountID)
 }
 
 func (s *RateLimitService) ClearTempUnschedulable(ctx context.Context, accountID int64) error {

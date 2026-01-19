@@ -25,13 +25,14 @@ type SystemSettings struct {
 	LinuxDoConnectClientSecretConfigured bool
 	LinuxDoConnectRedirectURL            string
 
-	SiteName     string
-	SiteLogo     string
-	SiteSubtitle string
-	APIBaseURL   string
-	ContactInfo  string
-	DocURL       string
-	HomeContent  string
+	SiteName            string
+	SiteLogo            string
+	SiteSubtitle        string
+	APIBaseURL          string
+	ContactInfo         string
+	DocURL              string
+	HomeContent         string
+	HideCcsImportButton bool
 
 	DefaultConcurrency int
 	DefaultBalance     float64
@@ -72,6 +73,7 @@ type PublicSettings struct {
 	ContactInfo         string
 	DocURL              string
 	HomeContent         string
+	HideCcsImportButton bool
 	LinuxDoOAuthEnabled bool
 	Version             string
 }

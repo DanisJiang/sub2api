@@ -150,6 +150,11 @@ func FallbackGroupID(v int64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldFallbackGroupID, v))
 }
 
+// ModelRoutingEnabled applies equality check predicate on the "model_routing_enabled" field. It's identical to ModelRoutingEnabledEQ.
+func ModelRoutingEnabled(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldModelRoutingEnabled, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCreatedAt, v))
@@ -1083,6 +1088,26 @@ func ModelMappingIsNil() predicate.Group {
 // ModelMappingNotNil applies the NotNil predicate on the "model_mapping" field.
 func ModelMappingNotNil() predicate.Group {
 	return predicate.Group(sql.FieldNotNull(FieldModelMapping))
+}
+
+// ModelRoutingIsNil applies the IsNil predicate on the "model_routing" field.
+func ModelRoutingIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldModelRouting))
+}
+
+// ModelRoutingNotNil applies the NotNil predicate on the "model_routing" field.
+func ModelRoutingNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldModelRouting))
+}
+
+// ModelRoutingEnabledEQ applies the EQ predicate on the "model_routing_enabled" field.
+func ModelRoutingEnabledEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldModelRoutingEnabled, v))
+}
+
+// ModelRoutingEnabledNEQ applies the NEQ predicate on the "model_routing_enabled" field.
+func ModelRoutingEnabledNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldModelRoutingEnabled, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

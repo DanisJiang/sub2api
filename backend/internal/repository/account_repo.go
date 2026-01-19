@@ -557,6 +557,15 @@ func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg str
 	return nil
 }
 
+func (r *accountRepository) ClearError(ctx context.Context, id int64) error {
+	_, err := r.client.Account.Update().
+		Where(dbaccount.IDEQ(id)).
+		SetStatus(service.StatusActive).
+		SetErrorMessage("").
+		Save(ctx)
+	return err
+}
+
 func (r *accountRepository) AddToGroup(ctx context.Context, accountID, groupID int64, priority int) error {
 	_, err := r.client.AccountGroup.Create().
 		SetAccountID(accountID).
@@ -811,6 +820,46 @@ func (r *accountRepository) SetAntigravityQuotaScopeLimit(ctx context.Context, i
 	return nil
 }
 
+func (r *accountRepository) SetModelRateLimit(ctx context.Context, id int64, scope string, resetAt time.Time) error {
+	if scope == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	payload := map[string]string{
+		"rate_limited_at":     now.Format(time.RFC3339),
+		"rate_limit_reset_at": resetAt.UTC().Format(time.RFC3339),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	path := "{model_rate_limits," + scope + "}"
+	client := clientFromContext(ctx, r.client)
+	result, err := client.ExecContext(
+		ctx,
+		"UPDATE accounts SET extra = jsonb_set(COALESCE(extra, '{}'::jsonb), $1::text[], $2::jsonb, true), updated_at = NOW() WHERE id = $3 AND deleted_at IS NULL",
+		path,
+		raw,
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAccountNotFound
+	}
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue model rate limit failed: account=%d err=%v", id, err)
+	}
+	return nil
+}
+
 func (r *accountRepository) SetOverloaded(ctx context.Context, id int64, until time.Time) error {
 	_, err := r.client.Account.Update().
 		Where(dbaccount.IDEQ(id)).
@@ -902,6 +951,30 @@ func (r *accountRepository) ClearAntigravityQuotaScopes(ctx context.Context, id 
 	return nil
 }
 
+func (r *accountRepository) ClearModelRateLimits(ctx context.Context, id int64) error {
+	client := clientFromContext(ctx, r.client)
+	result, err := client.ExecContext(
+		ctx,
+		"UPDATE accounts SET extra = COALESCE(extra, '{}'::jsonb) - 'model_rate_limits', updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAccountNotFound
+	}
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue clear model rate limit failed: account=%d err=%v", id, err)
+	}
+	return nil
+}
+
 func (r *accountRepository) UpdateSessionWindow(ctx context.Context, id int64, start, end *time.Time, status string) error {
 	builder := r.client.Account.Update().
 		Where(dbaccount.IDEQ(id)).
@@ -913,7 +986,16 @@ func (r *accountRepository) UpdateSessionWindow(ctx context.Context, id int64, s
 		builder.SetSessionWindowEnd(*end)
 	}
 	_, err := builder.Save(ctx)
-	return err
+	if err != nil {
+		return err
+	}
+	// 触发调度器缓存更新（仅当窗口时间有变化时）
+	if start != nil || end != nil {
+		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
+			log.Printf("[SchedulerOutbox] enqueue session window update failed: account=%d err=%v", id, err)
+		}
+	}
+	return nil
 }
 
 func (r *accountRepository) SetSchedulable(ctx context.Context, id int64, schedulable bool) error {

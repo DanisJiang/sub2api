@@ -51,7 +51,13 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
 		SetNillableFallbackGroupID(groupIn.FallbackGroupID).
 		SetAllowedModels(groupIn.AllowedModels).
-		SetModelMapping(groupIn.ModelMapping)
+		SetModelMapping(groupIn.ModelMapping).
+		SetModelRoutingEnabled(groupIn.ModelRoutingEnabled)
+
+	// 设置模型路由配置
+	if groupIn.ModelRouting != nil {
+		builder = builder.SetModelRouting(groupIn.ModelRouting)
+	}
 
 	created, err := builder.Save(ctx)
 	if err == nil {
@@ -105,13 +111,21 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
 		SetAllowedModels(groupIn.AllowedModels).
-		SetModelMapping(groupIn.ModelMapping)
+		SetModelMapping(groupIn.ModelMapping).
+		SetModelRoutingEnabled(groupIn.ModelRoutingEnabled)
 
 	// 处理 FallbackGroupID：nil 时清除，否则设置
 	if groupIn.FallbackGroupID != nil {
 		builder = builder.SetFallbackGroupID(*groupIn.FallbackGroupID)
 	} else {
 		builder = builder.ClearFallbackGroupID()
+	}
+
+	// 处理 ModelRouting：nil 时清除，否则设置
+	if groupIn.ModelRouting != nil {
+		builder = builder.SetModelRouting(groupIn.ModelRouting)
+	} else {
+		builder = builder.ClearModelRouting()
 	}
 
 	updated, err := builder.Save(ctx)

@@ -15,12 +15,19 @@ const (
 	// fingerprintTTL 设置为 90 天
 	// ClientID 是账号的"客户端安装ID"，模拟真实用户偶尔重装的行为
 	// 90 天后过期会重新生成，模拟用户重装/换电脑
-	fingerprintTTL = 90 * 24 * time.Hour
+	fingerprintTTL         = 90 * 24 * time.Hour
+	maskedSessionKeyPrefix = "masked_session:"
+	maskedSessionTTL       = 15 * time.Minute
 )
 
 // fingerprintKey generates the Redis key for account fingerprint cache.
 func fingerprintKey(accountID int64) string {
 	return fmt.Sprintf("%s%d", fingerprintKeyPrefix, accountID)
+}
+
+// maskedSessionKey generates the Redis key for masked session ID cache.
+func maskedSessionKey(accountID int64) string {
+	return fmt.Sprintf("%s%d", maskedSessionKeyPrefix, accountID)
 }
 
 type identityCache struct {
@@ -51,4 +58,21 @@ func (c *identityCache) SetFingerprint(ctx context.Context, accountID int64, fp 
 		return err
 	}
 	return c.rdb.Set(ctx, key, val, fingerprintTTL).Err()
+}
+
+func (c *identityCache) GetMaskedSessionID(ctx context.Context, accountID int64) (string, error) {
+	key := maskedSessionKey(accountID)
+	val, err := c.rdb.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return "", nil
+		}
+		return "", err
+	}
+	return val, nil
+}
+
+func (c *identityCache) SetMaskedSessionID(ctx context.Context, accountID int64, sessionID string) error {
+	key := maskedSessionKey(accountID)
+	return c.rdb.Set(ctx, key, sessionID, maskedSessionTTL).Err()
 }

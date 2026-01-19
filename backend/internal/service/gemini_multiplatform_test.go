@@ -88,6 +88,9 @@ func (m *mockAccountRepoForGemini) BatchUpdateLastUsed(ctx context.Context, upda
 func (m *mockAccountRepoForGemini) SetError(ctx context.Context, id int64, errorMsg string) error {
 	return nil
 }
+func (m *mockAccountRepoForGemini) ClearError(ctx context.Context, id int64) error {
+	return nil
+}
 func (m *mockAccountRepoForGemini) SetSchedulable(ctx context.Context, id int64, schedulable bool) error {
 	return nil
 }
@@ -128,6 +131,9 @@ func (m *mockAccountRepoForGemini) SetRateLimited(ctx context.Context, id int64,
 func (m *mockAccountRepoForGemini) SetAntigravityQuotaScopeLimit(ctx context.Context, id int64, scope AntigravityQuotaScope, resetAt time.Time) error {
 	return nil
 }
+func (m *mockAccountRepoForGemini) SetModelRateLimit(ctx context.Context, id int64, scope string, resetAt time.Time) error {
+	return nil
+}
 func (m *mockAccountRepoForGemini) SetOverloaded(ctx context.Context, id int64, until time.Time) error {
 	return nil
 }
@@ -139,6 +145,9 @@ func (m *mockAccountRepoForGemini) ClearTempUnschedulable(ctx context.Context, i
 }
 func (m *mockAccountRepoForGemini) ClearRateLimit(ctx context.Context, id int64) error { return nil }
 func (m *mockAccountRepoForGemini) ClearAntigravityQuotaScopes(ctx context.Context, id int64) error {
+	return nil
+}
+func (m *mockAccountRepoForGemini) ClearModelRateLimits(ctx context.Context, id int64) error {
 	return nil
 }
 func (m *mockAccountRepoForGemini) UpdateSessionWindow(ctx context.Context, id int64, start, end *time.Time, status string) error {
@@ -596,7 +605,7 @@ func TestGeminiMessagesCompatService_isModelSupportedByAccount(t *testing.T) {
 			name: "Gemini平台-有映射配置-只支持配置的模型",
 			account: &Account{
 				Platform:    PlatformGemini,
-				Credentials: map[string]any{"model_mapping": map[string]any{"gemini-1.5-pro": "x"}},
+				Credentials: map[string]any{"model_mapping": map[string]any{"gemini-2.5-pro": "x"}},
 			},
 			model:    "gemini-2.5-flash",
 			expected: false,
