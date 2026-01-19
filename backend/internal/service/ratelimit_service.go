@@ -89,9 +89,10 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 
 	switch statusCode {
 	case 400:
-		// 检查是否是账号被禁用的错误
-		if isAccountDisabledError(responseBody) {
-			s.handleAuthError(ctx, account, "Account disabled (400): organization has been disabled")
+		// 只有当错误信息包含 "organization has been disabled" 时才禁用
+		if strings.Contains(strings.ToLower(upstreamMsg), "organization has been disabled") {
+			msg := "Organization disabled (400): " + upstreamMsg
+			s.handleAuthError(ctx, account, msg)
 			shouldDisable = true
 		}
 		// 其他 400 错误（如参数问题）不处理，不禁用账号
@@ -659,19 +660,6 @@ func truncateTempUnschedMessage(body []byte, maxBytes int) string {
 		body = body[:maxBytes]
 	}
 	return strings.TrimSpace(string(body))
-}
-
-// isAccountDisabledError 检查 400 响应是否表示账号被禁用
-func isAccountDisabledError(responseBody []byte) bool {
-	if len(responseBody) == 0 {
-		return false
-	}
-	bodyLower := strings.ToLower(string(responseBody))
-	// Claude/Anthropic: "This organization has been disabled."
-	if strings.Contains(bodyLower, "organization") && strings.Contains(bodyLower, "disabled") {
-		return true
-	}
-	return false
 }
 
 // HandleStreamTimeout 处理流数据超时

@@ -135,8 +135,20 @@ func (v *ClaudeCodeValidator) hasClaudeCodeSystemPrompt(body map[string]any) boo
 		return false
 	}
 
-	// 获取 system 字段
-	systemEntries, ok := body["system"].([]any)
+	// 获取 system 字段 - 支持字符串和数组两种格式
+	systemField := body["system"]
+	if systemField == nil {
+		return false
+	}
+
+	// 格式1: system 是字符串
+	if systemStr, ok := systemField.(string); ok {
+		bestScore := v.bestSimilarityScore(systemStr)
+		return bestScore >= systemPromptThreshold
+	}
+
+	// 格式2: system 是数组 [{type: "text", text: "..."}]
+	systemEntries, ok := systemField.([]any)
 	if !ok {
 		return false
 	}
