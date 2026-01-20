@@ -89,6 +89,7 @@ type GatewayCache interface {
 	GetSessionAccountID(ctx context.Context, groupID int64, sessionHash string) (int64, error)
 	SetSessionAccountID(ctx context.Context, groupID int64, sessionHash string, accountID int64, ttl time.Duration) error
 	RefreshSessionTTL(ctx context.Context, groupID int64, sessionHash string, ttl time.Duration) error
+	DeleteSessionAccountID(ctx context.Context, groupID int64, sessionHash string) error
 }
 
 // derefGroupID safely dereferences *int64 to int64, returning 0 if nil
@@ -97,6 +98,21 @@ func derefGroupID(groupID *int64) int64 {
 		return 0
 	}
 	return *groupID
+}
+
+// shouldClearStickySession checks if sticky session binding should be cleared for an account.
+// Returns true if the account is in a state that shouldn't be used for sticky sessions.
+func shouldClearStickySession(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	if account.Status == StatusError || account.Status == StatusDisabled || !account.Schedulable {
+		return true
+	}
+	if account.TempUnschedulableUntil != nil && time.Now().Before(*account.TempUnschedulableUntil) {
+		return true
+	}
+	return false
 }
 
 type AccountWaitPlan struct {
@@ -411,7 +427,9 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 }
 
 // SelectAccountWithLoadAwareness selects account with load-awareness and wait plan.
-func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string) (*AccountSelectionResult, error) {
+	// Note: metadataUserID is unused in this local version (reserved for upstream session limit feature)
+	_ = metadataUserID
 	cfg := s.schedulingConfig()
 	var stickyAccountID int64
 	if sessionHash != "" && s.cache != nil {

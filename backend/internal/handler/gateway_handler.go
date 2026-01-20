@@ -217,7 +217,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		failedAccountIDs := make(map[int64]struct{})
 		lastFailoverStatus := 0
 		for {
-			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs) // Gemini 不使用会话限制
+			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs, "") // Gemini 不使用会话限制
 			if err != nil {
 				// 检查是否为分组级别的 Claude Code 限制错误
 				if errors.Is(err, service.ErrClaudeCodeOnly) {
@@ -356,7 +356,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	lastFailoverStatus := 0
 	for {
 		// 选择支持该模型的账号
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs)
+		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs, parsedReq.MetadataUserID)
 		if err != nil {
 			// 检查是否为分组级别的 Claude Code 限制错误
 			if errors.Is(err, service.ErrClaudeCodeOnly) {
