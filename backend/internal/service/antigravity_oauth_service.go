@@ -241,10 +241,11 @@ func (s *AntigravityOAuthService) RefreshAccountToken(ctx context.Context, accou
 	client := antigravity.NewClient(proxyURL)
 	loadResp, _, err := client.LoadCodeAssist(ctx, tokenInfo.AccessToken)
 	if err != nil || loadResp == nil || loadResp.CloudAICompanionProject == "" {
-		// LoadCodeAssist 失败或返回空，保留原有 project_id，标记缺失
+		// LoadCodeAssist 失败或返回空，保留原有 project_id
 		existingProjectID := strings.TrimSpace(account.GetCredential("project_id"))
 		tokenInfo.ProjectID = existingProjectID
-		tokenInfo.ProjectIDMissing = true
+		// 只有当没有已保存的 project_id 时才标记为缺失
+		tokenInfo.ProjectIDMissing = existingProjectID == ""
 	} else {
 		tokenInfo.ProjectID = loadResp.CloudAICompanionProject
 	}
