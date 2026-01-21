@@ -1256,7 +1256,10 @@ export default {
       modelMapping: {
         title: 'Model Mapping',
         tooltip: 'Map model names in requests to actual models sent to the API. Useful for model aliases or version control.',
-        description: 'Map request models to actual models. Left is the requested model, right is the actual model sent to API.'
+        description: 'Map request models to actual models. Left is the requested model, right is the actual model sent to API.',
+        keyPlaceholder: 'Request model name',
+        valuePlaceholder: 'Actual model name',
+        empty: 'No mapping rules'
       },
       selectAllowedModels: 'Select allowed models. Leave empty to support all models.',
       mapRequestModels:

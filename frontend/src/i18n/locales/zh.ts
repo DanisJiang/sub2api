@@ -1391,7 +1391,10 @@ export default {
       modelMapping: {
         title: '模型映射',
         tooltip: '将请求中的模型名称映射到实际发送给 API 的模型。可用于模型别名或版本控制。',
-        description: '将请求模型映射到实际模型。左边是请求的模型，右边是发送到 API 的实际模型。'
+        description: '将请求模型映射到实际模型。左边是请求的模型，右边是发送到 API 的实际模型。',
+        keyPlaceholder: '请求模型名称',
+        valuePlaceholder: '实际模型名称',
+        empty: '暂无映射规则'
       },
       selectAllowedModels: '选择允许的模型。留空则支持所有模型。',
       mapRequestModels: '将请求模型映射到实际模型。左边是请求的模型，右边是发送到 API 的实际模型。',
