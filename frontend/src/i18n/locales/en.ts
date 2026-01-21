@@ -2836,7 +2836,10 @@ export default {
           'When enabled, only real Claude Code clients can access the Anthropic platform. Third-party clients will be rejected.',
         disableUsageFetch: 'Disable Upstream Usage Fetch',
         disableUsageFetchHint:
-          'When enabled, the system will not query account usage information from upstream providers (Claude/Antigravity)'
+          'When enabled, the system will not query account usage information from upstream providers (Claude/Antigravity)',
+        skipAntigravityProjectIdCheck: 'Skip Antigravity Project ID Check',
+        skipAntigravityProjectIdCheckHint:
+          'When enabled, Antigravity accounts will not fail token refresh due to missing project_id (some Google One AI Pro accounts can work without project_id)'
       },
       site: {
         title: 'Site Settings',

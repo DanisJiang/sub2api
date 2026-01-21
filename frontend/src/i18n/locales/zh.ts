@@ -2988,7 +2988,10 @@ export default {
           '开启后，Anthropic 平台仅允许真正的 Claude Code 客户端访问，第三方客户端将被拒绝',
         disableUsageFetch: '禁用上游用量查询',
         disableUsageFetchHint:
-          '开启后，系统将不再从上游（Claude/Antigravity）查询账号用量信息'
+          '开启后，系统将不再从上游（Claude/Antigravity）查询账号用量信息',
+        skipAntigravityProjectIdCheck: '跳过 Antigravity Project ID 检查',
+        skipAntigravityProjectIdCheckHint:
+          '开启后，Antigravity 账号刷新 token 时不再因为缺少 project_id 而报错（某些 Google One AI Pro 账号没有 project_id 但仍可使用）'
       },
       site: {
         title: '站点设置',

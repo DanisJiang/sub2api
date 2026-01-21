@@ -58,6 +58,8 @@ export interface SystemSettings {
   require_claude_code: boolean
   // 禁用上游用量查询
   disable_usage_fetch: boolean
+  // Antigravity 设置
+  skip_antigravity_project_id_check: boolean
 
   // Ops Monitoring (vNext)
   ops_monitoring_enabled: boolean
@@ -103,6 +105,7 @@ export interface UpdateSettingsRequest {
   identity_patch_prompt?: string
   require_claude_code?: boolean
   disable_usage_fetch?: boolean
+  skip_antigravity_project_id_check?: boolean
   ops_monitoring_enabled?: boolean
   ops_realtime_monitoring_enabled?: boolean
   ops_query_mode_default?: 'auto' | 'raw' | 'preagg' | string

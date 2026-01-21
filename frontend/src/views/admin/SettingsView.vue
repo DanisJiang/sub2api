@@ -599,6 +599,19 @@
               </div>
               <Toggle v-model="form.disable_usage_fetch" />
             </div>
+
+            <!-- Skip Antigravity Project ID Check -->
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{
+                  t('admin.settings.gateway.skipAntigravityProjectIdCheck')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.gateway.skipAntigravityProjectIdCheckHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.skip_antigravity_project_id_check" />
+            </div>
           </div>
         </div>
 
@@ -1112,6 +1125,8 @@ const form = reactive<SettingsForm>({
   require_claude_code: false,
   // 禁用上游用量查询
   disable_usage_fetch: false,
+  // Antigravity 设置
+  skip_antigravity_project_id_check: false,
   // Ops monitoring (vNext)
   ops_monitoring_enabled: true,
   ops_realtime_monitoring_enabled: true,
@@ -1223,6 +1238,7 @@ async function saveSettings() {
       linuxdo_connect_redirect_url: form.linuxdo_connect_redirect_url,
       require_claude_code: form.require_claude_code,
       disable_usage_fetch: form.disable_usage_fetch,
+      skip_antigravity_project_id_check: form.skip_antigravity_project_id_check,
       enable_model_fallback: form.enable_model_fallback,
       fallback_model_anthropic: form.fallback_model_anthropic,
       fallback_model_openai: form.fallback_model_openai,

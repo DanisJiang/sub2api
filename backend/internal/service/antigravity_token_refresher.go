@@ -15,11 +15,13 @@ const (
 // AntigravityTokenRefresher 实现 TokenRefresher 接口
 type AntigravityTokenRefresher struct {
 	antigravityOAuthService *AntigravityOAuthService
+	settingService          *SettingService
 }
 
-func NewAntigravityTokenRefresher(antigravityOAuthService *AntigravityOAuthService) *AntigravityTokenRefresher {
+func NewAntigravityTokenRefresher(antigravityOAuthService *AntigravityOAuthService, settingService *SettingService) *AntigravityTokenRefresher {
 	return &AntigravityTokenRefresher{
 		antigravityOAuthService: antigravityOAuthService,
+		settingService:          settingService,
 	}
 }
 
@@ -61,9 +63,14 @@ func (r *AntigravityTokenRefresher) Refresh(ctx context.Context, account *Accoun
 		}
 	}
 
-	// 如果 project_id 获取失败，返回 credentials 但同时返回错误让账户被标记
+	// 如果 project_id 获取失败，根据系统设置决定是否报错
 	if tokenInfo.ProjectIDMissing {
-		return newCredentials, fmt.Errorf("missing_project_id: 账户缺少project id，可能无法使用Antigravity")
+		skipCheck := r.settingService != nil && r.settingService.IsSkipAntigravityProjectIDCheck(ctx)
+		if skipCheck {
+			fmt.Printf("[AntigravityTokenRefresher] Account %d: project_id missing (skipped by setting)\n", account.ID)
+		} else {
+			return newCredentials, fmt.Errorf("missing_project_id: 账户缺少project id，可能无法使用Antigravity")
+		}
 	}
 
 	return newCredentials, nil

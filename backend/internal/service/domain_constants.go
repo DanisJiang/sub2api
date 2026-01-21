@@ -130,6 +130,9 @@ const (
 	// 用量查询
 	SettingKeyDisableUsageFetch = "disable_usage_fetch" // 是否禁用向上游查询用量信息
 
+	// Antigravity 设置
+	SettingKeySkipAntigravityProjectIDCheck = "skip_antigravity_project_id_check" // 跳过 Antigravity 账号的 project_id 检查
+
 	// =========================
 	// Ops Monitoring (vNext)
 	// =========================

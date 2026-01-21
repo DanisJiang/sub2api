@@ -225,6 +225,9 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	// 用量查询
 	updates[SettingKeyDisableUsageFetch] = strconv.FormatBool(settings.DisableUsageFetch)
 
+	// Antigravity 设置
+	updates[SettingKeySkipAntigravityProjectIDCheck] = strconv.FormatBool(settings.SkipAntigravityProjectIDCheck)
+
 	// Ops monitoring (vNext)
 	updates[SettingKeyOpsMonitoringEnabled] = strconv.FormatBool(settings.OpsMonitoringEnabled)
 	updates[SettingKeyOpsRealtimeMonitoringEnabled] = strconv.FormatBool(settings.OpsRealtimeMonitoringEnabled)
@@ -449,6 +452,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	// 用量查询
 	result.DisableUsageFetch = settings[SettingKeyDisableUsageFetch] == "true"
 
+	// Antigravity 设置
+	result.SkipAntigravityProjectIDCheck = settings[SettingKeySkipAntigravityProjectIDCheck] == "true"
+
 	// Ops monitoring settings (default: enabled, fail-open)
 	result.OpsMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsMonitoringEnabled])
 	result.OpsRealtimeMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsRealtimeMonitoringEnabled])
@@ -606,6 +612,15 @@ func (s *SettingService) IsUsageFetchDisabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyDisableUsageFetch)
 	if err != nil {
 		return false // Default: enabled (not disabled)
+	}
+	return value == "true"
+}
+
+// IsSkipAntigravityProjectIDCheck 检查是否跳过 Antigravity 账号的 project_id 检查
+func (s *SettingService) IsSkipAntigravityProjectIDCheck(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeySkipAntigravityProjectIDCheck)
+	if err != nil {
+		return false // Default: check project_id
 	}
 	return value == "true"
 }

@@ -30,6 +30,7 @@ func NewTokenRefreshService(
 	openaiOAuthService *OpenAIOAuthService,
 	geminiOAuthService *GeminiOAuthService,
 	antigravityOAuthService *AntigravityOAuthService,
+	settingService *SettingService,
 	cacheInvalidator TokenCacheInvalidator,
 	cfg *config.Config,
 ) *TokenRefreshService {
@@ -45,7 +46,7 @@ func NewTokenRefreshService(
 		NewClaudeTokenRefresher(oauthService),
 		NewOpenAITokenRefresher(openaiOAuthService),
 		NewGeminiTokenRefresher(geminiOAuthService),
-		NewAntigravityTokenRefresher(antigravityOAuthService),
+		NewAntigravityTokenRefresher(antigravityOAuthService, settingService),
 	}
 
 	return s
