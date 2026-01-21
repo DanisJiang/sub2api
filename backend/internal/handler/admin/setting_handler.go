@@ -81,6 +81,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		IdentityPatchPrompt:                  settings.IdentityPatchPrompt,
 		RequireClaudeCode:                    settings.RequireClaudeCode,
 		DisableUsageFetch:                    settings.DisableUsageFetch,
+		SkipAntigravityProjectIDCheck:        settings.SkipAntigravityProjectIDCheck,
 		OpsMonitoringEnabled:                 opsEnabled && settings.OpsMonitoringEnabled,
 		OpsRealtimeMonitoringEnabled:         settings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                  settings.OpsQueryModeDefault,
@@ -145,6 +146,9 @@ type UpdateSettingsRequest struct {
 
 	// 禁用上游用量查询
 	DisableUsageFetch bool `json:"disable_usage_fetch"`
+
+	// Antigravity 设置
+	SkipAntigravityProjectIDCheck bool `json:"skip_antigravity_project_id_check"`
 
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         *bool   `json:"ops_monitoring_enabled"`
@@ -282,8 +286,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FallbackModelAntigravity:   req.FallbackModelAntigravity,
 		EnableIdentityPatch:        req.EnableIdentityPatch,
 		IdentityPatchPrompt:        req.IdentityPatchPrompt,
-		RequireClaudeCode:          req.RequireClaudeCode,
-		DisableUsageFetch:          req.DisableUsageFetch,
+		RequireClaudeCode:             req.RequireClaudeCode,
+		DisableUsageFetch:             req.DisableUsageFetch,
+		SkipAntigravityProjectIDCheck: req.SkipAntigravityProjectIDCheck,
 		OpsMonitoringEnabled: func() bool {
 			if req.OpsMonitoringEnabled != nil {
 				return *req.OpsMonitoringEnabled
@@ -361,6 +366,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		IdentityPatchPrompt:                  updatedSettings.IdentityPatchPrompt,
 		RequireClaudeCode:                    updatedSettings.RequireClaudeCode,
 		DisableUsageFetch:                    updatedSettings.DisableUsageFetch,
+		SkipAntigravityProjectIDCheck:        updatedSettings.SkipAntigravityProjectIDCheck,
 		OpsMonitoringEnabled:                 updatedSettings.OpsMonitoringEnabled,
 		OpsRealtimeMonitoringEnabled:         updatedSettings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                  updatedSettings.OpsQueryModeDefault,

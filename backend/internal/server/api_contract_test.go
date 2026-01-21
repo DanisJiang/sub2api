@@ -489,6 +489,7 @@ func TestAPIContracts(t *testing.T) {
 					"identity_patch_prompt": "",
 					"require_claude_code": false,
 					"disable_usage_fetch": false,
+					"skip_antigravity_project_id_check": false,
 					"home_content": "",
 					"hide_ccs_import_button": false
 				}

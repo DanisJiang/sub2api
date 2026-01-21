@@ -52,6 +52,9 @@ type SystemSettings struct {
 	// 禁用上游用量查询
 	DisableUsageFetch bool `json:"disable_usage_fetch"`
 
+	// Antigravity 设置
+	SkipAntigravityProjectIDCheck bool `json:"skip_antigravity_project_id_check"`
+
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"`
 	OpsRealtimeMonitoringEnabled bool   `json:"ops_realtime_monitoring_enabled"`
