@@ -227,6 +227,7 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 
 	// Antigravity 设置
 	updates[SettingKeySkipAntigravityProjectIDCheck] = strconv.FormatBool(settings.SkipAntigravityProjectIDCheck)
+	updates[SettingKeyAntigravityScopeRateLimitEnabled] = strconv.FormatBool(settings.AntigravityScopeRateLimitEnabled)
 
 	// Ops monitoring (vNext)
 	updates[SettingKeyOpsMonitoringEnabled] = strconv.FormatBool(settings.OpsMonitoringEnabled)
@@ -454,6 +455,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Antigravity 设置
 	result.SkipAntigravityProjectIDCheck = settings[SettingKeySkipAntigravityProjectIDCheck] == "true"
+	result.AntigravityScopeRateLimitEnabled = settings[SettingKeyAntigravityScopeRateLimitEnabled] == "true"
 
 	// Ops monitoring settings (default: enabled, fail-open)
 	result.OpsMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsMonitoringEnabled])
@@ -621,6 +623,15 @@ func (s *SettingService) IsSkipAntigravityProjectIDCheck(ctx context.Context) bo
 	value, err := s.settingRepo.GetValue(ctx, SettingKeySkipAntigravityProjectIDCheck)
 	if err != nil {
 		return false // Default: check project_id
+	}
+	return value == "true"
+}
+
+// IsAntigravityScopeRateLimitEnabled 检查是否启用 Antigravity 配额域细分限流
+func (s *SettingService) IsAntigravityScopeRateLimitEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAntigravityScopeRateLimitEnabled)
+	if err != nil {
+		return false // Default: disabled (limit entire account)
 	}
 	return value == "true"
 }

@@ -60,6 +60,7 @@ export interface SystemSettings {
   disable_usage_fetch: boolean
   // Antigravity 设置
   skip_antigravity_project_id_check: boolean
+  antigravity_scope_rate_limit_enabled: boolean
 
   // Ops Monitoring (vNext)
   ops_monitoring_enabled: boolean
@@ -106,6 +107,7 @@ export interface UpdateSettingsRequest {
   require_claude_code?: boolean
   disable_usage_fetch?: boolean
   skip_antigravity_project_id_check?: boolean
+  antigravity_scope_rate_limit_enabled?: boolean
   ops_monitoring_enabled?: boolean
   ops_realtime_monitoring_enabled?: boolean
   ops_query_mode_default?: 'auto' | 'raw' | 'preagg' | string

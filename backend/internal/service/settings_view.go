@@ -56,7 +56,8 @@ type SystemSettings struct {
 	DisableUsageFetch bool `json:"disable_usage_fetch"`
 
 	// Antigravity 设置
-	SkipAntigravityProjectIDCheck bool `json:"skip_antigravity_project_id_check"`
+	SkipAntigravityProjectIDCheck    bool `json:"skip_antigravity_project_id_check"`
+	AntigravityScopeRateLimitEnabled bool `json:"antigravity_scope_rate_limit_enabled"`
 
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         bool

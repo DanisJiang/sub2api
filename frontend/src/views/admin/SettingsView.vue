@@ -612,6 +612,19 @@
               </div>
               <Toggle v-model="form.skip_antigravity_project_id_check" />
             </div>
+
+            <!-- Antigravity Scope Rate Limit -->
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{
+                  t('admin.settings.gateway.antigravityScopeRateLimit')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.gateway.antigravityScopeRateLimitHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.antigravity_scope_rate_limit_enabled" />
+            </div>
           </div>
         </div>
 
@@ -1127,6 +1140,7 @@ const form = reactive<SettingsForm>({
   disable_usage_fetch: false,
   // Antigravity 设置
   skip_antigravity_project_id_check: false,
+  antigravity_scope_rate_limit_enabled: false,
   // Ops monitoring (vNext)
   ops_monitoring_enabled: true,
   ops_realtime_monitoring_enabled: true,
@@ -1239,6 +1253,7 @@ async function saveSettings() {
       require_claude_code: form.require_claude_code,
       disable_usage_fetch: form.disable_usage_fetch,
       skip_antigravity_project_id_check: form.skip_antigravity_project_id_check,
+      antigravity_scope_rate_limit_enabled: form.antigravity_scope_rate_limit_enabled,
       enable_model_fallback: form.enable_model_fallback,
       fallback_model_anthropic: form.fallback_model_anthropic,
       fallback_model_openai: form.fallback_model_openai,

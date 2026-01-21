@@ -1525,10 +1525,22 @@ func antigravityUseScopeRateLimit() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+// isAntigravityScopeRateLimitEnabled 检查是否启用配额域细分限流
+// 优先使用系统设置，其次使用环境变量
+func (s *AntigravityGatewayService) isAntigravityScopeRateLimitEnabled(ctx context.Context) bool {
+	// 优先检查系统设置
+	if s.settingService != nil {
+		return s.settingService.IsAntigravityScopeRateLimitEnabled(ctx)
+	}
+	// fallback 到环境变量
+	return antigravityUseScopeRateLimit()
+}
+
 func (s *AntigravityGatewayService) handleUpstreamError(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, quotaScope AntigravityQuotaScope) {
 	// 429 使用 Gemini 格式解析（从 body 解析重置时间）
 	if statusCode == 429 {
-		useScopeLimit := antigravityUseScopeRateLimit() && quotaScope != ""
+		// 优先使用系统设置，其次使用环境变量
+		useScopeLimit := s.isAntigravityScopeRateLimitEnabled(ctx) && quotaScope != ""
 		resetAt := ParseGeminiRateLimitResetTime(body)
 		if resetAt == nil {
 			// 解析失败：使用配置的 fallback 时间，直接限流整个账户

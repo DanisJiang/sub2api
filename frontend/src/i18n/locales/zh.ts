@@ -2995,7 +2995,10 @@ export default {
           '开启后，系统将不再从上游（Claude/Antigravity）查询账号用量信息',
         skipAntigravityProjectIdCheck: '跳过 Antigravity Project ID 检查',
         skipAntigravityProjectIdCheckHint:
-          '开启后，Antigravity 账号刷新 token 时不再因为缺少 project_id 而报错（某些 Google One AI Pro 账号没有 project_id 但仍可使用）'
+          '开启后，Antigravity 账号刷新 token 时不再因为缺少 project_id 而报错（某些 Google One AI Pro 账号没有 project_id 但仍可使用）',
+        antigravityScopeRateLimit: '启用 Antigravity 配额域细分限流',
+        antigravityScopeRateLimitHint:
+          '开启后，Antigravity 账号会按模型类型（Claude/Gemini）分别追踪配额状态，某个类型用尽不会影响其他类型的调度'
       },
       site: {
         title: '站点设置',

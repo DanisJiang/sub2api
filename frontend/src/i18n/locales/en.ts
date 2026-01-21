@@ -2843,7 +2843,10 @@ export default {
           'When enabled, the system will not query account usage information from upstream providers (Claude/Antigravity)',
         skipAntigravityProjectIdCheck: 'Skip Antigravity Project ID Check',
         skipAntigravityProjectIdCheckHint:
-          'When enabled, Antigravity accounts will not fail token refresh due to missing project_id (some Google One AI Pro accounts can work without project_id)'
+          'When enabled, Antigravity accounts will not fail token refresh due to missing project_id (some Google One AI Pro accounts can work without project_id)',
+        antigravityScopeRateLimit: 'Enable Antigravity Scope-Based Rate Limiting',
+        antigravityScopeRateLimitHint:
+          'When enabled, Antigravity accounts track quota status separately by model type (Claude/Gemini), so exhausting one type does not block scheduling for others'
       },
       site: {
         title: 'Site Settings',

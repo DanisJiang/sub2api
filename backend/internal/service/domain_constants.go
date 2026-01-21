@@ -131,7 +131,8 @@ const (
 	SettingKeyDisableUsageFetch = "disable_usage_fetch" // 是否禁用向上游查询用量信息
 
 	// Antigravity 设置
-	SettingKeySkipAntigravityProjectIDCheck = "skip_antigravity_project_id_check" // 跳过 Antigravity 账号的 project_id 检查
+	SettingKeySkipAntigravityProjectIDCheck    = "skip_antigravity_project_id_check"    // 跳过 Antigravity 账号的 project_id 检查
+	SettingKeyAntigravityScopeRateLimitEnabled = "antigravity_scope_rate_limit_enabled" // 启用 Antigravity 配额域细分限流（Claude/Gemini 分开限流）
 
 	// =========================
 	// Ops Monitoring (vNext)
