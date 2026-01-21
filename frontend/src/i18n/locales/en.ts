@@ -1253,7 +1253,11 @@ export default {
       },
       modelRestriction: 'Model Restriction (Optional)',
       modelWhitelist: 'Model Whitelist',
-      modelMapping: 'Model Mapping',
+      modelMapping: {
+        title: 'Model Mapping',
+        tooltip: 'Map model names in requests to actual models sent to the API. Useful for model aliases or version control.',
+        description: 'Map request models to actual models. Left is the requested model, right is the actual model sent to API.'
+      },
       selectAllowedModels: 'Select allowed models. Leave empty to support all models.',
       mapRequestModels:
         'Map request models to actual models. Left is the requested model, right is the actual model sent to API.',
