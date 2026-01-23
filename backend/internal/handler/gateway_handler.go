@@ -484,10 +484,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 		accountWaitRelease = wrapReleaseOnDone(c.Request.Context(), accountWaitRelease)
 		sessionMutexRelease = wrapReleaseOnDone(c.Request.Context(), sessionMutexRelease)
-		// 用户输入节奏控制：对 OAuth 账号的用户主动输入请求，确保和上次响应之间有足够间隔
+		// 用户输入节奏控制：对 Anthropic 账号的用户主动输入请求，确保和上次响应之间有足够间隔
 		// 目的：模拟真实用户行为，用户不可能在 Claude 输出完成后立即发送下一条消息
+		// 注意：只对 Anthropic 平台生效，Antigravity 等其他平台的消息格式不同，无法判断 user input
 		currentSlotIndex := selection.SlotIndex
-		if account.IsOAuth() && !parsedReq.IsToolResult && currentSlotIndex >= 0 {
+		if account.IsAnthropic() && !parsedReq.IsToolResult && currentSlotIndex >= 0 {
 			if waitErr := h.waitForUserInputPacing(c, account.ID, currentSlotIndex); waitErr != nil {
 				// 等待被中断（客户端断开），释放资源并返回
 				if sessionMutexRelease != nil {
@@ -528,8 +529,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		} else {
 			result, err = h.gatewayService.Forward(c.Request.Context(), c, account, parsedReq)
 		}
-		// 记录响应结束时间（用于用户输入节奏控制）
-		if account.IsOAuth() && currentSlotIndex >= 0 {
+		// 记录响应结束时间（用于用户输入节奏控制，仅 Anthropic）
+		if account.IsAnthropic() && currentSlotIndex >= 0 {
 			if setErr := h.concurrencyHelper.concurrencyService.SetSlotResponseEndTime(
 				context.Background(), account.ID, currentSlotIndex); setErr != nil {
 				log.Printf("[user-input-pacing] failed to record response end time: account=%d slot=%d err=%v",
