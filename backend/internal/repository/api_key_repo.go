@@ -136,6 +136,8 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldImagePrice4k,
 				group.FieldClaudeCodeOnly,
 				group.FieldFallbackGroupID,
+				group.FieldAllowedModels,
+				group.FieldModelMapping,
 				group.FieldModelRoutingEnabled,
 				group.FieldModelRouting,
 			)
