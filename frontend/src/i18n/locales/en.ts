@@ -931,6 +931,14 @@ export default {
         inputPlaceholder: 'Search or select models...',
         empty: 'All models allowed'
       },
+      modelMapping: {
+        title: 'Model Mapping',
+        tooltip: 'Map model names in requests to actual models sent to the API. Useful for model aliases or version control.',
+        description: 'Map request models to actual models. Left is the requested model, right is the actual model sent to API.',
+        keyPlaceholder: 'Request model name',
+        valuePlaceholder: 'Actual model name',
+        empty: 'No mapping rules'
+      },
       modelRouting: {
         title: 'Model Routing',
         tooltip: 'Configure specific model requests to be routed to designated accounts. Supports wildcard matching, e.g., claude-opus-* matches all opus models.',

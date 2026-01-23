@@ -1006,6 +1006,14 @@ export default {
         inputPlaceholder: '搜索或选择模型...',
         empty: '允许所有模型'
       },
+      modelMapping: {
+        title: '模型映射',
+        tooltip: '将请求中的模型名称映射到实际发送给 API 的模型。可用于模型别名或版本控制。',
+        description: '将请求模型映射到实际模型。左边是请求的模型，右边是发送到 API 的实际模型。',
+        keyPlaceholder: '请求模型名称',
+        valuePlaceholder: '实际模型名称',
+        empty: '暂无映射规则'
+      },
       modelRouting: {
         title: '模型路由配置',
         tooltip: '配置特定模型请求优先路由到指定账号。支持通配符匹配，如 claude-opus-* 匹配所有 opus 模型。',
