@@ -169,7 +169,13 @@ export default {
       justNow: 'Just now',
       minutesAgo: '{n}m ago',
       hoursAgo: '{n}h ago',
-      daysAgo: '{n}d ago'
+      daysAgo: '{n}d ago',
+      countdown: {
+        daysHours: '{d}d {h}h',
+        hoursMinutes: '{h}h {m}m',
+        minutes: '{m}m',
+        withSuffix: '{time} to lift'
+      }
     }
   },
 
@@ -1112,6 +1118,8 @@ export default {
         cooldown: 'Cooldown',
         paused: 'Paused',
         limited: 'Limited',
+        rateLimited: 'Rate Limited',
+        overloaded: 'Overloaded',
         tempUnschedulable: 'Temp Unschedulable',
         rateLimitedUntil: 'Rate limited until {time}',
         overloadedUntil: 'Overloaded until {time}',
