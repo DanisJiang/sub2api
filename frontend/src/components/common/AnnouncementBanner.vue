@@ -1,8 +1,8 @@
 <template>
-  <div v-if="visibleAnnouncements.length > 0" class="space-y-2">
+  <div v-if="announcements.length > 0" class="space-y-2">
     <TransitionGroup name="announcement">
       <div
-        v-for="announcement in visibleAnnouncements"
+        v-for="announcement in announcements"
         :key="announcement.id"
         class="relative flex items-start gap-3 rounded-lg bg-primary-50 px-4 py-3 dark:bg-primary-900/20"
       >
@@ -18,26 +18,14 @@
             v-html="linkifyContent(announcement.content)"
           ></p>
         </div>
-        <button
-          @click="dismissAnnouncement(announcement.id)"
-          class="flex-shrink-0 rounded-md p-1 text-primary-500 hover:bg-primary-100 hover:text-primary-700 dark:hover:bg-primary-800/50 dark:hover:text-primary-200 transition-colors"
-          :title="t('common.close')"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
     </TransitionGroup>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { ref, onMounted } from 'vue'
 import { announcementsAPI, type PublicAnnouncement } from '@/api/announcements'
-
-const { t } = useI18n()
 
 // 转义 HTML 特殊字符
 const escapeHtml = (text: string): string => {
@@ -56,56 +44,16 @@ const linkifyContent = (content: string): string => {
 }
 
 const announcements = ref<PublicAnnouncement[]>([])
-const dismissedIds = ref<Set<number>>(new Set())
-
-const DISMISSED_KEY = 'dismissed_announcements'
-
-const visibleAnnouncements = computed(() => {
-  return announcements.value.filter(a => !dismissedIds.value.has(a.id))
-})
-
-const loadDismissedIds = () => {
-  try {
-    const stored = localStorage.getItem(DISMISSED_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      dismissedIds.value = new Set(parsed)
-    }
-  } catch {
-    // Ignore parse errors
-  }
-}
-
-const saveDismissedIds = () => {
-  try {
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissedIds.value]))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-const dismissAnnouncement = (id: number) => {
-  dismissedIds.value.add(id)
-  saveDismissedIds()
-}
 
 const loadAnnouncements = async () => {
   try {
     announcements.value = await announcementsAPI.getAnnouncements()
-    // Clean up dismissed IDs that no longer exist
-    const currentIds = new Set(announcements.value.map(a => a.id))
-    const newDismissedIds = new Set([...dismissedIds.value].filter(id => currentIds.has(id)))
-    if (newDismissedIds.size !== dismissedIds.value.size) {
-      dismissedIds.value = newDismissedIds
-      saveDismissedIds()
-    }
   } catch (error) {
     console.error('Failed to load announcements:', error)
   }
 }
 
 onMounted(() => {
-  loadDismissedIds()
   loadAnnouncements()
 })
 </script>
