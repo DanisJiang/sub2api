@@ -42,6 +42,10 @@ type APIKeyAuthGroupSnapshot struct {
 	// Only anthropic groups use these fields; others may leave them empty.
 	ModelRouting        map[string][]int64 `json:"model_routing,omitempty"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
+
+	// Model whitelist and mapping for request validation
+	AllowedModels []string          `json:"allowed_models,omitempty"`
+	ModelMapping  map[string]string `json:"model_mapping,omitempty"`
 }
 
 // APIKeyAuthCacheEntry 缓存条目，支持负缓存
