@@ -534,8 +534,8 @@ func CalculateTotalSlots(concurrency int) int {
 	if concurrency <= 0 {
 		return 0
 	}
-	// 使用向上取整：(concurrency * 5 + 2) / 3
-	return (concurrency*5 + 2) / 3
+	// 使用向上取整：(concurrency * 4 + 2) / 3，约为 1.33 倍
+	return (concurrency*4 + 2) / 3
 }
 
 // ============================================
