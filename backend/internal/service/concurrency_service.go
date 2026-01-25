@@ -549,7 +549,7 @@ type ModelSlotRange struct {
 }
 
 // CalculateModelSlotRange calculates the slot range for Opus and Sonnet models.
-// Opus : Sonnet = 2 : 3
+// Opus : Sonnet = 1 : 1
 // Layout: [0, opusEnd) is Opus pool, [opusEnd, total) is Sonnet pool
 // Haiku does not use model pool isolation, it follows session binding.
 // Special case: when totalSlots < 2, both pools share all slots (no isolation possible).
@@ -563,8 +563,8 @@ func CalculateModelSlotRange(totalSlots int) (opus, sonnet ModelSlotRange) {
 		return ModelSlotRange{0, 1}, ModelSlotRange{0, 1}
 	}
 
-	// Opus 占 2/5，至少 1 个槽位
-	opusSlots := (totalSlots * 2) / 5
+	// Opus 占 1/2，至少 1 个槽位
+	opusSlots := totalSlots / 2
 	if opusSlots < 1 {
 		opusSlots = 1
 	}
