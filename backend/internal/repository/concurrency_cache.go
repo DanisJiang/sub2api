@@ -1213,12 +1213,6 @@ func sessionSlotKey(accountID int64, sessionHash string) string {
 	return fmt.Sprintf("%s%d:%s", sessionSlotKeyPrefix, accountID, sessionHash)
 }
 
-// lbRequestCountKey 生成负载均衡请求计数键
-// 格式: lb:req:{accountID}:{minuteBucket}
-func lbRequestCountKey(accountID int64, minuteBucket int64) string {
-	return fmt.Sprintf("%s%d:%d", lbRequestCountKeyPrefix, accountID, minuteBucket)
-}
-
 // GetSessionSlot 获取 session 绑定的槽位
 // 返回绑定的 slotIndex，如果没有绑定返回 -1
 func (c *concurrencyCache) GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error) {
