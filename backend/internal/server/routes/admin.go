@@ -318,6 +318,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 流超时处理配置
 		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
 		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
+		// 负载均衡配置
+		adminSettings.GET("/load-balancing", h.Admin.Setting.GetLoadBalancingSettings)
+		adminSettings.PUT("/load-balancing", h.Admin.Setting.UpdateLoadBalancingSettings)
 	}
 }
 

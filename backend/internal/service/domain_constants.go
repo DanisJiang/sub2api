@@ -165,6 +165,13 @@ const (
 
 	// SettingKeyStreamTimeoutSettings stores JSON config for stream timeout handling.
 	SettingKeyStreamTimeoutSettings = "stream_timeout_settings"
+
+	// =========================
+	// Load Balancing Settings
+	// =========================
+
+	// SettingKeyLoadBalancingSettings stores JSON config for load balancing algorithm.
+	SettingKeyLoadBalancingSettings = "load_balancing_settings"
 )
 
 // AdminAPIKeyPrefix is the prefix for admin API keys (distinct from user "sk-" keys).

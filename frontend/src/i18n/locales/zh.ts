@@ -3149,6 +3149,19 @@ export default {
         saved: '流超时设置保存成功',
         saveFailed: '保存流超时设置失败'
       },
+      loadBalancing: {
+        title: '负载均衡设置',
+        description: '配置账号调度的加权负载均衡算法，使优先级更加灵活',
+        enabled: '启用加权负载均衡',
+        enabledHint: '启用后使用加权算法调度，禁用则使用严格优先级',
+        priorityOffset: '优先级偏移量',
+        priorityOffsetHint: '每级优先级差对应的有效负载偏移（例如30%表示优先级1账号比优先级2多承担约30%请求后才开始分流）',
+        timeWindowMinutes: '统计时间窗口',
+        timeWindowMinutesHint: '统计请求数的时间窗口，建议5-15分钟',
+        minutes: '分钟',
+        saved: '负载均衡设置保存成功',
+        saveFailed: '保存负载均衡设置失败'
+      },
       saveSettings: '保存设置',
       saving: '保存中...',
       settingsSaved: '设置保存成功',

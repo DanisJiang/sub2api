@@ -76,6 +76,13 @@ const (
 	// 账号暂停调度标记
 	// 键格式: account_paused:{accountID}
 	accountPausedKeyPrefix = "account_paused:"
+
+	// 负载均衡请求计数键前缀
+	// 键格式: lb:req:{accountID}:{minuteBucket}
+	// minuteBucket = timestamp / 60（分钟级别）
+	lbRequestCountKeyPrefix = "lb:req:"
+	// 负载均衡请求计数 TTL（秒），设置为时间窗口 + 2 分钟缓冲
+	lbRequestCountTTLSeconds = 3720 // 62 分钟
 )
 
 var (
@@ -595,6 +602,62 @@ var (
 		end
 
 		return 1
+	`)
+
+	// incrLoadBalanceRequestScript - 增加负载均衡请求计数
+	// 使用分钟桶实现时间窗口统计：lb:req:{accountID}:{minuteBucket}
+	// KEYS[1] = lb:req: (键前缀)
+	// ARGV[1] = accountID
+	// ARGV[2] = TTL（秒）
+	// 返回: 新的计数值
+	incrLoadBalanceRequestScript = redis.NewScript(`
+		local keyPrefix = KEYS[1]
+		local accountID = ARGV[1]
+		local ttl = tonumber(ARGV[2])
+
+		-- 使用 Redis 服务器时间，确保多实例时钟一致
+		local timeResult = redis.call('TIME')
+		local nowSeconds = tonumber(timeResult[1])
+		local minuteBucket = math.floor(nowSeconds / 60)
+
+		local key = keyPrefix .. accountID .. ':' .. minuteBucket
+		local count = redis.call('INCR', key)
+		redis.call('EXPIRE', key, ttl)
+		return count
+	`)
+
+	// getLoadBalanceRequestCountsScript - 批量获取多个账号的请求计数
+	// ARGV[1] = windowMinutes（时间窗口，分钟）
+	// ARGV[2..n] = accountID1, accountID2, ...
+	// 返回: accountID1, count1, accountID2, count2, ...
+	getLoadBalanceRequestCountsScript = redis.NewScript(`
+		local windowMinutes = tonumber(ARGV[1])
+		local result = {}
+
+		-- 获取当前服务器时间
+		local timeResult = redis.call('TIME')
+		local nowSeconds = tonumber(timeResult[1])
+		local currentMinute = math.floor(nowSeconds / 60)
+
+		for i = 2, #ARGV do
+			local accountID = ARGV[i]
+			local totalCount = 0
+
+			-- 统计时间窗口内的所有分钟桶
+			for m = 0, windowMinutes - 1 do
+				local minuteBucket = currentMinute - m
+				local key = 'lb:req:' .. accountID .. ':' .. minuteBucket
+				local count = redis.call('GET', key)
+				if count ~= false then
+					totalCount = totalCount + tonumber(count)
+				end
+			end
+
+			table.insert(result, accountID)
+			table.insert(result, totalCount)
+		end
+
+		return result
 	`)
 )
 
@@ -1150,6 +1213,12 @@ func sessionSlotKey(accountID int64, sessionHash string) string {
 	return fmt.Sprintf("%s%d:%s", sessionSlotKeyPrefix, accountID, sessionHash)
 }
 
+// lbRequestCountKey 生成负载均衡请求计数键
+// 格式: lb:req:{accountID}:{minuteBucket}
+func lbRequestCountKey(accountID int64, minuteBucket int64) string {
+	return fmt.Sprintf("%s%d:%d", lbRequestCountKeyPrefix, accountID, minuteBucket)
+}
+
 // GetSessionSlot 获取 session 绑定的槽位
 // 返回绑定的 slotIndex，如果没有绑定返回 -1
 func (c *concurrencyCache) GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error) {
@@ -1180,4 +1249,51 @@ func (c *concurrencyCache) SetSessionSlot(ctx context.Context, accountID int64, 
 func (c *concurrencyCache) RefreshSessionSlotTTL(ctx context.Context, accountID int64, sessionHash string) error {
 	key := sessionSlotKey(accountID, sessionHash)
 	return c.rdb.Expire(ctx, key, time.Duration(sessionSlotTTLSeconds)*time.Second).Err()
+}
+
+// ============================================
+// 负载均衡请求计数
+// 用于加权负载均衡算法，统计时间窗口内的请求数
+// ============================================
+
+// IncrLoadBalanceRequestCount 增加账号的负载均衡请求计数
+// 使用分钟桶实现时间窗口统计，时间由 Redis 服务器提供确保一致性
+func (c *concurrencyCache) IncrLoadBalanceRequestCount(ctx context.Context, accountID int64) error {
+	_, err := incrLoadBalanceRequestScript.Run(ctx, c.rdb, []string{lbRequestCountKeyPrefix}, accountID, lbRequestCountTTLSeconds).Int()
+	return err
+}
+
+// GetLoadBalanceRequestCounts 批量获取多个账号在时间窗口内的请求计数
+// accountIDs: 要查询的账号 ID 列表
+// windowMinutes: 时间窗口（分钟）
+// 返回: accountID -> requestCount 的映射
+func (c *concurrencyCache) GetLoadBalanceRequestCounts(ctx context.Context, accountIDs []int64, windowMinutes int) (map[int64]int64, error) {
+	if len(accountIDs) == 0 {
+		return make(map[int64]int64), nil
+	}
+
+	// 构建参数
+	args := make([]any, 1+len(accountIDs))
+	args[0] = windowMinutes
+	for i, id := range accountIDs {
+		args[i+1] = id
+	}
+
+	result, err := getLoadBalanceRequestCountsScript.Run(ctx, c.rdb, []string{}, args...).Slice()
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析结果
+	counts := make(map[int64]int64)
+	for i := 0; i < len(result); i += 2 {
+		if i+1 >= len(result) {
+			break
+		}
+		accountID, _ := strconv.ParseInt(fmt.Sprintf("%v", result[i]), 10, 64)
+		count, _ := strconv.ParseInt(fmt.Sprintf("%v", result[i+1]), 10, 64)
+		counts[accountID] = count
+	}
+
+	return counts, nil
 }

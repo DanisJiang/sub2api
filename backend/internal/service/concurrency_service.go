@@ -100,6 +100,11 @@ type ConcurrencyCache interface {
 	GetSessionSlot(ctx context.Context, accountID int64, sessionHash string) (int, error)
 	SetSessionSlot(ctx context.Context, accountID int64, sessionHash string, slotIndex int) error
 	RefreshSessionSlotTTL(ctx context.Context, accountID int64, sessionHash string) error
+
+	// 负载均衡请求计数
+	// 键格式: lb:req:{accountID}:{minuteBucket}
+	IncrLoadBalanceRequestCount(ctx context.Context, accountID int64) error
+	GetLoadBalanceRequestCounts(ctx context.Context, accountIDs []int64, windowMinutes int) (map[int64]int64, error)
 }
 
 // generateRequestID generates a unique request ID for concurrency slot tracking
@@ -876,4 +881,24 @@ func (s *ConcurrencyService) AcquireSessionSlot(ctx context.Context, accountID i
 		SlotIndex:   targetSlot,
 		ReleaseFunc: nil,
 	}, nil
+}
+
+// ============================================
+// 负载均衡请求计数
+// ============================================
+
+// IncrLoadBalanceRequestCount 增加账号的负载均衡请求计数
+func (s *ConcurrencyService) IncrLoadBalanceRequestCount(ctx context.Context, accountID int64) error {
+	if s.cache == nil {
+		return nil
+	}
+	return s.cache.IncrLoadBalanceRequestCount(ctx, accountID)
+}
+
+// GetLoadBalanceRequestCounts 批量获取多个账号在时间窗口内的请求计数
+func (s *ConcurrencyService) GetLoadBalanceRequestCounts(ctx context.Context, accountIDs []int64, windowMinutes int) (map[int64]int64, error) {
+	if s.cache == nil {
+		return make(map[int64]int64), nil
+	}
+	return s.cache.GetLoadBalanceRequestCounts(ctx, accountIDs, windowMinutes)
 }

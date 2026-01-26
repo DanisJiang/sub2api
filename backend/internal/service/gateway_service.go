@@ -609,14 +609,81 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		}
 
 		if len(available) > 0 {
+			// 获取负载均衡配置
+			var lbSettings *LoadBalancingSettings
+			if s.settingService != nil {
+				var err error
+				lbSettings, err = s.settingService.GetLoadBalancingSettings(ctx)
+				if err != nil {
+					// 配置读取失败，使用默认的严格优先级排序
+					lbSettings = &LoadBalancingSettings{Enabled: false}
+					log.Printf("[LoadBalancing] config load failed, using strict priority: %v", err)
+				}
+			} else {
+				// settingService 为 nil，使用严格优先级排序
+				lbSettings = &LoadBalancingSettings{Enabled: false}
+			}
+
+			// 如果启用加权负载均衡，获取请求计数并计算有效负载
+			var requestCounts map[int64]int64
+			var maxRequestCount int64
+			if lbSettings.Enabled && s.concurrencyService != nil {
+				accountIDs := make([]int64, 0, len(available))
+				for _, item := range available {
+					accountIDs = append(accountIDs, item.account.ID)
+				}
+				var err error
+				requestCounts, err = s.concurrencyService.GetLoadBalanceRequestCounts(ctx, accountIDs, lbSettings.TimeWindowMinutes)
+				if err != nil {
+					log.Printf("[LoadBalancing] get request counts failed: %v", err)
+				}
+				// 找出最大请求数用于归一化
+				for _, count := range requestCounts {
+					if count > maxRequestCount {
+						maxRequestCount = count
+					}
+				}
+				log.Printf("[LoadBalancing] enabled: offset=%d window=%dm accounts=%d maxCount=%d",
+					lbSettings.PriorityOffset, lbSettings.TimeWindowMinutes, len(available), maxRequestCount)
+			}
+			// 确保 requestCounts 不为 nil，避免 map 访问 panic
+			if requestCounts == nil {
+				requestCounts = make(map[int64]int64)
+			}
+
 			sort.SliceStable(available, func(i, j int) bool {
 				a, b := available[i], available[j]
-				if a.account.Priority != b.account.Priority {
-					return a.account.Priority < b.account.Priority
+
+				// 如果启用加权负载均衡，使用有效负载排序
+				if lbSettings.Enabled {
+					// 计算有效负载: effectiveLoad = requestCount + (priority - 1) × offset × baseCount / 100
+					// 使用最小基准值 100，避免整数除法导致偏移量为 0
+					baseCount := maxRequestCount
+					if baseCount < 100 {
+						baseCount = 100
+					}
+					countA := requestCounts[a.account.ID]
+					countB := requestCounts[b.account.ID]
+					effectiveA := countA + int64(a.account.Priority-1)*int64(lbSettings.PriorityOffset)*baseCount/100
+					effectiveB := countB + int64(b.account.Priority-1)*int64(lbSettings.PriorityOffset)*baseCount/100
+					if effectiveA != effectiveB {
+						return effectiveA < effectiveB
+					}
+					// 有效负载相同，按实际请求数排序
+					if countA != countB {
+						return countA < countB
+					}
+				} else {
+					// 严格优先级排序（原逻辑）
+					if a.account.Priority != b.account.Priority {
+						return a.account.Priority < b.account.Priority
+					}
+					if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
+						return a.loadInfo.LoadRate < b.loadInfo.LoadRate
+					}
 				}
-				if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
-					return a.loadInfo.LoadRate < b.loadInfo.LoadRate
-				}
+
+				// 最后按 LastUsedAt 排序
 				switch {
 				case a.account.LastUsedAt == nil && b.account.LastUsedAt != nil:
 					return true
@@ -637,6 +704,17 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				if err == nil && result.Acquired {
 					if sessionHash != "" && s.cache != nil {
 						_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, item.account.ID, stickySessionTTL)
+					}
+					// 记录账号选择结果
+					if lbSettings.Enabled {
+						baseCount := maxRequestCount
+						if baseCount < 100 {
+							baseCount = 100
+						}
+						reqCount := requestCounts[item.account.ID]
+						effectiveLoad := reqCount + int64(item.account.Priority-1)*int64(lbSettings.PriorityOffset)*baseCount/100
+						log.Printf("[LoadBalancing] selected: account=%d priority=%d requests=%d effective=%d",
+							item.account.ID, item.account.Priority, reqCount, effectiveLoad)
 					}
 					return &AccountSelectionResult{
 						Account:     item.account,

@@ -251,6 +251,39 @@ export async function updateStreamTimeoutSettings(
   return data
 }
 
+/**
+ * Load balancing settings interface
+ */
+export interface LoadBalancingSettings {
+  enabled: boolean
+  priority_offset: number
+  time_window_minutes: number
+}
+
+/**
+ * Get load balancing settings
+ * @returns Load balancing settings
+ */
+export async function getLoadBalancingSettings(): Promise<LoadBalancingSettings> {
+  const { data } = await apiClient.get<LoadBalancingSettings>('/admin/settings/load-balancing')
+  return data
+}
+
+/**
+ * Update load balancing settings
+ * @param settings - Load balancing settings to update
+ * @returns Updated settings
+ */
+export async function updateLoadBalancingSettings(
+  settings: LoadBalancingSettings
+): Promise<LoadBalancingSettings> {
+  const { data } = await apiClient.put<LoadBalancingSettings>(
+    '/admin/settings/load-balancing',
+    settings
+  )
+  return data
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -260,7 +293,9 @@ export const settingsAPI = {
   regenerateAdminApiKey,
   deleteAdminApiKey,
   getStreamTimeoutSettings,
-  updateStreamTimeoutSettings
+  updateStreamTimeoutSettings,
+  getLoadBalancingSettings,
+  updateLoadBalancingSettings
 }
 
 export default settingsAPI

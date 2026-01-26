@@ -285,6 +285,118 @@
           </div>
         </div>
 
+        <!-- Load Balancing Settings -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.loadBalancing.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.loadBalancing.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <!-- Loading State -->
+            <div v-if="loadBalancingLoading" class="flex items-center gap-2 text-gray-500">
+              <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"></div>
+              {{ t('common.loading') }}
+            </div>
+
+            <template v-else>
+              <!-- Enable Load Balancing -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">{{
+                    t('admin.settings.loadBalancing.enabled')
+                  }}</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.loadBalancing.enabledHint') }}
+                  </p>
+                </div>
+                <Toggle v-model="loadBalancingForm.enabled" />
+              </div>
+
+              <!-- Settings - Only show when enabled -->
+              <div
+                v-if="loadBalancingForm.enabled"
+                class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+              >
+                <!-- Priority Offset -->
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.loadBalancing.priorityOffset') }}
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model.number="loadBalancingForm.priority_offset"
+                      type="number"
+                      min="0"
+                      max="100"
+                      class="input w-24"
+                    />
+                    <span class="text-sm text-gray-500 dark:text-gray-400">%</span>
+                  </div>
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.loadBalancing.priorityOffsetHint') }}
+                  </p>
+                </div>
+
+                <!-- Time Window Minutes -->
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.loadBalancing.timeWindowMinutes') }}
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model.number="loadBalancingForm.time_window_minutes"
+                      type="number"
+                      min="1"
+                      max="60"
+                      class="input w-24"
+                    />
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.settings.loadBalancing.minutes') }}</span>
+                  </div>
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.loadBalancing.timeWindowMinutesHint') }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Save Button -->
+              <div class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700">
+                <button
+                  type="button"
+                  @click="saveLoadBalancingSettings"
+                  :disabled="loadBalancingSaving"
+                  class="btn btn-primary btn-sm"
+                >
+                  <svg
+                    v-if="loadBalancingSaving"
+                    class="mr-1 h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    ></circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  {{ loadBalancingSaving ? t('common.saving') : t('common.save') }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <!-- Registration Settings -->
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -1086,6 +1198,15 @@ const streamTimeoutForm = reactive({
   threshold_window_minutes: 10
 })
 
+// Load Balancing 状态
+const loadBalancingLoading = ref(true)
+const loadBalancingSaving = ref(false)
+const loadBalancingForm = reactive({
+  enabled: true,
+  priority_offset: 30,
+  time_window_minutes: 10
+})
+
 type SettingsForm = SystemSettings & {
   smtp_password: string
   turnstile_secret_key: string
@@ -1424,9 +1545,42 @@ async function saveStreamTimeoutSettings() {
   }
 }
 
+// Load Balancing 方法
+async function loadLoadBalancingSettings() {
+  loadBalancingLoading.value = true
+  try {
+    const settings = await adminAPI.settings.getLoadBalancingSettings()
+    Object.assign(loadBalancingForm, settings)
+  } catch (error: any) {
+    console.error('Failed to load load balancing settings:', error)
+  } finally {
+    loadBalancingLoading.value = false
+  }
+}
+
+async function saveLoadBalancingSettings() {
+  loadBalancingSaving.value = true
+  try {
+    const updated = await adminAPI.settings.updateLoadBalancingSettings({
+      enabled: loadBalancingForm.enabled,
+      priority_offset: loadBalancingForm.priority_offset,
+      time_window_minutes: loadBalancingForm.time_window_minutes
+    })
+    Object.assign(loadBalancingForm, updated)
+    appStore.showSuccess(t('admin.settings.loadBalancing.saved'))
+  } catch (error: any) {
+    appStore.showError(
+      t('admin.settings.loadBalancing.saveFailed') + ': ' + (error.message || t('common.unknownError'))
+    )
+  } finally {
+    loadBalancingSaving.value = false
+  }
+}
+
 onMounted(() => {
   loadSettings()
   loadAdminApiKey()
   loadStreamTimeoutSettings()
+  loadLoadBalancingSettings()
 })
 </script>

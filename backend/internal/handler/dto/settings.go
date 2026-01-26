@@ -89,3 +89,10 @@ type StreamTimeoutSettings struct {
 	ThresholdCount         int    `json:"threshold_count"`
 	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
 }
+
+// LoadBalancingSettings 负载均衡配置 DTO
+type LoadBalancingSettings struct {
+	Enabled           bool `json:"enabled"`
+	PriorityOffset    int  `json:"priority_offset"`
+	TimeWindowMinutes int  `json:"time_window_minutes"`
+}

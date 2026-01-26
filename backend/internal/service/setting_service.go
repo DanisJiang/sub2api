@@ -838,3 +838,60 @@ func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings 
 
 	return s.settingRepo.Set(ctx, SettingKeyStreamTimeoutSettings, string(data))
 }
+
+// GetLoadBalancingSettings 获取负载均衡配置
+func (s *SettingService) GetLoadBalancingSettings(ctx context.Context) (*LoadBalancingSettings, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyLoadBalancingSettings)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return DefaultLoadBalancingSettings(), nil
+		}
+		return nil, fmt.Errorf("get load balancing settings: %w", err)
+	}
+	if value == "" {
+		return DefaultLoadBalancingSettings(), nil
+	}
+
+	var settings LoadBalancingSettings
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return DefaultLoadBalancingSettings(), nil
+	}
+
+	// 验证并修正配置值
+	if settings.PriorityOffset < 0 {
+		settings.PriorityOffset = 0
+	}
+	if settings.PriorityOffset > 100 {
+		settings.PriorityOffset = 100
+	}
+	if settings.TimeWindowMinutes < 1 {
+		settings.TimeWindowMinutes = 1
+	}
+	if settings.TimeWindowMinutes > 60 {
+		settings.TimeWindowMinutes = 60
+	}
+
+	return &settings, nil
+}
+
+// SetLoadBalancingSettings 设置负载均衡配置
+func (s *SettingService) SetLoadBalancingSettings(ctx context.Context, settings *LoadBalancingSettings) error {
+	if settings == nil {
+		return fmt.Errorf("settings cannot be nil")
+	}
+
+	// 验证配置值
+	if settings.PriorityOffset < 0 || settings.PriorityOffset > 100 {
+		return fmt.Errorf("priority_offset must be between 0-100")
+	}
+	if settings.TimeWindowMinutes < 1 || settings.TimeWindowMinutes > 60 {
+		return fmt.Errorf("time_window_minutes must be between 1-60")
+	}
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal load balancing settings: %w", err)
+	}
+
+	return s.settingRepo.Set(ctx, SettingKeyLoadBalancingSettings, string(data))
+}

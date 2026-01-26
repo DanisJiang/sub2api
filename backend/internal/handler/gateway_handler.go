@@ -331,6 +331,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				log.Printf("Forward request failed: %v", err)
 				return
 			}
+			// 【负载均衡】记录请求计数（用于加权负载均衡统计）
+			if h.concurrencyHelper.concurrencyService != nil {
+				if err := h.concurrencyHelper.concurrencyService.IncrLoadBalanceRequestCount(context.Background(), account.ID); err != nil {
+					log.Printf("[load-balance] failed to incr request count: account=%d err=%v", account.ID, err)
+				}
+			}
 			// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）
 			userAgent := c.GetHeader("User-Agent")
 			clientIP := ip.GetClientIP(c)
@@ -589,6 +595,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					log.Printf("[30m-limit] account=%d reached limit but cooldown=0 (count=%d)", account.ID, recordResult.RequestCount)
 				}
 				pauseCancel()
+			}
+		}
+		// 【负载均衡】记录请求计数（用于加权负载均衡统计）
+		if h.concurrencyHelper.concurrencyService != nil {
+			if err := h.concurrencyHelper.concurrencyService.IncrLoadBalanceRequestCount(context.Background(), account.ID); err != nil {
+				log.Printf("[load-balance] failed to incr request count: account=%d err=%v", account.ID, err)
 			}
 		}
 		// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）

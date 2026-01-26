@@ -115,3 +115,23 @@ func DefaultStreamTimeoutSettings() *StreamTimeoutSettings {
 		ThresholdWindowMinutes: 10,
 	}
 }
+
+// LoadBalancingSettings 负载均衡配置
+type LoadBalancingSettings struct {
+	// Enabled 是否启用加权负载均衡（禁用则使用严格优先级）
+	Enabled bool `json:"enabled"`
+	// PriorityOffset 优先级偏移量（百分比，0-100）
+	// 公式：有效负载 = 实际负载 + (优先级-1) × 偏移量
+	PriorityOffset int `json:"priority_offset"`
+	// TimeWindowMinutes 统计时间窗口（分钟，1-60）
+	TimeWindowMinutes int `json:"time_window_minutes"`
+}
+
+// DefaultLoadBalancingSettings 返回默认的负载均衡配置
+func DefaultLoadBalancingSettings() *LoadBalancingSettings {
+	return &LoadBalancingSettings{
+		Enabled:           true,
+		PriorityOffset:    30,
+		TimeWindowMinutes: 10,
+	}
+}

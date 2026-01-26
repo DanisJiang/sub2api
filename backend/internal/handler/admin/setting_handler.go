@@ -758,3 +758,60 @@ func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
 		ThresholdWindowMinutes: updatedSettings.ThresholdWindowMinutes,
 	})
 }
+
+// GetLoadBalancingSettings 获取负载均衡配置
+// GET /api/v1/admin/settings/load-balancing
+func (h *SettingHandler) GetLoadBalancingSettings(c *gin.Context) {
+	settings, err := h.settingService.GetLoadBalancingSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.LoadBalancingSettings{
+		Enabled:           settings.Enabled,
+		PriorityOffset:    settings.PriorityOffset,
+		TimeWindowMinutes: settings.TimeWindowMinutes,
+	})
+}
+
+// UpdateLoadBalancingSettingsRequest 更新负载均衡配置请求
+type UpdateLoadBalancingSettingsRequest struct {
+	Enabled           bool `json:"enabled"`
+	PriorityOffset    int  `json:"priority_offset"`
+	TimeWindowMinutes int  `json:"time_window_minutes"`
+}
+
+// UpdateLoadBalancingSettings 更新负载均衡配置
+// PUT /api/v1/admin/settings/load-balancing
+func (h *SettingHandler) UpdateLoadBalancingSettings(c *gin.Context) {
+	var req UpdateLoadBalancingSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	settings := &service.LoadBalancingSettings{
+		Enabled:           req.Enabled,
+		PriorityOffset:    req.PriorityOffset,
+		TimeWindowMinutes: req.TimeWindowMinutes,
+	}
+
+	if err := h.settingService.SetLoadBalancingSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 重新获取设置返回
+	updatedSettings, err := h.settingService.GetLoadBalancingSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.LoadBalancingSettings{
+		Enabled:           updatedSettings.Enabled,
+		PriorityOffset:    updatedSettings.PriorityOffset,
+		TimeWindowMinutes: updatedSettings.TimeWindowMinutes,
+	})
+}

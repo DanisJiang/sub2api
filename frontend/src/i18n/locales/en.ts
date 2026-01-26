@@ -2999,6 +2999,19 @@ export default {
         saved: 'Stream timeout settings saved',
         saveFailed: 'Failed to save stream timeout settings'
       },
+      loadBalancing: {
+        title: 'Load Balancing Settings',
+        description: 'Configure weighted load balancing algorithm for account scheduling',
+        enabled: 'Enable Weighted Load Balancing',
+        enabledHint: 'Use weighted algorithm when enabled, strict priority when disabled',
+        priorityOffset: 'Priority Offset',
+        priorityOffsetHint: 'Effective load offset per priority level (e.g., 30% means priority 1 handles ~30% more requests before load balancing kicks in)',
+        timeWindowMinutes: 'Time Window',
+        timeWindowMinutesHint: 'Time window for counting requests, recommended 5-15 minutes',
+        minutes: 'minutes',
+        saved: 'Load balancing settings saved',
+        saveFailed: 'Failed to save load balancing settings'
+      },
       saveSettings: 'Save Settings',
       saving: 'Saving...',
       settingsSaved: 'Settings saved successfully',

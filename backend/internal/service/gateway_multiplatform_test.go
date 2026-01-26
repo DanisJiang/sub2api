@@ -1963,6 +1963,14 @@ func (m *mockConcurrencyCache) RefreshSessionSlotTTL(ctx context.Context, accoun
 	return nil
 }
 
+func (m *mockConcurrencyCache) IncrLoadBalanceRequestCount(ctx context.Context, accountID int64) error {
+	return nil
+}
+
+func (m *mockConcurrencyCache) GetLoadBalanceRequestCounts(ctx context.Context, accountIDs []int64, windowMinutes int) (map[int64]int64, error) {
+	return make(map[int64]int64), nil
+}
+
 // TestGatewayService_SelectAccountWithLoadAwareness tests load-aware account selection
 func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 	ctx := context.Background()
