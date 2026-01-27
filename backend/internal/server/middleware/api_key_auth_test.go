@@ -319,6 +319,10 @@ func (r *stubApiKeyRepo) ListKeysByGroupID(ctx context.Context, groupID int64) (
 	return nil, errors.New("not implemented")
 }
 
+func (r *stubApiKeyRepo) IncrementUsage(ctx context.Context, id int64, amount float64) error {
+	return errors.New("not implemented")
+}
+
 type stubUserSubscriptionRepo struct {
 	getActive      func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
 	updateStatus   func(ctx context.Context, subscriptionID int64, status string) error

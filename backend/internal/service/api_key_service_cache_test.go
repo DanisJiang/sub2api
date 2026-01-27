@@ -99,6 +99,10 @@ func (s *authRepoStub) ListKeysByGroupID(ctx context.Context, groupID int64) ([]
 	return s.listKeysByGroupID(ctx, groupID)
 }
 
+func (s *authRepoStub) IncrementUsage(ctx context.Context, id int64, amount float64) error {
+	panic("unexpected IncrementUsage call")
+}
+
 type authCacheStub struct {
 	getAuthCache   func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error)
 	setAuthKeys    []string
