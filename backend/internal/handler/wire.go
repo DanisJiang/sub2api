@@ -73,6 +73,7 @@ func ProvideHandlers(
 	openaiGatewayHandler *OpenAIGatewayHandler,
 	settingHandler *SettingHandler,
 	publicAnnouncementHandler *PublicAnnouncementHandler,
+	totpHandler *TotpHandler,
 ) *Handlers {
 	return &Handlers{
 		Auth:               authHandler,
@@ -86,6 +87,7 @@ func ProvideHandlers(
 		OpenAIGateway:      openaiGatewayHandler,
 		Setting:            settingHandler,
 		PublicAnnouncement: publicAnnouncementHandler,
+		Totp:               totpHandler,
 	}
 }
 
@@ -100,6 +102,7 @@ var ProviderSet = wire.NewSet(
 	NewSubscriptionHandler,
 	NewGatewayHandler,
 	NewOpenAIGatewayHandler,
+	NewTotpHandler,
 	ProvideSettingHandler,
 	NewPublicAnnouncementHandler,
 
