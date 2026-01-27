@@ -8,6 +8,8 @@ type APIKeyAuthSnapshot struct {
 	Status      string                   `json:"status"`
 	IPWhitelist []string                 `json:"ip_whitelist,omitempty"`
 	IPBlacklist []string                 `json:"ip_blacklist,omitempty"`
+	UsageLimit  *float64                 `json:"usage_limit,omitempty"`
+	TotalUsage  float64                  `json:"total_usage"`
 	User        APIKeyAuthUserSnapshot   `json:"user"`
 	Group       *APIKeyAuthGroupSnapshot `json:"group,omitempty"`
 }

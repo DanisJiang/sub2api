@@ -213,6 +213,8 @@ func (s *APIKeyService) snapshotFromAPIKey(apiKey *APIKey) *APIKeyAuthSnapshot {
 		Status:      apiKey.Status,
 		IPWhitelist: apiKey.IPWhitelist,
 		IPBlacklist: apiKey.IPBlacklist,
+		UsageLimit:  apiKey.UsageLimit,
+		TotalUsage:  apiKey.TotalUsage,
 		User: APIKeyAuthUserSnapshot{
 			ID:          apiKey.User.ID,
 			Status:      apiKey.User.Status,
@@ -258,6 +260,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		Status:      snapshot.Status,
 		IPWhitelist: snapshot.IPWhitelist,
 		IPBlacklist: snapshot.IPBlacklist,
+		UsageLimit:  snapshot.UsageLimit,
+		TotalUsage:  snapshot.TotalUsage,
 		User: &User{
 			ID:          snapshot.User.ID,
 			Status:      snapshot.User.Status,
