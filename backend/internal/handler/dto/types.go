@@ -35,6 +35,8 @@ type APIKey struct {
 	Status      string    `json:"status"`
 	IPWhitelist []string  `json:"ip_whitelist"`
 	IPBlacklist []string  `json:"ip_blacklist"`
+	UsageLimit  *float64  `json:"usage_limit"` // 用量限制（美元），null = 无限制
+	TotalUsage  float64   `json:"total_usage"` // 累计用量（美元）
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 

@@ -415,6 +415,11 @@ export default {
     ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
     ipBlacklistHint: '每行一个 IP 或 CIDR，这些 IP 将被禁止使用此密钥',
     ipRestrictionEnabled: '已配置 IP 限制',
+    usageLimit: '用量限制',
+    usageLimitPlaceholder: '留空表示无限制',
+    usageLimitHint: '当累计用量达到此限制时，密钥将被阻止使用。留空表示无限制。',
+    usageLimitInvalid: '用量限制必须是一个有效的非负数',
+    currentUsage: '当前累计用量',
     ccSwitchNotInstalled: 'CC-Switch 未安装或协议处理程序未注册。请先安装 CC-Switch 或手动复制 API 密钥。',
     ccsClientSelect: {
       title: '选择客户端',

@@ -18,6 +18,7 @@ import (
 var (
 	ErrSubscriptionInvalid       = infraerrors.Forbidden("SUBSCRIPTION_INVALID", "subscription is invalid or expired")
 	ErrBillingServiceUnavailable = infraerrors.ServiceUnavailable("BILLING_SERVICE_ERROR", "Billing service temporarily unavailable. Please retry later.")
+	ErrAPIKeyUsageLimitExceeded  = infraerrors.Forbidden("API_KEY_USAGE_LIMIT_EXCEEDED", "API key usage limit exceeded")
 )
 
 // subscriptionCacheData 订阅缓存数据结构（内部使用）
@@ -455,6 +456,11 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	}
 	if s.circuitBreaker != nil && !s.circuitBreaker.Allow() {
 		return ErrBillingServiceUnavailable
+	}
+
+	// 检查 API Key 用量限制
+	if apiKey != nil && apiKey.IsUsageLimitExceeded() {
+		return ErrAPIKeyUsageLimitExceeded
 	}
 
 	// 判断计费模式

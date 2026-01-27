@@ -110,6 +110,8 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldStatus,
 			apikey.FieldIPWhitelist,
 			apikey.FieldIPBlacklist,
+			apikey.FieldUsageLimit,
+			apikey.FieldTotalUsage,
 		).
 		WithUser(func(q *dbent.UserQuery) {
 			q.Select(
@@ -182,6 +184,13 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 		builder.ClearIPBlacklist()
 	}
 
+	// 用量限制字段
+	if key.UsageLimit != nil {
+		builder.SetUsageLimit(*key.UsageLimit)
+	} else {
+		builder.ClearUsageLimit()
+	}
+
 	affected, err := builder.Save(ctx)
 	if err != nil {
 		return err
@@ -193,6 +202,21 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 
 	// 使用同一时间戳回填，避免并发删除导致二次查询失败。
 	key.UpdatedAt = now
+	return nil
+}
+
+// IncrementUsage 增加 API Key 的累计用量
+func (r *apiKeyRepository) IncrementUsage(ctx context.Context, id int64, amount float64) error {
+	affected, err := r.client.APIKey.Update().
+		Where(apikey.IDEQ(id), apikey.DeletedAtIsNil()).
+		AddTotalUsage(amount).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAPIKeyNotFound
+	}
 	return nil
 }
 
@@ -371,6 +395,8 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		Status:      m.Status,
 		IPWhitelist: m.IPWhitelist,
 		IPBlacklist: m.IPBlacklist,
+		UsageLimit:  m.UsageLimit,
+		TotalUsage:  m.TotalUsage,
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 		GroupID:     m.GroupID,

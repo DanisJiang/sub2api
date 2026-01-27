@@ -35,6 +35,10 @@ const (
 	FieldIPWhitelist = "ip_whitelist"
 	// FieldIPBlacklist holds the string denoting the ip_blacklist field in the database.
 	FieldIPBlacklist = "ip_blacklist"
+	// FieldUsageLimit holds the string denoting the usage_limit field in the database.
+	FieldUsageLimit = "usage_limit"
+	// FieldTotalUsage holds the string denoting the total_usage field in the database.
+	FieldTotalUsage = "total_usage"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
@@ -79,6 +83,8 @@ var Columns = []string{
 	FieldStatus,
 	FieldIPWhitelist,
 	FieldIPBlacklist,
+	FieldUsageLimit,
+	FieldTotalUsage,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -113,6 +119,8 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultTotalUsage holds the default value on creation for the "total_usage" field.
+	DefaultTotalUsage float64
 )
 
 // OrderOption defines the ordering options for the APIKey queries.
@@ -161,6 +169,16 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByUsageLimit orders the results by the usage_limit field.
+func ByUsageLimit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUsageLimit, opts...).ToFunc()
+}
+
+// ByTotalUsage orders the results by the total_usage field.
+func ByTotalUsage(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTotalUsage, opts...).ToFunc()
 }
 
 // ByUserField orders the results by user field.

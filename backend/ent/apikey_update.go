@@ -170,6 +170,54 @@ func (_u *APIKeyUpdate) ClearIPBlacklist() *APIKeyUpdate {
 	return _u
 }
 
+// SetUsageLimit sets the "usage_limit" field.
+func (_u *APIKeyUpdate) SetUsageLimit(v float64) *APIKeyUpdate {
+	_u.mutation.ResetUsageLimit()
+	_u.mutation.SetUsageLimit(v)
+	return _u
+}
+
+// SetNillableUsageLimit sets the "usage_limit" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableUsageLimit(v *float64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetUsageLimit(*v)
+	}
+	return _u
+}
+
+// AddUsageLimit adds value to the "usage_limit" field.
+func (_u *APIKeyUpdate) AddUsageLimit(v float64) *APIKeyUpdate {
+	_u.mutation.AddUsageLimit(v)
+	return _u
+}
+
+// ClearUsageLimit clears the value of the "usage_limit" field.
+func (_u *APIKeyUpdate) ClearUsageLimit() *APIKeyUpdate {
+	_u.mutation.ClearUsageLimit()
+	return _u
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (_u *APIKeyUpdate) SetTotalUsage(v float64) *APIKeyUpdate {
+	_u.mutation.ResetTotalUsage()
+	_u.mutation.SetTotalUsage(v)
+	return _u
+}
+
+// SetNillableTotalUsage sets the "total_usage" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableTotalUsage(v *float64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetTotalUsage(*v)
+	}
+	return _u
+}
+
+// AddTotalUsage adds value to the "total_usage" field.
+func (_u *APIKeyUpdate) AddTotalUsage(v float64) *APIKeyUpdate {
+	_u.mutation.AddTotalUsage(v)
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdate) SetUser(v *User) *APIKeyUpdate {
 	return _u.SetUserID(v.ID)
@@ -349,6 +397,21 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.IPBlacklistCleared() {
 		_spec.ClearField(apikey.FieldIPBlacklist, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.UsageLimit(); ok {
+		_spec.SetField(apikey.FieldUsageLimit, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedUsageLimit(); ok {
+		_spec.AddField(apikey.FieldUsageLimit, field.TypeFloat64, value)
+	}
+	if _u.mutation.UsageLimitCleared() {
+		_spec.ClearField(apikey.FieldUsageLimit, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TotalUsage(); ok {
+		_spec.SetField(apikey.FieldTotalUsage, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalUsage(); ok {
+		_spec.AddField(apikey.FieldTotalUsage, field.TypeFloat64, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -611,6 +674,54 @@ func (_u *APIKeyUpdateOne) ClearIPBlacklist() *APIKeyUpdateOne {
 	return _u
 }
 
+// SetUsageLimit sets the "usage_limit" field.
+func (_u *APIKeyUpdateOne) SetUsageLimit(v float64) *APIKeyUpdateOne {
+	_u.mutation.ResetUsageLimit()
+	_u.mutation.SetUsageLimit(v)
+	return _u
+}
+
+// SetNillableUsageLimit sets the "usage_limit" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableUsageLimit(v *float64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetUsageLimit(*v)
+	}
+	return _u
+}
+
+// AddUsageLimit adds value to the "usage_limit" field.
+func (_u *APIKeyUpdateOne) AddUsageLimit(v float64) *APIKeyUpdateOne {
+	_u.mutation.AddUsageLimit(v)
+	return _u
+}
+
+// ClearUsageLimit clears the value of the "usage_limit" field.
+func (_u *APIKeyUpdateOne) ClearUsageLimit() *APIKeyUpdateOne {
+	_u.mutation.ClearUsageLimit()
+	return _u
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (_u *APIKeyUpdateOne) SetTotalUsage(v float64) *APIKeyUpdateOne {
+	_u.mutation.ResetTotalUsage()
+	_u.mutation.SetTotalUsage(v)
+	return _u
+}
+
+// SetNillableTotalUsage sets the "total_usage" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableTotalUsage(v *float64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetTotalUsage(*v)
+	}
+	return _u
+}
+
+// AddTotalUsage adds value to the "total_usage" field.
+func (_u *APIKeyUpdateOne) AddTotalUsage(v float64) *APIKeyUpdateOne {
+	_u.mutation.AddTotalUsage(v)
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdateOne) SetUser(v *User) *APIKeyUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -820,6 +931,21 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if _u.mutation.IPBlacklistCleared() {
 		_spec.ClearField(apikey.FieldIPBlacklist, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.UsageLimit(); ok {
+		_spec.SetField(apikey.FieldUsageLimit, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedUsageLimit(); ok {
+		_spec.AddField(apikey.FieldUsageLimit, field.TypeFloat64, value)
+	}
+	if _u.mutation.UsageLimitCleared() {
+		_spec.ClearField(apikey.FieldUsageLimit, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TotalUsage(); ok {
+		_spec.SetField(apikey.FieldTotalUsage, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalUsage(); ok {
+		_spec.AddField(apikey.FieldTotalUsage, field.TypeFloat64, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

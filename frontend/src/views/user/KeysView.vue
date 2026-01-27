@@ -334,6 +334,28 @@
             </div>
           </div>
         </div>
+
+        <!-- Usage Limit Section (only for edit) -->
+        <div v-if="showEditModal" class="space-y-3">
+          <div>
+            <label class="input-label">{{ t('keys.usageLimit') }}</label>
+            <div class="flex items-center gap-3">
+              <input
+                v-model="formData.usage_limit"
+                type="text"
+                inputmode="decimal"
+                class="input flex-1"
+                :placeholder="t('keys.usageLimitPlaceholder')"
+              />
+              <span class="text-sm text-gray-500 dark:text-gray-400">USD</span>
+            </div>
+            <p class="input-hint">{{ t('keys.usageLimitHint') }}</p>
+          </div>
+          <div v-if="selectedKey" class="flex items-center gap-2 text-sm">
+            <span class="text-gray-500 dark:text-gray-400">{{ t('keys.currentUsage') }}:</span>
+            <span class="font-medium text-gray-900 dark:text-white">${{ selectedKey.total_usage.toFixed(4) }}</span>
+          </div>
+        </div>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -587,7 +609,8 @@ const formData = ref({
   custom_key: '',
   enable_ip_restriction: false,
   ip_whitelist: '',
-  ip_blacklist: ''
+  ip_blacklist: '',
+  usage_limit: '' as string  // 用量限制，空字符串表示无限制
 })
 
 // 自定义Key验证
@@ -732,7 +755,8 @@ const editKey = (key: ApiKey) => {
     custom_key: '',
     enable_ip_restriction: hasIPRestriction,
     ip_whitelist: (key.ip_whitelist || []).join('\n'),
-    ip_blacklist: (key.ip_blacklist || []).join('\n')
+    ip_blacklist: (key.ip_blacklist || []).join('\n'),
+    usage_limit: key.usage_limit !== null ? key.usage_limit.toString() : ''
   }
   showEditModal.value = true
 }
@@ -820,6 +844,18 @@ const handleSubmit = async () => {
   const ipWhitelist = formData.value.enable_ip_restriction ? parseIPList(formData.value.ip_whitelist) : []
   const ipBlacklist = formData.value.enable_ip_restriction ? parseIPList(formData.value.ip_blacklist) : []
 
+  // Parse and validate usage limit
+  let usageLimit: number | null = null
+  const usageLimitInput = formData.value.usage_limit.trim()
+  if (usageLimitInput !== '') {
+    const parsed = parseFloat(usageLimitInput)
+    if (isNaN(parsed) || parsed < 0) {
+      appStore.showError(t('keys.usageLimitInvalid'))
+      return
+    }
+    usageLimit = parsed
+  }
+
   submitting.value = true
   try {
     if (showEditModal.value && selectedKey.value) {
@@ -828,7 +864,8 @@ const handleSubmit = async () => {
         group_id: formData.value.group_id,
         status: formData.value.status,
         ip_whitelist: ipWhitelist,
-        ip_blacklist: ipBlacklist
+        ip_blacklist: ipBlacklist,
+        usage_limit: usageLimit
       })
       appStore.showSuccess(t('keys.keyUpdatedSuccess'))
     } else {
@@ -883,7 +920,8 @@ const closeModals = () => {
     custom_key: '',
     enable_ip_restriction: false,
     ip_whitelist: '',
-    ip_blacklist: ''
+    ip_blacklist: '',
+    usage_limit: ''
   }
 }
 

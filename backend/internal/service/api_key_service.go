@@ -40,6 +40,8 @@ type APIKeyRepository interface {
 	GetByKeyForAuth(ctx context.Context, key string) (*APIKey, error)
 	Update(ctx context.Context, key *APIKey) error
 	Delete(ctx context.Context, id int64) error
+	// IncrementUsage 增加 API Key 的累计用量
+	IncrementUsage(ctx context.Context, id int64, amount float64) error
 
 	ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams) ([]APIKey, *pagination.PaginationResult, error)
 	VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error)
@@ -89,11 +91,13 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string  `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      *string  `json:"status"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	Name            *string  `json:"name"`
+	GroupID         *int64   `json:"group_id"`
+	Status          *string  `json:"status"`
+	IPWhitelist     []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
+	IPBlacklist     []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	UsageLimit      *float64 `json:"usage_limit"`  // 用量限制（美元），nil 表示不修改，指向 0 值可用于清除限制
+	ClearUsageLimit bool     `json:"-"`            // 内部标记：是否清除用量限制
 }
 
 // APIKeyService API Key服务
@@ -434,6 +438,15 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		if s.cache != nil {
 			_ = s.cache.DeleteCreateAttemptCount(ctx, apiKey.UserID)
 		}
+	}
+
+	// 更新用量限制
+	if req.ClearUsageLimit {
+		// 显式清除限制（设为无限制）
+		apiKey.UsageLimit = nil
+	} else if req.UsageLimit != nil {
+		// 设置限制
+		apiKey.UsageLimit = req.UsageLimit
 	}
 
 	// 更新 IP 限制（空数组会清空设置）

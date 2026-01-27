@@ -301,6 +301,8 @@ export interface ApiKey {
   status: 'active' | 'inactive'
   ip_whitelist: string[]
   ip_blacklist: string[]
+  usage_limit: number | null  // 用量限制（美元），null = 无限制
+  total_usage: number         // 累计用量（美元）
   created_at: string
   updated_at: string
   group?: Group
@@ -320,6 +322,7 @@ export interface UpdateApiKeyRequest {
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]
+  usage_limit?: number | null  // 用量限制（美元），null = 无限制
 }
 
 export interface CreateGroupRequest {

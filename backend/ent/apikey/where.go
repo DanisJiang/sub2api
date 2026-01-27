@@ -95,6 +95,16 @@ func Status(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldStatus, v))
 }
 
+// UsageLimit applies equality check predicate on the "usage_limit" field. It's identical to UsageLimitEQ.
+func UsageLimit(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldUsageLimit, v))
+}
+
+// TotalUsage applies equality check predicate on the "total_usage" field. It's identical to TotalUsageEQ.
+func TotalUsage(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldTotalUsage, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldCreatedAt, v))
@@ -488,6 +498,96 @@ func IPBlacklistIsNil() predicate.APIKey {
 // IPBlacklistNotNil applies the NotNil predicate on the "ip_blacklist" field.
 func IPBlacklistNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldIPBlacklist))
+}
+
+// UsageLimitEQ applies the EQ predicate on the "usage_limit" field.
+func UsageLimitEQ(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldUsageLimit, v))
+}
+
+// UsageLimitNEQ applies the NEQ predicate on the "usage_limit" field.
+func UsageLimitNEQ(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldUsageLimit, v))
+}
+
+// UsageLimitIn applies the In predicate on the "usage_limit" field.
+func UsageLimitIn(vs ...float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldUsageLimit, vs...))
+}
+
+// UsageLimitNotIn applies the NotIn predicate on the "usage_limit" field.
+func UsageLimitNotIn(vs ...float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldUsageLimit, vs...))
+}
+
+// UsageLimitGT applies the GT predicate on the "usage_limit" field.
+func UsageLimitGT(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldUsageLimit, v))
+}
+
+// UsageLimitGTE applies the GTE predicate on the "usage_limit" field.
+func UsageLimitGTE(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldUsageLimit, v))
+}
+
+// UsageLimitLT applies the LT predicate on the "usage_limit" field.
+func UsageLimitLT(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldUsageLimit, v))
+}
+
+// UsageLimitLTE applies the LTE predicate on the "usage_limit" field.
+func UsageLimitLTE(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldUsageLimit, v))
+}
+
+// UsageLimitIsNil applies the IsNil predicate on the "usage_limit" field.
+func UsageLimitIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldUsageLimit))
+}
+
+// UsageLimitNotNil applies the NotNil predicate on the "usage_limit" field.
+func UsageLimitNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldUsageLimit))
+}
+
+// TotalUsageEQ applies the EQ predicate on the "total_usage" field.
+func TotalUsageEQ(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldTotalUsage, v))
+}
+
+// TotalUsageNEQ applies the NEQ predicate on the "total_usage" field.
+func TotalUsageNEQ(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldTotalUsage, v))
+}
+
+// TotalUsageIn applies the In predicate on the "total_usage" field.
+func TotalUsageIn(vs ...float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldTotalUsage, vs...))
+}
+
+// TotalUsageNotIn applies the NotIn predicate on the "total_usage" field.
+func TotalUsageNotIn(vs ...float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldTotalUsage, vs...))
+}
+
+// TotalUsageGT applies the GT predicate on the "total_usage" field.
+func TotalUsageGT(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldTotalUsage, v))
+}
+
+// TotalUsageGTE applies the GTE predicate on the "total_usage" field.
+func TotalUsageGTE(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldTotalUsage, v))
+}
+
+// TotalUsageLT applies the LT predicate on the "total_usage" field.
+func TotalUsageLT(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldTotalUsage, v))
+}
+
+// TotalUsageLTE applies the LTE predicate on the "total_usage" field.
+func TotalUsageLTE(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldTotalUsage, v))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.

@@ -125,6 +125,34 @@ func (_c *APIKeyCreate) SetIPBlacklist(v []string) *APIKeyCreate {
 	return _c
 }
 
+// SetUsageLimit sets the "usage_limit" field.
+func (_c *APIKeyCreate) SetUsageLimit(v float64) *APIKeyCreate {
+	_c.mutation.SetUsageLimit(v)
+	return _c
+}
+
+// SetNillableUsageLimit sets the "usage_limit" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableUsageLimit(v *float64) *APIKeyCreate {
+	if v != nil {
+		_c.SetUsageLimit(*v)
+	}
+	return _c
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (_c *APIKeyCreate) SetTotalUsage(v float64) *APIKeyCreate {
+	_c.mutation.SetTotalUsage(v)
+	return _c
+}
+
+// SetNillableTotalUsage sets the "total_usage" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableTotalUsage(v *float64) *APIKeyCreate {
+	if v != nil {
+		_c.SetTotalUsage(*v)
+	}
+	return _c
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_c *APIKeyCreate) SetUser(v *User) *APIKeyCreate {
 	return _c.SetUserID(v.ID)
@@ -205,6 +233,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.TotalUsage(); !ok {
+		v := apikey.DefaultTotalUsage
+		_c.mutation.SetTotalUsage(v)
+	}
 	return nil
 }
 
@@ -242,6 +274,9 @@ func (_c *APIKeyCreate) check() error {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.TotalUsage(); !ok {
+		return &ValidationError{Name: "total_usage", err: errors.New(`ent: missing required field "APIKey.total_usage"`)}
 	}
 	if len(_c.mutation.UserIDs()) == 0 {
 		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "APIKey.user"`)}
@@ -304,6 +339,14 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IPBlacklist(); ok {
 		_spec.SetField(apikey.FieldIPBlacklist, field.TypeJSON, value)
 		_node.IPBlacklist = value
+	}
+	if value, ok := _c.mutation.UsageLimit(); ok {
+		_spec.SetField(apikey.FieldUsageLimit, field.TypeFloat64, value)
+		_node.UsageLimit = &value
+	}
+	if value, ok := _c.mutation.TotalUsage(); ok {
+		_spec.SetField(apikey.FieldTotalUsage, field.TypeFloat64, value)
+		_node.TotalUsage = value
 	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -539,6 +582,48 @@ func (u *APIKeyUpsert) ClearIPBlacklist() *APIKeyUpsert {
 	return u
 }
 
+// SetUsageLimit sets the "usage_limit" field.
+func (u *APIKeyUpsert) SetUsageLimit(v float64) *APIKeyUpsert {
+	u.Set(apikey.FieldUsageLimit, v)
+	return u
+}
+
+// UpdateUsageLimit sets the "usage_limit" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateUsageLimit() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldUsageLimit)
+	return u
+}
+
+// AddUsageLimit adds v to the "usage_limit" field.
+func (u *APIKeyUpsert) AddUsageLimit(v float64) *APIKeyUpsert {
+	u.Add(apikey.FieldUsageLimit, v)
+	return u
+}
+
+// ClearUsageLimit clears the value of the "usage_limit" field.
+func (u *APIKeyUpsert) ClearUsageLimit() *APIKeyUpsert {
+	u.SetNull(apikey.FieldUsageLimit)
+	return u
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (u *APIKeyUpsert) SetTotalUsage(v float64) *APIKeyUpsert {
+	u.Set(apikey.FieldTotalUsage, v)
+	return u
+}
+
+// UpdateTotalUsage sets the "total_usage" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateTotalUsage() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldTotalUsage)
+	return u
+}
+
+// AddTotalUsage adds v to the "total_usage" field.
+func (u *APIKeyUpsert) AddTotalUsage(v float64) *APIKeyUpsert {
+	u.Add(apikey.FieldTotalUsage, v)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -735,6 +820,55 @@ func (u *APIKeyUpsertOne) UpdateIPBlacklist() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearIPBlacklist() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearIPBlacklist()
+	})
+}
+
+// SetUsageLimit sets the "usage_limit" field.
+func (u *APIKeyUpsertOne) SetUsageLimit(v float64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetUsageLimit(v)
+	})
+}
+
+// AddUsageLimit adds v to the "usage_limit" field.
+func (u *APIKeyUpsertOne) AddUsageLimit(v float64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddUsageLimit(v)
+	})
+}
+
+// UpdateUsageLimit sets the "usage_limit" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateUsageLimit() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateUsageLimit()
+	})
+}
+
+// ClearUsageLimit clears the value of the "usage_limit" field.
+func (u *APIKeyUpsertOne) ClearUsageLimit() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearUsageLimit()
+	})
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (u *APIKeyUpsertOne) SetTotalUsage(v float64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTotalUsage(v)
+	})
+}
+
+// AddTotalUsage adds v to the "total_usage" field.
+func (u *APIKeyUpsertOne) AddTotalUsage(v float64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddTotalUsage(v)
+	})
+}
+
+// UpdateTotalUsage sets the "total_usage" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateTotalUsage() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTotalUsage()
 	})
 }
 
@@ -1100,6 +1234,55 @@ func (u *APIKeyUpsertBulk) UpdateIPBlacklist() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearIPBlacklist() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearIPBlacklist()
+	})
+}
+
+// SetUsageLimit sets the "usage_limit" field.
+func (u *APIKeyUpsertBulk) SetUsageLimit(v float64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetUsageLimit(v)
+	})
+}
+
+// AddUsageLimit adds v to the "usage_limit" field.
+func (u *APIKeyUpsertBulk) AddUsageLimit(v float64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddUsageLimit(v)
+	})
+}
+
+// UpdateUsageLimit sets the "usage_limit" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateUsageLimit() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateUsageLimit()
+	})
+}
+
+// ClearUsageLimit clears the value of the "usage_limit" field.
+func (u *APIKeyUpsertBulk) ClearUsageLimit() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearUsageLimit()
+	})
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (u *APIKeyUpsertBulk) SetTotalUsage(v float64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTotalUsage(v)
+	})
+}
+
+// AddTotalUsage adds v to the "total_usage" field.
+func (u *APIKeyUpsertBulk) AddTotalUsage(v float64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddTotalUsage(v)
+	})
+}
+
+// UpdateTotalUsage sets the "total_usage" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateTotalUsage() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTotalUsage()
 	})
 }
 

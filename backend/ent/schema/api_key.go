@@ -52,6 +52,13 @@ func (APIKey) Fields() []ent.Field {
 		field.JSON("ip_blacklist", []string{}).
 			Optional().
 			Comment("Blocked IPs/CIDRs"),
+		field.Float("usage_limit").
+			Optional().
+			Nillable().
+			Comment("Usage limit in USD, null means unlimited"),
+		field.Float("total_usage").
+			Default(0).
+			Comment("Total accumulated usage in USD"),
 	}
 }
 

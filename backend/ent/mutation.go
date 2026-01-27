@@ -76,6 +76,10 @@ type APIKeyMutation struct {
 	appendip_whitelist []string
 	ip_blacklist       *[]string
 	appendip_blacklist []string
+	usage_limit        *float64
+	addusage_limit     *float64
+	total_usage        *float64
+	addtotal_usage     *float64
 	clearedFields      map[string]struct{}
 	user               *int64
 	cleareduser        bool
@@ -631,6 +635,132 @@ func (m *APIKeyMutation) ResetIPBlacklist() {
 	delete(m.clearedFields, apikey.FieldIPBlacklist)
 }
 
+// SetUsageLimit sets the "usage_limit" field.
+func (m *APIKeyMutation) SetUsageLimit(f float64) {
+	m.usage_limit = &f
+	m.addusage_limit = nil
+}
+
+// UsageLimit returns the value of the "usage_limit" field in the mutation.
+func (m *APIKeyMutation) UsageLimit() (r float64, exists bool) {
+	v := m.usage_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsageLimit returns the old "usage_limit" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldUsageLimit(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsageLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsageLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsageLimit: %w", err)
+	}
+	return oldValue.UsageLimit, nil
+}
+
+// AddUsageLimit adds f to the "usage_limit" field.
+func (m *APIKeyMutation) AddUsageLimit(f float64) {
+	if m.addusage_limit != nil {
+		*m.addusage_limit += f
+	} else {
+		m.addusage_limit = &f
+	}
+}
+
+// AddedUsageLimit returns the value that was added to the "usage_limit" field in this mutation.
+func (m *APIKeyMutation) AddedUsageLimit() (r float64, exists bool) {
+	v := m.addusage_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearUsageLimit clears the value of the "usage_limit" field.
+func (m *APIKeyMutation) ClearUsageLimit() {
+	m.usage_limit = nil
+	m.addusage_limit = nil
+	m.clearedFields[apikey.FieldUsageLimit] = struct{}{}
+}
+
+// UsageLimitCleared returns if the "usage_limit" field was cleared in this mutation.
+func (m *APIKeyMutation) UsageLimitCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldUsageLimit]
+	return ok
+}
+
+// ResetUsageLimit resets all changes to the "usage_limit" field.
+func (m *APIKeyMutation) ResetUsageLimit() {
+	m.usage_limit = nil
+	m.addusage_limit = nil
+	delete(m.clearedFields, apikey.FieldUsageLimit)
+}
+
+// SetTotalUsage sets the "total_usage" field.
+func (m *APIKeyMutation) SetTotalUsage(f float64) {
+	m.total_usage = &f
+	m.addtotal_usage = nil
+}
+
+// TotalUsage returns the value of the "total_usage" field in the mutation.
+func (m *APIKeyMutation) TotalUsage() (r float64, exists bool) {
+	v := m.total_usage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalUsage returns the old "total_usage" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldTotalUsage(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalUsage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalUsage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalUsage: %w", err)
+	}
+	return oldValue.TotalUsage, nil
+}
+
+// AddTotalUsage adds f to the "total_usage" field.
+func (m *APIKeyMutation) AddTotalUsage(f float64) {
+	if m.addtotal_usage != nil {
+		*m.addtotal_usage += f
+	} else {
+		m.addtotal_usage = &f
+	}
+}
+
+// AddedTotalUsage returns the value that was added to the "total_usage" field in this mutation.
+func (m *APIKeyMutation) AddedTotalUsage() (r float64, exists bool) {
+	v := m.addtotal_usage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalUsage resets all changes to the "total_usage" field.
+func (m *APIKeyMutation) ResetTotalUsage() {
+	m.total_usage = nil
+	m.addtotal_usage = nil
+}
+
 // ClearUser clears the "user" edge to the User entity.
 func (m *APIKeyMutation) ClearUser() {
 	m.cleareduser = true
@@ -773,7 +903,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -804,6 +934,12 @@ func (m *APIKeyMutation) Fields() []string {
 	if m.ip_blacklist != nil {
 		fields = append(fields, apikey.FieldIPBlacklist)
 	}
+	if m.usage_limit != nil {
+		fields = append(fields, apikey.FieldUsageLimit)
+	}
+	if m.total_usage != nil {
+		fields = append(fields, apikey.FieldTotalUsage)
+	}
 	return fields
 }
 
@@ -832,6 +968,10 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.IPWhitelist()
 	case apikey.FieldIPBlacklist:
 		return m.IPBlacklist()
+	case apikey.FieldUsageLimit:
+		return m.UsageLimit()
+	case apikey.FieldTotalUsage:
+		return m.TotalUsage()
 	}
 	return nil, false
 }
@@ -861,6 +1001,10 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldIPWhitelist(ctx)
 	case apikey.FieldIPBlacklist:
 		return m.OldIPBlacklist(ctx)
+	case apikey.FieldUsageLimit:
+		return m.OldUsageLimit(ctx)
+	case apikey.FieldTotalUsage:
+		return m.OldTotalUsage(ctx)
 	}
 	return nil, fmt.Errorf("unknown APIKey field %s", name)
 }
@@ -940,6 +1084,20 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetIPBlacklist(v)
 		return nil
+	case apikey.FieldUsageLimit:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsageLimit(v)
+		return nil
+	case apikey.FieldTotalUsage:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalUsage(v)
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)
 }
@@ -948,6 +1106,12 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *APIKeyMutation) AddedFields() []string {
 	var fields []string
+	if m.addusage_limit != nil {
+		fields = append(fields, apikey.FieldUsageLimit)
+	}
+	if m.addtotal_usage != nil {
+		fields = append(fields, apikey.FieldTotalUsage)
+	}
 	return fields
 }
 
@@ -956,6 +1120,10 @@ func (m *APIKeyMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case apikey.FieldUsageLimit:
+		return m.AddedUsageLimit()
+	case apikey.FieldTotalUsage:
+		return m.AddedTotalUsage()
 	}
 	return nil, false
 }
@@ -965,6 +1133,20 @@ func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *APIKeyMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case apikey.FieldUsageLimit:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUsageLimit(v)
+		return nil
+	case apikey.FieldTotalUsage:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalUsage(v)
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey numeric field %s", name)
 }
@@ -984,6 +1166,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(apikey.FieldIPBlacklist) {
 		fields = append(fields, apikey.FieldIPBlacklist)
+	}
+	if m.FieldCleared(apikey.FieldUsageLimit) {
+		fields = append(fields, apikey.FieldUsageLimit)
 	}
 	return fields
 }
@@ -1010,6 +1195,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 		return nil
 	case apikey.FieldIPBlacklist:
 		m.ClearIPBlacklist()
+		return nil
+	case apikey.FieldUsageLimit:
+		m.ClearUsageLimit()
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey nullable field %s", name)
@@ -1048,6 +1236,12 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldIPBlacklist:
 		m.ResetIPBlacklist()
+		return nil
+	case apikey.FieldUsageLimit:
+		m.ResetUsageLimit()
+		return nil
+	case apikey.FieldTotalUsage:
+		m.ResetTotalUsage()
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)

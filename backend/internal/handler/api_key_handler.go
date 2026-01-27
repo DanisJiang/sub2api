@@ -41,6 +41,7 @@ type UpdateAPIKeyRequest struct {
 	Status      string   `json:"status" binding:"omitempty,oneof=active inactive"`
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	UsageLimit  *float64 `json:"usage_limit"`  // 用量限制（美元），null = 无限制
 }
 
 // List handles listing user's API keys with pagination
@@ -144,22 +145,55 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateAPIKeyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// 使用 map 来检测哪些字段被传递了
+	var rawReq map[string]any
+	if err := c.ShouldBindJSON(&rawReq); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
-	svcReq := service.UpdateAPIKeyRequest{
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
+	svcReq := service.UpdateAPIKeyRequest{}
+
+	if name, ok := rawReq["name"].(string); ok && name != "" {
+		svcReq.Name = &name
 	}
-	if req.Name != "" {
-		svcReq.Name = &req.Name
+	if groupID, ok := rawReq["group_id"]; ok {
+		if groupID == nil {
+			// 显式传递 null，清除 group
+			var nilGroupID *int64 = nil
+			svcReq.GroupID = nilGroupID
+		} else if gid, ok := groupID.(float64); ok {
+			gidInt := int64(gid)
+			svcReq.GroupID = &gidInt
+		}
 	}
-	svcReq.GroupID = req.GroupID
-	if req.Status != "" {
-		svcReq.Status = &req.Status
+	if status, ok := rawReq["status"].(string); ok && status != "" {
+		svcReq.Status = &status
+	}
+	if ipWhitelist, ok := rawReq["ip_whitelist"].([]any); ok {
+		svcReq.IPWhitelist = make([]string, 0, len(ipWhitelist))
+		for _, ip := range ipWhitelist {
+			if s, ok := ip.(string); ok {
+				svcReq.IPWhitelist = append(svcReq.IPWhitelist, s)
+			}
+		}
+	}
+	if ipBlacklist, ok := rawReq["ip_blacklist"].([]any); ok {
+		svcReq.IPBlacklist = make([]string, 0, len(ipBlacklist))
+		for _, ip := range ipBlacklist {
+			if s, ok := ip.(string); ok {
+				svcReq.IPBlacklist = append(svcReq.IPBlacklist, s)
+			}
+		}
+	}
+	// 处理 usage_limit：检测是否显式传递了这个字段
+	if _, exists := rawReq["usage_limit"]; exists {
+		if rawReq["usage_limit"] == nil {
+			// 显式传递 null，清除限制
+			svcReq.ClearUsageLimit = true
+		} else if limit, ok := rawReq["usage_limit"].(float64); ok {
+			svcReq.UsageLimit = &limit
+		}
 	}
 
 	key, err := h.apiKeyService.Update(c.Request.Context(), keyID, subject.UserID, svcReq)

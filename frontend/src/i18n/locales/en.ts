@@ -419,6 +419,11 @@ export default {
     ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
     ipBlacklistHint: 'One IP or CIDR per line. These IPs will be blocked from using this key.',
     ipRestrictionEnabled: 'IP restriction enabled',
+    usageLimit: 'Usage Limit',
+    usageLimitPlaceholder: 'Leave empty for no limit',
+    usageLimitHint: 'When cumulative usage reaches this limit, the key will be blocked. Leave empty for no limit.',
+    usageLimitInvalid: 'Usage limit must be a valid non-negative number',
+    currentUsage: 'Current Usage',
     ccSwitchNotInstalled: 'CC-Switch is not installed or the protocol handler is not registered. Please install CC-Switch first or manually copy the API key.',
     ccsClientSelect: {
       title: 'Select Client',
