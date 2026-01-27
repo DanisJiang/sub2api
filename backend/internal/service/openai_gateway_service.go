@@ -170,6 +170,7 @@ type OpenAIGatewayService struct {
 	usageLogRepo        UsageLogRepository
 	userRepo            UserRepository
 	userSubRepo         UserSubscriptionRepository
+	apiKeyRepo          APIKeyRepository
 	cache               GatewayCache
 	cfg                 *config.Config
 	schedulerSnapshot   *SchedulerSnapshotService
@@ -189,6 +190,7 @@ func NewOpenAIGatewayService(
 	usageLogRepo UsageLogRepository,
 	userRepo UserRepository,
 	userSubRepo UserSubscriptionRepository,
+	apiKeyRepo APIKeyRepository,
 	cache GatewayCache,
 	cfg *config.Config,
 	schedulerSnapshot *SchedulerSnapshotService,
@@ -205,6 +207,7 @@ func NewOpenAIGatewayService(
 		usageLogRepo:        usageLogRepo,
 		userRepo:            userRepo,
 		userSubRepo:         userSubRepo,
+		apiKeyRepo:          apiKeyRepo,
 		cache:               cache,
 		cfg:                 cfg,
 		schedulerSnapshot:   schedulerSnapshot,
@@ -1742,6 +1745,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		if shouldBill && cost.ActualCost > 0 {
 			_ = s.userRepo.DeductBalance(ctx, user.ID, cost.ActualCost)
 			s.billingCacheService.QueueDeductBalance(user.ID, cost.ActualCost)
+		}
+	}
+
+	// 更新 API Key 累计用量
+	if shouldBill && cost.ActualCost > 0 && s.apiKeyRepo != nil {
+		if err := s.apiKeyRepo.IncrementUsage(ctx, apiKey.ID, cost.ActualCost); err != nil {
+			log.Printf("Increment API key usage failed: %v", err)
 		}
 	}
 
