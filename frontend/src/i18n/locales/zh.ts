@@ -3114,7 +3114,7 @@ export default {
         title: '风控服务',
         description: '配置风控服务以检测和预防账号滥用',
         url: '风控服务地址',
-        urlPlaceholder: 'http://localhost:8000',
+        urlPlaceholder: 'http://localhost:8765',
         urlHint: '风控服务的 URL 地址，留空则禁用风控检查',
         testConnection: '测试连接',
         testing: '测试中...',

@@ -2962,7 +2962,7 @@ export default {
         title: 'Risk Service',
         description: 'Configure risk service to detect and prevent account abuse',
         url: 'Risk Service URL',
-        urlPlaceholder: 'http://localhost:8000',
+        urlPlaceholder: 'http://localhost:8765',
         urlHint: 'URL of the risk service. Leave empty to disable risk checking.',
         testConnection: 'Test Connection',
         testing: 'Testing...',
