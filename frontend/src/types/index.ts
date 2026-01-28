@@ -476,6 +476,8 @@ export interface Account {
   max_rpm: number
   max_30m_requests: number
   rate_limit_cooldown_minutes: number
+  // Risk control (anti-ban) for Anthropic accounts
+  risk_control_enabled: boolean
   created_at: string
   updated_at: string
   proxy?: Proxy

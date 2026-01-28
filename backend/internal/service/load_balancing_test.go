@@ -20,11 +20,11 @@ type accountWithLoad struct {
 // TestWeightedLoadBalancingSorting 测试加权负载均衡排序逻辑
 func TestWeightedLoadBalancingSorting(t *testing.T) {
 	tests := []struct {
-		name           string
-		accounts       []accountWithLoad
-		requestCounts  map[int64]int64
-		lbSettings     *LoadBalancingSettings
-		expectedOrder  []int64 // 期望的账号 ID 顺序
+		name          string
+		accounts      []accountWithLoad
+		requestCounts map[int64]int64
+		lbSettings    *LoadBalancingSettings
+		expectedOrder []int64 // 期望的账号 ID 顺序
 	}{
 		{
 			name: "strict priority when disabled",

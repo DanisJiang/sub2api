@@ -203,6 +203,14 @@ func (Account) Fields() []ent.Field {
 		field.Bool("archived").
 			Default(false).
 			Comment("归档状态，归档后不参与调度和统计"),
+
+		// ========== 风控对抗相关字段 ==========
+
+		// risk_control_enabled: 是否启用风控对抗（仅限 Anthropic 账号）
+		// 启用后会在请求前检查风险分数，自动调节请求间隔
+		field.Bool("risk_control_enabled").
+			Default(false).
+			Comment("启用风控对抗，自动调节请求间隔降低被封风险（仅限Anthropic账号）"),
 	}
 }
 

@@ -132,4 +132,6 @@ deploy/docker-compose.override.yml
 .gocache/
 vite.config.js
 docs/*
-.serena/
+.serena/analysis/
+risk-service/
+analysis/

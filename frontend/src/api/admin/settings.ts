@@ -70,6 +70,9 @@ export interface SystemSettings {
   ops_realtime_monitoring_enabled: boolean
   ops_query_mode_default: 'auto' | 'raw' | 'preagg' | string
   ops_metrics_interval_seconds: number
+
+  // Risk Service
+  risk_service_url: string
 }
 
 export interface UpdateSettingsRequest {
@@ -117,6 +120,7 @@ export interface UpdateSettingsRequest {
   ops_realtime_monitoring_enabled?: boolean
   ops_query_mode_default?: 'auto' | 'raw' | 'preagg' | string
   ops_metrics_interval_seconds?: number
+  risk_service_url?: string
 }
 
 /**
@@ -289,6 +293,38 @@ export async function updateLoadBalancingSettings(
   return data
 }
 
+/**
+ * Test risk service connection request
+ */
+export interface TestRiskServiceRequest {
+  url: string
+}
+
+/**
+ * Risk service connection test response
+ */
+export interface RiskServiceHealthResponse {
+  status: string
+  model_loaded: boolean
+  redis_connected: boolean
+  config?: Record<string, unknown>
+}
+
+/**
+ * Test risk service connection with provided URL
+ * @param request - Risk service URL to test
+ * @returns Health check result
+ */
+export async function testRiskServiceConnection(
+  request: TestRiskServiceRequest
+): Promise<RiskServiceHealthResponse> {
+  const { data } = await apiClient.post<RiskServiceHealthResponse>(
+    '/admin/settings/test-risk-service',
+    request
+  )
+  return data
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -300,7 +336,8 @@ export const settingsAPI = {
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,
   getLoadBalancingSettings,
-  updateLoadBalancingSettings
+  updateLoadBalancingSettings,
+  testRiskServiceConnection
 }
 
 export default settingsAPI

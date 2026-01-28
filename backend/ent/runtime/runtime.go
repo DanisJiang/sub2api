@@ -221,6 +221,10 @@ func init() {
 	accountDescArchived := accountFields[25].Descriptor()
 	// account.DefaultArchived holds the default value on creation for the archived field.
 	account.DefaultArchived = accountDescArchived.Default.(bool)
+	// accountDescRiskControlEnabled is the schema descriptor for risk_control_enabled field.
+	accountDescRiskControlEnabled := accountFields[26].Descriptor()
+	// account.DefaultRiskControlEnabled holds the default value on creation for the risk_control_enabled field.
+	account.DefaultRiskControlEnabled = accountDescRiskControlEnabled.Default.(bool)
 	accountgroupFields := schema.AccountGroup{}.Fields()
 	_ = accountgroupFields
 	// accountgroupDescPriority is the schema descriptor for priority field.

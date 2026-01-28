@@ -682,6 +682,20 @@ func (s *SettingService) IsAntigravityScopeRateLimitEnabled(ctx context.Context)
 	return value == "true"
 }
 
+// GetRiskServiceURL 获取风控服务地址
+func (s *SettingService) GetRiskServiceURL(ctx context.Context) string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRiskServiceURL)
+	if err != nil {
+		return ""
+	}
+	return value
+}
+
+// SetRiskServiceURL 设置风控服务地址
+func (s *SettingService) SetRiskServiceURL(ctx context.Context, url string) error {
+	return s.settingRepo.Set(ctx, SettingKeyRiskServiceURL, url)
+}
+
 // GetFallbackModel 获取指定平台的兜底模型
 func (s *SettingService) GetFallbackModel(ctx context.Context, platform string) string {
 	var key string

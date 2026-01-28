@@ -110,8 +110,9 @@ type Account struct {
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 
-	Schedulable bool `json:"schedulable"`
-	Archived    bool `json:"archived"`
+	Schedulable        bool `json:"schedulable"`
+	Archived           bool `json:"archived"`
+	RiskControlEnabled bool `json:"risk_control_enabled"` // 启用风控对抗（仅限Anthropic账号）
 
 	RateLimitedAt    *time.Time `json:"rate_limited_at"`
 	RateLimitResetAt *time.Time `json:"rate_limit_reset_at"`

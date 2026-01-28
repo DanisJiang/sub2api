@@ -652,6 +652,36 @@
         </div>
       </div>
 
+      <!-- Risk Control Toggle (Anthropic only) -->
+      <div
+        v-if="account?.platform === 'anthropic'"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.riskControlEnabled') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.riskControlEnabledDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="riskControlEnabled = !riskControlEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              riskControlEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                riskControlEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div>
           <label class="input-label">{{ t('common.status') }}</label>
@@ -820,6 +850,9 @@ const maxRpm = ref(0)         // 每分钟最大请求数（0 = 使用默认值 
 const max30mRequests = ref(0) // 30 分钟内最大请求数（0 = 不限制）
 const rateLimitCooldownMinutes = ref(0) // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
 
+// 风控对抗（仅限 Anthropic 账号）
+const riskControlEnabled = ref(false)
+
 // Computed: current preset mappings based on platform
 const presetMappings = computed(() => getPresetMappingsByPlatform(props.account?.platform || 'anthropic'))
 const tempUnschedPresets = computed(() => [
@@ -907,6 +940,9 @@ watch(
       maxRpm.value = newAccount.max_rpm || 0
       max30mRequests.value = newAccount.max_30m_requests || 0
       rateLimitCooldownMinutes.value = newAccount.rate_limit_cooldown_minutes || 0
+
+      // Load risk control setting (only for Anthropic accounts)
+      riskControlEnabled.value = newAccount.risk_control_enabled === true
 
       // Load mixed scheduling setting (only for antigravity accounts)
       const extra = newAccount.extra as Record<string, unknown> | undefined
@@ -1201,6 +1237,9 @@ const handleSubmit = async () => {
     updatePayload.max_rpm = maxRpm.value
     updatePayload.max_30m_requests = max30mRequests.value
     updatePayload.rate_limit_cooldown_minutes = rateLimitCooldownMinutes.value
+
+    // 风控对抗（仅限 Anthropic 账号）
+    updatePayload.risk_control_enabled = riskControlEnabled.value
 
     // For apikey type, handle credentials update
     if (props.account.type === 'apikey') {

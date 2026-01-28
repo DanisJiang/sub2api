@@ -73,6 +73,8 @@ const (
 	FieldRateLimitCooldownMinutes = "rate_limit_cooldown_minutes"
 	// FieldArchived holds the string denoting the archived field in the database.
 	FieldArchived = "archived"
+	// FieldRiskControlEnabled holds the string denoting the risk_control_enabled field in the database.
+	FieldRiskControlEnabled = "risk_control_enabled"
 	// EdgeGroups holds the string denoting the groups edge name in mutations.
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
@@ -143,6 +145,7 @@ var Columns = []string{
 	FieldMax30mRequests,
 	FieldRateLimitCooldownMinutes,
 	FieldArchived,
+	FieldRiskControlEnabled,
 }
 
 var (
@@ -209,6 +212,8 @@ var (
 	DefaultRateLimitCooldownMinutes int
 	// DefaultArchived holds the default value on creation for the "archived" field.
 	DefaultArchived bool
+	// DefaultRiskControlEnabled holds the default value on creation for the "risk_control_enabled" field.
+	DefaultRiskControlEnabled bool
 )
 
 // OrderOption defines the ordering options for the Account queries.
@@ -352,6 +357,11 @@ func ByRateLimitCooldownMinutes(opts ...sql.OrderTermOption) OrderOption {
 // ByArchived orders the results by the archived field.
 func ByArchived(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldArchived, opts...).ToFunc()
+}
+
+// ByRiskControlEnabled orders the results by the risk_control_enabled field.
+func ByRiskControlEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRiskControlEnabled, opts...).ToFunc()
 }
 
 // ByGroupsCount orders the results by groups count.

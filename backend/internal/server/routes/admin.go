@@ -321,6 +321,8 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		// 负载均衡配置
 		adminSettings.GET("/load-balancing", h.Admin.Setting.GetLoadBalancingSettings)
 		adminSettings.PUT("/load-balancing", h.Admin.Setting.UpdateLoadBalancingSettings)
+		// 风控服务测试
+		adminSettings.POST("/test-risk-service", h.Admin.Setting.TestRiskServiceConnection)
 	}
 }
 

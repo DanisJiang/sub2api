@@ -1444,6 +1444,8 @@ export default {
       rateLimitCooldown: 'Rate Limit Cooldown (minutes)',
       rateLimitCooldownPlaceholder: '0 = no cooldown',
       rateLimitCooldownHint: 'Duration to pause account after hitting 30-minute limit. 0 means no pause',
+      riskControlEnabled: 'Risk Control',
+      riskControlEnabledDesc: 'Enable automatic request interval adjustment to reduce account ban risk (requires risk service deployment)',
       priority: 'Priority',
       priorityHint: 'Lower value accounts are used first',
       billingRateMultiplier: 'Billing Rate Multiplier',
@@ -2955,6 +2957,20 @@ export default {
         antigravityScopeRateLimit: 'Enable Antigravity Scope-Based Rate Limiting',
         antigravityScopeRateLimitHint:
           'When enabled, Antigravity accounts track quota status separately by model type (Claude/Gemini), so exhausting one type does not block scheduling for others'
+      },
+      riskService: {
+        title: 'Risk Service',
+        description: 'Configure risk service to detect and prevent account abuse',
+        url: 'Risk Service URL',
+        urlPlaceholder: 'http://localhost:8000',
+        urlHint: 'URL of the risk service. Leave empty to disable risk checking.',
+        testConnection: 'Test Connection',
+        testing: 'Testing...',
+        testSuccess: 'Risk service connection successful',
+        testFailed: 'Risk service connection failed',
+        status: 'Status',
+        modelLoaded: 'Model Loaded',
+        redisConnected: 'Redis Connected'
       },
       site: {
         title: 'Site Settings',

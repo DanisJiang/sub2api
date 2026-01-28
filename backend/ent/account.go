@@ -77,6 +77,8 @@ type Account struct {
 	RateLimitCooldownMinutes int `json:"rate_limit_cooldown_minutes,omitempty"`
 	// 归档状态，归档后不参与调度和统计
 	Archived bool `json:"archived,omitempty"`
+	// 启用风控对抗，自动调节请求间隔降低被封风险（仅限Anthropic账号）
+	RiskControlEnabled bool `json:"risk_control_enabled,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AccountQuery when eager-loading is set.
 	Edges        AccountEdges `json:"edges"`
@@ -143,7 +145,7 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case account.FieldCredentials, account.FieldExtra:
 			values[i] = new([]byte)
-		case account.FieldAutoPauseOnExpired, account.FieldSchedulable, account.FieldArchived:
+		case account.FieldAutoPauseOnExpired, account.FieldSchedulable, account.FieldArchived, account.FieldRiskControlEnabled:
 			values[i] = new(sql.NullBool)
 		case account.FieldRateMultiplier:
 			values[i] = new(sql.NullFloat64)
@@ -364,6 +366,12 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Archived = value.Bool
 			}
+		case account.FieldRiskControlEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field risk_control_enabled", values[i])
+			} else if value.Valid {
+				_m.RiskControlEnabled = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -530,6 +538,9 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("archived=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Archived))
+	builder.WriteString(", ")
+	builder.WriteString("risk_control_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RiskControlEnabled))
 	builder.WriteByte(')')
 	return builder.String()
 }

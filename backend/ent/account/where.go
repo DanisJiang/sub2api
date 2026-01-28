@@ -190,6 +190,11 @@ func Archived(v bool) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldArchived, v))
 }
 
+// RiskControlEnabled applies equality check predicate on the "risk_control_enabled" field. It's identical to RiskControlEnabledEQ.
+func RiskControlEnabled(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldRiskControlEnabled, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldCreatedAt, v))
@@ -1453,6 +1458,16 @@ func ArchivedEQ(v bool) predicate.Account {
 // ArchivedNEQ applies the NEQ predicate on the "archived" field.
 func ArchivedNEQ(v bool) predicate.Account {
 	return predicate.Account(sql.FieldNEQ(FieldArchived, v))
+}
+
+// RiskControlEnabledEQ applies the EQ predicate on the "risk_control_enabled" field.
+func RiskControlEnabledEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldRiskControlEnabled, v))
+}
+
+// RiskControlEnabledNEQ applies the NEQ predicate on the "risk_control_enabled" field.
+func RiskControlEnabledNEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldRiskControlEnabled, v))
 }
 
 // HasGroups applies the HasEdge predicate on the "groups" edge.

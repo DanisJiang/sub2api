@@ -30,8 +30,9 @@ type Account struct {
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 
-	Schedulable bool
-	Archived    bool
+	Schedulable        bool
+	Archived           bool
+	RiskControlEnabled bool // 启用风控对抗（仅限Anthropic账号）
 
 	RateLimitedAt    *time.Time
 	RateLimitResetAt *time.Time

@@ -59,6 +59,9 @@ type SystemSettings struct {
 	SkipAntigravityProjectIDCheck    bool `json:"skip_antigravity_project_id_check"`
 	AntigravityScopeRateLimitEnabled bool `json:"antigravity_scope_rate_limit_enabled"`
 
+	// 风控服务
+	RiskServiceURL string `json:"risk_service_url"`
+
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"`
 	OpsRealtimeMonitoringEnabled bool   `json:"ops_realtime_monitoring_enabled"`

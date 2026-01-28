@@ -138,6 +138,9 @@ const (
 	SettingKeySkipAntigravityProjectIDCheck    = "skip_antigravity_project_id_check"    // 跳过 Antigravity 账号的 project_id 检查
 	SettingKeyAntigravityScopeRateLimitEnabled = "antigravity_scope_rate_limit_enabled" // 启用 Antigravity 配额域细分限流（Claude/Gemini 分开限流）
 
+	// 风控服务
+	SettingKeyRiskServiceURL = "risk_service_url" // 风控服务地址，为空则禁用风控
+
 	// =========================
 	// Ops Monitoring (vNext)
 	// =========================

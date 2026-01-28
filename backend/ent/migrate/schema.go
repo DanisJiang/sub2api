@@ -98,6 +98,7 @@ var (
 		{Name: "max_30m_requests", Type: field.TypeInt, Default: 0},
 		{Name: "rate_limit_cooldown_minutes", Type: field.TypeInt, Default: 0},
 		{Name: "archived", Type: field.TypeBool, Default: false},
+		{Name: "risk_control_enabled", Type: field.TypeBool, Default: false},
 		{Name: "proxy_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// AccountsTable holds the schema information for the "accounts" table.
@@ -108,7 +109,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[29]},
+				Columns:    []*schema.Column{AccountsColumns[30]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -132,7 +133,7 @@ var (
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[29]},
+				Columns: []*schema.Column{AccountsColumns[30]},
 			},
 			{
 				Name:    "account_priority",

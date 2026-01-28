@@ -190,6 +190,7 @@ type GatewayService struct {
 	concurrencyService  *ConcurrencyService
 	settingService      *SettingService
 	claudeTokenProvider *ClaudeTokenProvider
+	riskService         RiskService
 }
 
 // NewGatewayService creates a new GatewayService
@@ -212,6 +213,7 @@ func NewGatewayService(
 	deferredService *DeferredService,
 	settingService *SettingService,
 	claudeTokenProvider *ClaudeTokenProvider,
+	riskService RiskService,
 ) *GatewayService {
 	return &GatewayService{
 		accountRepo:         accountRepo,
@@ -232,6 +234,7 @@ func NewGatewayService(
 		deferredService:     deferredService,
 		settingService:      settingService,
 		claudeTokenProvider: claudeTokenProvider,
+		riskService:         riskService,
 	}
 }
 
@@ -1670,6 +1673,23 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		proxyURL = account.Proxy.URL()
 	}
 
+	// 风控检查：仅对启用风控的 Anthropic 账号
+	if account.RiskControlEnabled && account.Platform == PlatformAnthropic && s.riskService != nil {
+		riskResp, err := s.riskService.Check(ctx, account.ID)
+		if err != nil {
+			log.Printf("[RiskControl] Account %d: check failed: %v (proceeding without delay)", account.ID, err)
+		} else if riskResp.DelayMs > 0 {
+			log.Printf("[RiskControl] Account %d: score=%.4f status=%s requests=%d delay=%dms",
+				account.ID, riskResp.RiskScore, riskResp.Status, riskResp.RequestCount, riskResp.DelayMs)
+			if err := sleepWithContext(ctx, time.Duration(riskResp.DelayMs)*time.Millisecond); err != nil {
+				return nil, err
+			}
+		} else {
+			log.Printf("[RiskControl] Account %d: score=%.4f status=%s requests=%d (no delay)",
+				account.ID, riskResp.RiskScore, riskResp.Status, riskResp.RequestCount)
+		}
+	}
+
 	// 重试循环
 	var resp *http.Response
 	retryStart := time.Now()
@@ -2022,6 +2042,21 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// 风控记录：仅对启用风控的 Anthropic 账号
+	if account.RiskControlEnabled && account.Platform == PlatformAnthropic && s.riskService != nil && usage != nil {
+		// 捕获变量避免 goroutine 数据竞争
+		accountID := account.ID
+		inputTokens := usage.InputTokens
+		outputTokens := usage.OutputTokens
+		go func() {
+			recordCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := s.riskService.Record(recordCtx, accountID, inputTokens, outputTokens); err != nil {
+				log.Printf("[RiskControl] Account %d: record failed: %v", accountID, err)
+			}
+		}()
 	}
 
 	return &ForwardResult{

@@ -1407,6 +1407,7 @@ type AccountMutation struct {
 	rate_limit_cooldown_minutes    *int
 	addrate_limit_cooldown_minutes *int
 	archived                       *bool
+	risk_control_enabled           *bool
 	clearedFields                  map[string]struct{}
 	groups                         map[int64]struct{}
 	removedgroups                  map[int64]struct{}
@@ -2839,6 +2840,42 @@ func (m *AccountMutation) ResetArchived() {
 	m.archived = nil
 }
 
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (m *AccountMutation) SetRiskControlEnabled(b bool) {
+	m.risk_control_enabled = &b
+}
+
+// RiskControlEnabled returns the value of the "risk_control_enabled" field in the mutation.
+func (m *AccountMutation) RiskControlEnabled() (r bool, exists bool) {
+	v := m.risk_control_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRiskControlEnabled returns the old "risk_control_enabled" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldRiskControlEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRiskControlEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRiskControlEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRiskControlEnabled: %w", err)
+	}
+	return oldValue.RiskControlEnabled, nil
+}
+
+// ResetRiskControlEnabled resets all changes to the "risk_control_enabled" field.
+func (m *AccountMutation) ResetRiskControlEnabled() {
+	m.risk_control_enabled = nil
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by ids.
 func (m *AccountMutation) AddGroupIDs(ids ...int64) {
 	if m.groups == nil {
@@ -3008,7 +3045,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 29)
+	fields := make([]string, 0, 30)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -3096,6 +3133,9 @@ func (m *AccountMutation) Fields() []string {
 	if m.archived != nil {
 		fields = append(fields, account.FieldArchived)
 	}
+	if m.risk_control_enabled != nil {
+		fields = append(fields, account.FieldRiskControlEnabled)
+	}
 	return fields
 }
 
@@ -3162,6 +3202,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.RateLimitCooldownMinutes()
 	case account.FieldArchived:
 		return m.Archived()
+	case account.FieldRiskControlEnabled:
+		return m.RiskControlEnabled()
 	}
 	return nil, false
 }
@@ -3229,6 +3271,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldRateLimitCooldownMinutes(ctx)
 	case account.FieldArchived:
 		return m.OldArchived(ctx)
+	case account.FieldRiskControlEnabled:
+		return m.OldRiskControlEnabled(ctx)
 	}
 	return nil, fmt.Errorf("unknown Account field %s", name)
 }
@@ -3440,6 +3484,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetArchived(v)
+		return nil
+	case account.FieldRiskControlEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRiskControlEnabled(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)
@@ -3726,6 +3777,9 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldArchived:
 		m.ResetArchived()
+		return nil
+	case account.FieldRiskControlEnabled:
+		m.ResetRiskControlEnabled()
 		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)

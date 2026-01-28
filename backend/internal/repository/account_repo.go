@@ -121,7 +121,8 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 	// OAuth 账号 RPM/30m 限制配置
 	builder.SetMaxRpm(account.MaxRPM).
 		SetMax30mRequests(account.Max30mRequests).
-		SetRateLimitCooldownMinutes(account.RateLimitCooldownMinutes)
+		SetRateLimitCooldownMinutes(account.RateLimitCooldownMinutes).
+		SetRiskControlEnabled(account.RiskControlEnabled)
 
 	created, err := builder.Save(ctx)
 	if err != nil {
@@ -362,7 +363,8 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	// OAuth 账号 RPM/30m 限制配置
 	builder.SetMaxRpm(account.MaxRPM).
 		SetMax30mRequests(account.Max30mRequests).
-		SetRateLimitCooldownMinutes(account.RateLimitCooldownMinutes)
+		SetRateLimitCooldownMinutes(account.RateLimitCooldownMinutes).
+		SetRiskControlEnabled(account.RiskControlEnabled)
 
 	updated, err := builder.Save(ctx)
 	if err != nil {
@@ -1550,6 +1552,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		UpdatedAt:           m.UpdatedAt,
 		Schedulable:         m.Schedulable,
 		Archived:            m.Archived,
+		RiskControlEnabled:  m.RiskControlEnabled,
 		RateLimitedAt:       m.RateLimitedAt,
 		RateLimitResetAt:    m.RateLimitResetAt,
 		OverloadUntil:       m.OverloadUntil,

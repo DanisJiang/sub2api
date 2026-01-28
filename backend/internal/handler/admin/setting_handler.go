@@ -1,7 +1,11 @@
 package admin
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -43,6 +47,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 	// Check if ops monitoring is enabled (respects config.ops.enabled)
 	opsEnabled := h.opsService != nil && h.opsService.IsMonitoringEnabled(c.Request.Context())
+
+	// 获取风控服务 URL
+	riskServiceURL := h.settingService.GetRiskServiceURL(c.Request.Context())
 
 	response.Success(c, dto.SystemSettings{
 		RegistrationEnabled:                  settings.RegistrationEnabled,
@@ -86,6 +93,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		DisableUsageFetch:                    settings.DisableUsageFetch,
 		SkipAntigravityProjectIDCheck:        settings.SkipAntigravityProjectIDCheck,
 		AntigravityScopeRateLimitEnabled:     settings.AntigravityScopeRateLimitEnabled,
+		RiskServiceURL:                       riskServiceURL,
 		OpsMonitoringEnabled:                 opsEnabled && settings.OpsMonitoringEnabled,
 		OpsRealtimeMonitoringEnabled:         settings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                  settings.OpsQueryModeDefault,
@@ -156,6 +164,9 @@ type UpdateSettingsRequest struct {
 	// Antigravity 设置
 	SkipAntigravityProjectIDCheck    bool `json:"skip_antigravity_project_id_check"`
 	AntigravityScopeRateLimitEnabled bool `json:"antigravity_scope_rate_limit_enabled"`
+
+	// 风控服务
+	RiskServiceURL string `json:"risk_service_url"`
 
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         *bool   `json:"ops_monitoring_enabled"`
@@ -340,6 +351,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
+	// 单独保存风控服务 URL
+	if err := h.settingService.SetRiskServiceURL(c.Request.Context(), strings.TrimSpace(req.RiskServiceURL)); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
 	h.auditSettingsUpdate(c, previousSettings, settings, req)
 
 	// 重新获取设置返回
@@ -391,6 +408,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		DisableUsageFetch:                    updatedSettings.DisableUsageFetch,
 		SkipAntigravityProjectIDCheck:        updatedSettings.SkipAntigravityProjectIDCheck,
 		AntigravityScopeRateLimitEnabled:     updatedSettings.AntigravityScopeRateLimitEnabled,
+		RiskServiceURL:                       h.settingService.GetRiskServiceURL(c.Request.Context()),
 		OpsMonitoringEnabled:                 updatedSettings.OpsMonitoringEnabled,
 		OpsRealtimeMonitoringEnabled:         updatedSettings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                  updatedSettings.OpsQueryModeDefault,
@@ -840,4 +858,76 @@ func (h *SettingHandler) UpdateLoadBalancingSettings(c *gin.Context) {
 		PriorityOffset:    updatedSettings.PriorityOffset,
 		TimeWindowMinutes: updatedSettings.TimeWindowMinutes,
 	})
+}
+
+// TestRiskServiceConnectionRequest 测试风控服务连接请求
+type TestRiskServiceConnectionRequest struct {
+	URL string `json:"url" binding:"required"`
+}
+
+// TestRiskServiceConnection 测试风控服务连接
+// POST /api/v1/admin/settings/test-risk-service
+func (h *SettingHandler) TestRiskServiceConnection(c *gin.Context) {
+	var req TestRiskServiceConnectionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	url := strings.TrimSpace(req.URL)
+	if url == "" {
+		response.BadRequest(c, "Risk service URL is required")
+		return
+	}
+
+	// 直接使用传入的 URL 进行测试，不保存到数据库
+	health, err := testRiskServiceURL(c.Request.Context(), url)
+	if err != nil {
+		response.Error(c, 503, "Risk service connection failed: "+err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"status":          health.Status,
+		"model_loaded":    health.ModelLoaded,
+		"redis_connected": health.RedisConnected,
+		"config":          health.Config,
+	})
+}
+
+// riskServiceHealthResponse 风控服务健康检查响应
+type riskServiceHealthResponse struct {
+	Status         string         `json:"status"`
+	ModelLoaded    bool           `json:"model_loaded"`
+	RedisConnected bool           `json:"redis_connected"`
+	Config         map[string]any `json:"config"`
+}
+
+// testRiskServiceURL 直接使用传入的 URL 测试风控服务连接
+func testRiskServiceURL(ctx context.Context, baseURL string) (*riskServiceHealthResponse, error) {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/health", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request failed: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("health check failed with status: %d", resp.StatusCode)
+	}
+
+	var result riskServiceHealthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response failed: %w", err)
+	}
+
+	return &result, nil
 }

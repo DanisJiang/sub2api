@@ -513,6 +513,20 @@ func (_u *AccountUpdate) SetNillableArchived(v *bool) *AccountUpdate {
 	return _u
 }
 
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (_u *AccountUpdate) SetRiskControlEnabled(v bool) *AccountUpdate {
+	_u.mutation.SetRiskControlEnabled(v)
+	return _u
+}
+
+// SetNillableRiskControlEnabled sets the "risk_control_enabled" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableRiskControlEnabled(v *bool) *AccountUpdate {
+	if v != nil {
+		_u.SetRiskControlEnabled(*v)
+	}
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdate) AddGroupIDs(ids ...int64) *AccountUpdate {
 	_u.mutation.AddGroupIDs(ids...)
@@ -816,6 +830,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Archived(); ok {
 		_spec.SetField(account.FieldArchived, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.RiskControlEnabled(); ok {
+		_spec.SetField(account.FieldRiskControlEnabled, field.TypeBool, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1450,6 +1467,20 @@ func (_u *AccountUpdateOne) SetNillableArchived(v *bool) *AccountUpdateOne {
 	return _u
 }
 
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (_u *AccountUpdateOne) SetRiskControlEnabled(v bool) *AccountUpdateOne {
+	_u.mutation.SetRiskControlEnabled(v)
+	return _u
+}
+
+// SetNillableRiskControlEnabled sets the "risk_control_enabled" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableRiskControlEnabled(v *bool) *AccountUpdateOne {
+	if v != nil {
+		_u.SetRiskControlEnabled(*v)
+	}
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdateOne) AddGroupIDs(ids ...int64) *AccountUpdateOne {
 	_u.mutation.AddGroupIDs(ids...)
@@ -1783,6 +1814,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.Archived(); ok {
 		_spec.SetField(account.FieldArchived, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.RiskControlEnabled(); ok {
+		_spec.SetField(account.FieldRiskControlEnabled, field.TypeBool, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{

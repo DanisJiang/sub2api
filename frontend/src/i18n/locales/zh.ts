@@ -1576,6 +1576,8 @@ export default {
       rateLimitCooldown: '限流冷却时间（分钟）',
       rateLimitCooldownPlaceholder: '0 = 不冷却',
       rateLimitCooldownHint: '触发 30 分钟限制后，账号暂停调度的时长。0 表示不暂停',
+      riskControlEnabled: '风控对抗',
+      riskControlEnabledDesc: '启用后，系统会自动调节请求间隔以降低账号被封禁的风险（需要部署风控服务）',
       priority: '优先级',
       priorityHint: '优先级越小的账号优先使用',
       billingRateMultiplier: '账号计费倍率',
@@ -3107,6 +3109,20 @@ export default {
         antigravityScopeRateLimit: '启用 Antigravity 配额域细分限流',
         antigravityScopeRateLimitHint:
           '开启后，Antigravity 账号会按模型类型（Claude/Gemini）分别追踪配额状态，某个类型用尽不会影响其他类型的调度'
+      },
+      riskService: {
+        title: '风控服务',
+        description: '配置风控服务以检测和预防账号滥用',
+        url: '风控服务地址',
+        urlPlaceholder: 'http://localhost:8000',
+        urlHint: '风控服务的 URL 地址，留空则禁用风控检查',
+        testConnection: '测试连接',
+        testing: '测试中...',
+        testSuccess: '风控服务连接成功',
+        testFailed: '风控服务连接失败',
+        status: '状态',
+        modelLoaded: '模型已加载',
+        redisConnected: 'Redis 已连接'
       },
       site: {
         title: '站点设置',

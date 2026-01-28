@@ -391,6 +391,20 @@ func (_c *AccountCreate) SetNillableArchived(v *bool) *AccountCreate {
 	return _c
 }
 
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (_c *AccountCreate) SetRiskControlEnabled(v bool) *AccountCreate {
+	_c.mutation.SetRiskControlEnabled(v)
+	return _c
+}
+
+// SetNillableRiskControlEnabled sets the "risk_control_enabled" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableRiskControlEnabled(v *bool) *AccountCreate {
+	if v != nil {
+		_c.SetRiskControlEnabled(*v)
+	}
+	return _c
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_c *AccountCreate) AddGroupIDs(ids ...int64) *AccountCreate {
 	_c.mutation.AddGroupIDs(ids...)
@@ -531,6 +545,10 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultArchived
 		_c.mutation.SetArchived(v)
 	}
+	if _, ok := _c.mutation.RiskControlEnabled(); !ok {
+		v := account.DefaultRiskControlEnabled
+		_c.mutation.SetRiskControlEnabled(v)
+	}
 	return nil
 }
 
@@ -611,6 +629,9 @@ func (_c *AccountCreate) check() error {
 	}
 	if _, ok := _c.mutation.Archived(); !ok {
 		return &ValidationError{Name: "archived", err: errors.New(`ent: missing required field "Account.archived"`)}
+	}
+	if _, ok := _c.mutation.RiskControlEnabled(); !ok {
+		return &ValidationError{Name: "risk_control_enabled", err: errors.New(`ent: missing required field "Account.risk_control_enabled"`)}
 	}
 	return nil
 }
@@ -750,6 +771,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Archived(); ok {
 		_spec.SetField(account.FieldArchived, field.TypeBool, value)
 		_node.Archived = value
+	}
+	if value, ok := _c.mutation.RiskControlEnabled(); ok {
+		_spec.SetField(account.FieldRiskControlEnabled, field.TypeBool, value)
+		_node.RiskControlEnabled = value
 	}
 	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1297,6 +1322,18 @@ func (u *AccountUpsert) SetArchived(v bool) *AccountUpsert {
 // UpdateArchived sets the "archived" field to the value that was provided on create.
 func (u *AccountUpsert) UpdateArchived() *AccountUpsert {
 	u.SetExcluded(account.FieldArchived)
+	return u
+}
+
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (u *AccountUpsert) SetRiskControlEnabled(v bool) *AccountUpsert {
+	u.Set(account.FieldRiskControlEnabled, v)
+	return u
+}
+
+// UpdateRiskControlEnabled sets the "risk_control_enabled" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateRiskControlEnabled() *AccountUpsert {
+	u.SetExcluded(account.FieldRiskControlEnabled)
 	return u
 }
 
@@ -1860,6 +1897,20 @@ func (u *AccountUpsertOne) SetArchived(v bool) *AccountUpsertOne {
 func (u *AccountUpsertOne) UpdateArchived() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateArchived()
+	})
+}
+
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (u *AccountUpsertOne) SetRiskControlEnabled(v bool) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetRiskControlEnabled(v)
+	})
+}
+
+// UpdateRiskControlEnabled sets the "risk_control_enabled" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateRiskControlEnabled() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateRiskControlEnabled()
 	})
 }
 
@@ -2589,6 +2640,20 @@ func (u *AccountUpsertBulk) SetArchived(v bool) *AccountUpsertBulk {
 func (u *AccountUpsertBulk) UpdateArchived() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateArchived()
+	})
+}
+
+// SetRiskControlEnabled sets the "risk_control_enabled" field.
+func (u *AccountUpsertBulk) SetRiskControlEnabled(v bool) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetRiskControlEnabled(v)
+	})
+}
+
+// UpdateRiskControlEnabled sets the "risk_control_enabled" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateRiskControlEnabled() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateRiskControlEnabled()
 	})
 }
 

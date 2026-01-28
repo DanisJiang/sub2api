@@ -210,6 +210,11 @@ func ProvideAPIKeyAuthCacheInvalidator(apiKeyService *APIKeyService) APIKeyAuthC
 	return apiKeyService
 }
 
+// ProvideRiskService 创建风控服务客户端
+func ProvideRiskService(settingService *SettingService) RiskService {
+	return NewRiskService(settingService)
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -274,4 +279,5 @@ var ProviderSet = wire.NewSet(
 	NewUsageCache,
 	NewAnnouncementService,
 	NewTotpService,
+	ProvideRiskService,
 )
