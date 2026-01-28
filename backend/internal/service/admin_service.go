@@ -178,9 +178,10 @@ type UpdateAccountInput struct {
 	AutoPauseOnExpired    *bool
 	SkipMixedChannelCheck bool // 跳过混合渠道检查（用户已确认风险）
 	// OAuth 账号 RPM/30m 限制配置
-	MaxRPM                   *int // 每分钟最大请求数（0 = 使用默认值）
-	Max30mRequests           *int // 30 分钟内最大请求数（0 = 不限制）
-	RateLimitCooldownMinutes *int // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
+	MaxRPM                   *int  // 每分钟最大请求数（0 = 使用默认值）
+	Max30mRequests           *int  // 30 分钟内最大请求数（0 = 不限制）
+	RateLimitCooldownMinutes *int  // 触发 30 分钟限制后的冷却时间（分钟，0 = 不冷却）
+	RiskControlEnabled       *bool // 启用风控对抗（仅限 Anthropic 账号）
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
@@ -969,6 +970,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	if input.RateLimitCooldownMinutes != nil {
 		account.RateLimitCooldownMinutes = *input.RateLimitCooldownMinutes
+	}
+	if input.RiskControlEnabled != nil {
+		account.RiskControlEnabled = *input.RiskControlEnabled
 	}
 
 	// 先验证分组是否存在（在任何写操作之前）
