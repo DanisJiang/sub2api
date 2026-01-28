@@ -498,6 +498,7 @@ func TestAPIContracts(t *testing.T) {
 					"disable_usage_fetch": false,
 					"skip_antigravity_project_id_check": false,
 					"antigravity_scope_rate_limit_enabled": false,
+					"risk_service_url": "",
 					"home_content": "",
 					"hide_ccs_import_button": false
 				}
