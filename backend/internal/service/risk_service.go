@@ -11,8 +11,8 @@ import (
 
 // RiskService 风控服务客户端
 type RiskService interface {
-	// Check 检查账号风险，返回建议延迟时间（毫秒）
-	Check(ctx context.Context, accountID int64) (*RiskCheckResponse, error)
+	// Check 检查账号风险，需要传入当前请求的 inputTokens
+	Check(ctx context.Context, accountID int64, inputTokens int) (*RiskCheckResponse, error)
 	// Record 记录请求完成
 	Record(ctx context.Context, accountID int64, inputTokens, outputTokens int) error
 	// TestConnection 测试风控服务连接
@@ -23,15 +23,13 @@ type RiskService interface {
 
 // RiskCheckResponse 风控检查响应
 type RiskCheckResponse struct {
-	AccountID     string  `json:"account_id"`
-	RiskScore     float64 `json:"risk_score"`
-	Threshold     float64 `json:"threshold"`
-	SafeThreshold float64 `json:"safe_threshold"`
-	Status        string  `json:"status"` // safe, warning, danger
-	DelayMs       int     `json:"delay_ms"`
-	Message       string  `json:"message"`
-	RequestCount  int     `json:"request_count"`
-	WindowMinutes int     `json:"window_minutes"`
+	AccountID    string  `json:"account_id"`
+	RiskScore    float64 `json:"risk_score"`
+	Threshold    float64 `json:"threshold"`
+	Status       string  `json:"status"` // safe, danger
+	Message      string  `json:"message"`
+	RequestCount int     `json:"request_count"`
+	WindowHours  int     `json:"window_hours"`
 }
 
 // RiskServiceHealthResponse 风控服务健康检查响应
@@ -73,17 +71,17 @@ func (r *riskServiceImpl) IsEnabled(ctx context.Context) bool {
 	return r.getBaseURL(ctx) != ""
 }
 
-func (r *riskServiceImpl) Check(ctx context.Context, accountID int64) (*RiskCheckResponse, error) {
+func (r *riskServiceImpl) Check(ctx context.Context, accountID int64, inputTokens int) (*RiskCheckResponse, error) {
 	baseURL := r.getBaseURL(ctx)
 	if baseURL == "" {
 		return &RiskCheckResponse{
-			Status:  "safe",
-			DelayMs: 0,
+			Status: "safe",
 		}, nil
 	}
 
-	reqBody := map[string]string{
-		"account_id": fmt.Sprintf("%d", accountID),
+	reqBody := map[string]any{
+		"account_id":   fmt.Sprintf("%d", accountID),
+		"input_tokens": inputTokens,
 	}
 	body, _ := json.Marshal(reqBody)
 

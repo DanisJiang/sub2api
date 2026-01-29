@@ -1675,18 +1675,52 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 
 	// 风控检查：仅对启用风控的 Anthropic 账号
 	if account.RiskControlEnabled && account.Platform == PlatformAnthropic && s.riskService != nil {
-		riskResp, err := s.riskService.Check(ctx, account.ID)
-		if err != nil {
-			log.Printf("[RiskControl] Account %d: check failed: %v (proceeding without delay)", account.ID, err)
-		} else if riskResp.DelayMs > 0 {
-			log.Printf("[RiskControl] Account %d: score=%.4f status=%s requests=%d delay=%dms",
-				account.ID, riskResp.RiskScore, riskResp.Status, riskResp.RequestCount, riskResp.DelayMs)
-			if err := sleepWithContext(ctx, time.Duration(riskResp.DelayMs)*time.Millisecond); err != nil {
-				return nil, err
+		const riskScoreThreshold = 0.50 // 风险阈值
+		const riskRetryInterval = 10    // 每 10 秒重试
+		const riskMaxRetries = 3        // 最多重试 3 次
+		const riskCooldownMinutes = 10  // 冷却时间 10 分钟
+
+		// 估算 input_tokens（用请求体长度 / 4 近似）
+		estimatedInputTokens := len(body) / 4
+
+		for retry := 0; retry < riskMaxRetries; retry++ {
+			// 先检查账号是否已被其他请求冷却（避免并行请求重复等待）
+			if latestAccount, err := s.accountRepo.GetByID(ctx, account.ID); err == nil && latestAccount.IsRateLimited() {
+				log.Printf("[RiskControl] Account %d: already rate limited by another request, failover", account.ID)
+				return nil, &UpstreamFailoverError{StatusCode: 429}
 			}
-		} else {
-			log.Printf("[RiskControl] Account %d: score=%.4f status=%s requests=%d (no delay)",
-				account.ID, riskResp.RiskScore, riskResp.Status, riskResp.RequestCount)
+
+			riskResp, err := s.riskService.Check(ctx, account.ID, estimatedInputTokens)
+			if err != nil {
+				log.Printf("[RiskControl] Account %d: check failed: %v (proceeding)", account.ID, err)
+				break
+			}
+
+			// 分数低于阈值，可以放行
+			if riskResp.RiskScore < riskScoreThreshold {
+				log.Printf("[RiskControl] Account %d: score=%.4f < %.2f, safe (requests=%d)",
+					account.ID, riskResp.RiskScore, riskScoreThreshold, riskResp.RequestCount)
+				break
+			}
+
+			// 分数 >= 阈值
+			if retry < riskMaxRetries-1 {
+				// 还有重试机会，等待 10 秒
+				log.Printf("[RiskControl] Account %d: score=%.4f >= %.2f, retry %d/%d, waiting %ds",
+					account.ID, riskResp.RiskScore, riskScoreThreshold, retry+1, riskMaxRetries, riskRetryInterval)
+				if err := sleepWithContext(ctx, time.Duration(riskRetryInterval)*time.Second); err != nil {
+					return nil, err
+				}
+			} else {
+				// 重试次数用尽，停止调度该账号
+				log.Printf("[RiskControl] Account %d: score=%.4f >= %.2f, max retries reached, cooling down %d minutes",
+					account.ID, riskResp.RiskScore, riskScoreThreshold, riskCooldownMinutes)
+				resetAt := time.Now().Add(time.Duration(riskCooldownMinutes) * time.Minute)
+				if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
+					log.Printf("[RiskControl] Account %d: failed to set rate limited: %v", account.ID, err)
+				}
+				return nil, &UpstreamFailoverError{StatusCode: 429}
+			}
 		}
 	}
 
