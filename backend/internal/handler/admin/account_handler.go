@@ -739,7 +739,37 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
+	item := h.buildAccountResponseWithRuntime(c.Request.Context(), account)
+	exposeMachineAdminRouteAPIKey(c, account, &item)
+	response.Success(c, item)
+}
+
+// exposeMachineAdminRouteAPIKey restores the one credential machine topology
+// clients need to resolve an API-key route to its downstream group. Keep this
+// deliberately narrower than the old unredacted account DTO:
+//   - only the single-account detail endpoint calls this helper;
+//   - only Admin API Key authentication is accepted (browser JWT stays redacted);
+//   - only Anthropic apikey/upstream accounts with an explicit base_url expose api_key;
+//   - OAuth tokens and every other sensitive credential remain redacted.
+func exposeMachineAdminRouteAPIKey(c *gin.Context, account *service.Account, item *AccountWithConcurrency) {
+	if c == nil || account == nil || item == nil || item.Account == nil ||
+		c.GetString("auth_method") != service.AuditAuthMethodAdminAPIKey {
+		return
+	}
+	if account.Type != service.AccountTypeAPIKey && account.Type != service.AccountTypeUpstream {
+		return
+	}
+	if account.Platform != service.PlatformAnthropic || strings.TrimSpace(account.GetCredential("base_url")) == "" {
+		return
+	}
+	apiKey := strings.TrimSpace(account.GetCredential("api_key"))
+	if apiKey == "" {
+		return
+	}
+	if item.Credentials == nil {
+		item.Credentials = make(map[string]any, 1)
+	}
+	item.Credentials["api_key"] = apiKey
 }
 
 // CheckMixedChannel handles checking mixed channel risk for account-group binding.
